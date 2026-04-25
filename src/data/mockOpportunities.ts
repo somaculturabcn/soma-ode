@@ -1,0 +1,236 @@
+// src/data/mockOpportunities.ts
+// SOMA ODÉ — Editais simulados com country codes ISO e discipline ids
+// compatível com o novo tipo Artist (disciplines[], targetCountries[])
+
+export type Opportunity = {
+  id: string
+  title: string
+  organization: string
+  country: string         // nome do país (display)
+  countryCode: string     // código ISO — para matching com targetCountries
+  regionId: string        // id da região de geoData — para matching com regiões
+  regionLabel: string     // label para display
+  type: 'Residência' | 'Festival' | 'Edital' | 'Comissão' | 'Premio' | 'Touring' | 'Showcase'
+  disciplines: string[]  // ids de disciplinas (musica, danca, teatro, performance…)
+  coversCosts: boolean
+  fee: boolean
+  deadline: string        // ISO date
+  link: string
+  summary: string
+  keywords: string[]
+  requiresEUResident: boolean
+  languages: string[]     // códigos ISO: PT, EN, ES, FR…
+  budget?: { min?: number; max?: number }
+}
+
+export const mockOpportunities: Opportunity[] = [
+  // ── EUROPA ──────────────────────────────────────────────────────────────────
+  {
+    id: 'op-001',
+    title: 'Programa de Residències Artístiques — Arts Santa Mònica',
+    organization: 'Arts Santa Mònica',
+    country: 'Espanha', countryCode: 'ES',
+    regionId: 'europa_ocidental', regionLabel: 'Europa Ocidental',
+    type: 'Residência',
+    disciplines: ['performance', 'instalacao', 'multidisciplinar', 'pesquisa'],
+    coversCosts: true, fee: true,
+    deadline: '2026-06-15',
+    link: 'https://artssantamonica.gencat.cat',
+    summary: 'Residências para artistas internacionais em Barcelona. Foco em investigação e criação contemporânea. Prioridade a projectos que dialoguem com identidade, diáspora e comunidade.',
+    keywords: ['identidade', 'diáspora', 'investigação', 'comunidade', 'Barcelona'],
+    requiresEUResident: false,
+    languages: ['CA', 'ES', 'EN'],
+    budget: { min: 2000, max: 6000 },
+  },
+  {
+    id: 'op-002',
+    title: 'Black Europe Body Politics — Residência e Showcase',
+    organization: 'BEEP Collective',
+    country: 'Países Baixos', countryCode: 'NL',
+    regionId: 'europa_ocidental', regionLabel: 'Europa Ocidental',
+    type: 'Festival',
+    disciplines: ['performance', 'danca', 'teatro', 'som'],
+    coversCosts: true, fee: true,
+    deadline: '2026-07-01',
+    link: 'https://beepfestival.eu',
+    summary: 'Festival e residência focado em artistas negros na Europa. Plataforma de visibilidade e circulação para criações afrodiaspóricas contemporâneas.',
+    keywords: ['afrodiáspora', 'corpo', 'política', 'negritude', 'circulação'],
+    requiresEUResident: false,
+    languages: ['EN', 'NL'],
+    budget: { min: 1500, max: 4000 },
+  },
+  {
+    id: 'op-003',
+    title: 'Creative Europe — Culture Mobility Fund',
+    organization: 'European Cultural Foundation',
+    country: 'Bélgica', countryCode: 'BE',
+    regionId: 'europa_ocidental', regionLabel: 'Europa Ocidental',
+    type: 'Edital',
+    disciplines: ['musica', 'danca', 'teatro', 'performance', 'artes_visuais', 'cinema', 'multidisciplinar'],
+    coversCosts: true, fee: false,
+    deadline: '2026-05-30',
+    link: 'https://culture.ec.europa.eu',
+    summary: 'Apoio à mobilidade de artistas e operadores culturais na Europa. Financia turnées, residências e projectos de co-criação entre países europeus.',
+    keywords: ['mobilidade', 'cooperação', 'Europa', 'circulação', 'co-criação'],
+    requiresEUResident: true,
+    languages: ['EN', 'FR', 'DE'],
+    budget: { min: 5000, max: 50000 },
+  },
+  {
+    id: 'op-004',
+    title: 'Sónar+D — EMERGENT Showcase',
+    organization: 'Sónar Barcelona',
+    country: 'Espanha', countryCode: 'ES',
+    regionId: 'europa_ocidental', regionLabel: 'Europa Ocidental',
+    type: 'Showcase',
+    disciplines: ['musica', 'som', 'multidisciplinar'],
+    coversCosts: false, fee: true,
+    deadline: '2026-02-28',
+    link: 'https://sonar.es/emergent',
+    summary: 'Programa de apoio a artistas emergentes de música electrónica, digital e experimental. Showcase durante o festival Sónar+D em Barcelona.',
+    keywords: ['electrónica', 'experimental', 'digital', 'Barcelona', 'emergente'],
+    requiresEUResident: false,
+    languages: ['EN', 'ES'],
+  },
+  {
+    id: 'op-005',
+    title: 'Tanztage Berlin — Residência e Apresentação',
+    organization: 'Sophiensaele',
+    country: 'Alemanha', countryCode: 'DE',
+    regionId: 'europa_ocidental', regionLabel: 'Europa Ocidental',
+    type: 'Festival',
+    disciplines: ['danca', 'performance', 'teatro'],
+    coversCosts: true, fee: true,
+    deadline: '2026-08-15',
+    link: 'https://sophiensaele.com',
+    summary: 'Festival de dança contemporânea em Berlim. Foco em coreógrafos e performers emergentes com perspectivas decoloniais e interseccionais.',
+    keywords: ['dança', 'contemporânea', 'decolonial', 'Berlim', 'interseccional'],
+    requiresEUResident: false,
+    languages: ['DE', 'EN'],
+    budget: { min: 2000, max: 8000 },
+  },
+  {
+    id: 'op-006',
+    title: 'Ibermúsicas — Apoio à Circulação Internacional',
+    organization: 'Ibermúsicas / SEGIB',
+    country: 'Espanha', countryCode: 'ES',
+    regionId: 'europa_ocidental', regionLabel: 'Europa Ocidental',
+    type: 'Edital',
+    disciplines: ['musica'],
+    coversCosts: true, fee: false,
+    deadline: '2026-05-15',
+    link: 'https://ibermusicas.org',
+    summary: 'Programa ibero-americano de apoio à mobilidade de músicos. Cobre viagens, alojamento e cachê para actuações em países da comunidade ibero-americana.',
+    keywords: ['música', 'ibero-americana', 'circulação', 'diáspora', 'lusófono'],
+    requiresEUResident: false,
+    languages: ['PT', 'ES'],
+    budget: { min: 1000, max: 10000 },
+  },
+  {
+    id: 'op-007',
+    title: 'La Gaîté Lyrique — Residência Digital e Sonora',
+    organization: 'La Gaîté Lyrique',
+    country: 'França', countryCode: 'FR',
+    regionId: 'europa_ocidental', regionLabel: 'Europa Ocidental',
+    type: 'Residência',
+    disciplines: ['musica', 'som', 'artes_visuais', 'instalacao', 'multidisciplinar'],
+    coversCosts: true, fee: true,
+    deadline: '2026-09-01',
+    link: 'https://gaite-lyrique.net',
+    summary: 'Residências para projectos de arte digital e música experimental em Paris. Interesse especial em práticas que cruzem tecnologia, corpo e memória cultural.',
+    keywords: ['digital', 'experimental', 'tecnologia', 'corpo', 'memória', 'Paris'],
+    requiresEUResident: false,
+    languages: ['FR', 'EN'],
+    budget: { min: 3000, max: 12000 },
+  },
+  {
+    id: 'op-008',
+    title: 'Latam Ya! — Showcase Música Latinoamericana Barcelona',
+    organization: 'Latam Ya!',
+    country: 'Espanha', countryCode: 'ES',
+    regionId: 'europa_ocidental', regionLabel: 'Europa Ocidental',
+    type: 'Showcase',
+    disciplines: ['musica'],
+    coversCosts: false, fee: true,
+    deadline: '2026-03-01',
+    link: 'https://latamya.com',
+    summary: 'Showcase profissional de música latinoamericana em Barcelona. Plataforma de contacto entre artistas e booking agents europeus.',
+    keywords: ['latinoamericana', 'Barcelona', 'showcase', 'booking', 'afrolatino'],
+    requiresEUResident: false,
+    languages: ['ES', 'EN', 'PT'],
+  },
+
+  // ── BRASIL ──────────────────────────────────────────────────────────────────
+  {
+    id: 'op-009',
+    title: 'SESC SP — Palco Giratório',
+    organization: 'SESC São Paulo',
+    country: 'Brasil', countryCode: 'BR',
+    regionId: 'america_sul', regionLabel: 'América do Sul',
+    type: 'Touring',
+    disciplines: ['musica', 'danca', 'teatro', 'performance', 'multidisciplinar'],
+    coversCosts: true, fee: true,
+    deadline: '2026-04-30',
+    link: 'https://sescsp.org.br/palcogirat',
+    summary: 'Programa de circulação nacional de espectáculos pelo Brasil. Cobre viagens, cachê e alojamento para projectos com relevância cultural e social.',
+    keywords: ['Brasil', 'circulação', 'cultura periférica', 'comunidade', 'diversidade'],
+    requiresEUResident: false,
+    languages: ['PT'],
+    budget: { min: 2000, max: 15000 },
+  },
+  {
+    id: 'op-010',
+    title: 'Rumos Itaú Cultural — Dança e Performance',
+    organization: 'Itaú Cultural',
+    country: 'Brasil', countryCode: 'BR',
+    regionId: 'america_sul', regionLabel: 'América do Sul',
+    type: 'Edital',
+    disciplines: ['danca', 'performance', 'multidisciplinar', 'pesquisa'],
+    coversCosts: true, fee: true,
+    deadline: '2026-06-30',
+    link: 'https://itaucultural.org.br/rumos',
+    summary: 'Programa de apoio à criação contemporânea em dança e performance. Prioridade a artistas afro-brasileiros, indígenas e LGBTQIA+.',
+    keywords: ['afro-brasileiro', 'performance', 'contemporâneo', 'LGBTQIA+', 'criação'],
+    requiresEUResident: false,
+    languages: ['PT'],
+    budget: { min: 10000, max: 50000 },
+  },
+
+  // ── AFRICA ──────────────────────────────────────────────────────────────────
+  {
+    id: 'op-011',
+    title: 'Visa pour la Création — Africa/Europe Exchange',
+    organization: 'Institut Français',
+    country: 'Senegal', countryCode: 'SN',
+    regionId: 'africa_ocidental', regionLabel: 'África Ocidental',
+    type: 'Residência',
+    disciplines: ['musica', 'performance', 'artes_visuais', 'cinema'],
+    coversCosts: true, fee: true,
+    deadline: '2026-10-01',
+    link: 'https://institutfrancais.com/visa-pour-la-creation',
+    summary: 'Programa de intercâmbio artístico entre a África e a Europa. Residências no Senegal, Marrocos e países da África Ocidental para artistas com perfil afrodiaspórico.',
+    keywords: ['África', 'diáspora', 'intercâmbio', 'franco-africano', 'identidade'],
+    requiresEUResident: false,
+    languages: ['FR', 'EN'],
+    budget: { min: 3000, max: 15000 },
+  },
+
+  // ── GLOBAL ──────────────────────────────────────────────────────────────────
+  {
+    id: 'op-012',
+    title: 'Goethe-Institut — TURN2 Africa-Europe Fund',
+    organization: 'Goethe-Institut',
+    country: 'Alemanha', countryCode: 'DE',
+    regionId: 'europa_ocidental', regionLabel: 'Europa Ocidental',
+    type: 'Edital',
+    disciplines: ['musica', 'danca', 'teatro', 'performance', 'artes_visuais', 'multidisciplinar'],
+    coversCosts: true, fee: true,
+    deadline: '2026-07-31',
+    link: 'https://goethe.de/turn2',
+    summary: 'Fundo para projectos artísticos colaborativos entre África e Europa. Apoia co-produções, residências e tournées de artistas africanos e europeus.',
+    keywords: ['Africa', 'Europa', 'co-produção', 'afrodiáspora', 'colaboração', 'global'],
+    requiresEUResident: false,
+    languages: ['EN', 'FR', 'DE'],
+    budget: { min: 5000, max: 30000 },
+  },
+]

@@ -1,0 +1,561 @@
+import { useState, useEffect, useRef } from "react";
+
+// ── 123 VENUES REAIS — Mimosa Tour / Maria Paula List ────────────────────────
+const BASE_DB = [
+  {id:"mp_hyperreality",name:"Hyperreality",type:"festival",country:"AT",city:"Viena",url:"https://hyperreality.at/",contact_name:"Lisa",contact_email:"lisa@hyperreality.at",dates:"maio",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_wienwoche",name:"Wienwoche",type:"festival/showcase",country:"AT",city:"Viena",url:"https://wienwoche.org",contact_name:"",contact_email:"office@winwoche.com",dates:"setembro",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_fifty_lab",name:"Fifty Lab",type:"festival",country:"BE",city:"Bruxelas",url:"https://www.fiftylab.eu/",contact_name:"",contact_email:"",dates:"novembro",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_los_ninos",name:"Los Ninos",type:"festa",country:"BE",city:"Bruxelas",url:"https://www.losninos.be/",contact_name:"",contact_email:"party@losninos.be",dates:"/",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_meakusma",name:"Meakusma",type:"festival",country:"BE",city:"Eupen",url:"https://linktr.ee/meakusma",contact_name:"",contact_email:"",dates:"",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_boomtown",name:"Boomtown Festival",type:"festival",country:"BE",city:"Gante",url:"https://www.democrazy.be/projects/boomtown/",contact_name:"",contact_email:"contact@democrazy.be",dates:"julho",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_c12",name:"C12",type:"venue",country:"BE",city:"Bruxelas",url:"https://c12space.com/",contact_name:"",contact_email:"c12brussels@gmail.com",dates:"/",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_sofia_underground",name:"Sofia Underground",type:"festival",country:"BG",city:"Sofia",url:"https://sofiaunderground.com",contact_name:"",contact_email:"info@sofiaunderground.com",dates:"abril",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_b_sides",name:"B-Sides",type:"festival",country:"CH",city:"Kriens",url:"https://home.b-sides.ch/en/",contact_name:"",contact_email:"b-sides@b-sides.ch",dates:"junho",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_fds",name:"La Fête du Slip",type:"festival",country:"CH",city:"Lausanne",url:"https://www.fdsfestival.ch/",contact_name:"",contact_email:"info@lafeteduslip.ch",dates:"maio",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_motel_campo",name:"Motel Campo",type:"club",country:"CH",city:"Genebra",url:"https://www.instagram.com/motel_campo/",contact_name:"",contact_email:"programmation@motelcampo.ch",dates:"/",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_colours_ostrava",name:"Colours Of Ostrava",type:"festival",country:"CZ",city:"Ostrava",url:"https://www.colours.cz/",contact_name:"",contact_email:"informace@colours.cz",dates:"julho",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_pioneer_prague",name:"Pioneer Prague",type:"venue/festival",country:"CZ",city:"Praga",url:"https://www.instagram.com/pioneer_prague/",contact_name:"Mira",contact_email:"vales.mira@gmail.com",dates:"/",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_gong_tomorrow",name:"Gong Tomorrow",type:"festival",country:"DK",city:"Copenhagen",url:"https://gongtomorrow.dk/",contact_name:"Anna",contact_email:"anna@gongtomorrow.dk",dates:"novembro",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_heartland",name:"Heartland",type:"festival",country:"DK",city:"Egeskov",url:"https://heartlandfestival.dk/",contact_name:"",contact_email:"info@heartlandfestival.dk",dates:"junho",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_roskilde",name:"Roskilde",type:"festival",country:"DK",city:"Roskilde",url:"https://www.roskilde-festival.dk/en/",contact_name:"",contact_email:"",dates:"junho/julho",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_mira_bcn",name:"Mira Digital Arts Festival",type:"festival",country:"ES",city:"Barcelona",url:"https://mirafestival.com/en/",contact_name:"",contact_email:"info@mirafestival.com",dates:"novembro",region:"Europa",language_required:"ES",disciplinas:"musica"},
+  {id:"mp_furia_queer",name:"Furia Queer",type:"festa",country:"ES",city:"Barcelona",url:"https://www.instagram.com/queerfuria/",contact_name:"",contact_email:"queerfuria@gmail.com",dates:"/",region:"Europa",language_required:"ES",disciplinas:"musica"},
+  {id:"mp_wow",name:"WOW (Working on Sunday)",type:"festival",country:"ES",city:"Galicia",url:"https://workonsunday.es/festival/",contact_name:"Iván Arias",contact_email:"festival@workonsunday.es",dates:"setembro",region:"Europa",language_required:"ES",disciplinas:"musica"},
+  {id:"mp_gilda_club",name:"Gilda Club",type:"club",country:"ES",city:"Madrid",url:"https://www.instagram.com/gildaclub/",contact_name:"",contact_email:"info@yahaira.club",dates:"/",region:"Europa",language_required:"ES",disciplinas:"musica"},
+  {id:"mp_maricas",name:"Maricas",type:"festa",country:"ES",city:"Barcelona",url:"https://www.instagram.com/maricxsmxricxs/",contact_name:"",contact_email:"info@houseofmaricas.com",dates:"/",region:"Europa",language_required:"ES",disciplinas:"musica"},
+  {id:"mp_dabadaba",name:"Dabadaba",type:"venue",country:"ES",city:"Donostia",url:"https://dabadabass.com/",contact_name:"",contact_email:"dabadaba@guajirasicodelica.com",dates:"/",region:"Europa",language_required:"ES",disciplinas:"musica"},
+  {id:"mp_culpa",name:"Culpa",type:"club",country:"ES",city:"Madrid",url:"https://www.instagram.com/culpaxculpaxculpa/",contact_name:"",contact_email:"culpaworldwide@gmail.com",dates:"/",region:"Europa",language_required:"ES",disciplinas:"musica"},
+  {id:"mp_flow_festival",name:"Flow Festival",type:"festival",country:"FI",city:"Helsinki",url:"https://www.flowfestival.com/en/artists/",contact_name:"",contact_email:"booking@flowfestival.com",dates:"agosto",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_astropolis",name:"Astropolis",type:"festival",country:"FR",city:"Brest",url:"https://astropolis.org/hiver2023/",contact_name:"",contact_email:"",dates:"fevereiro/julho",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_marsatac",name:"Marsatac",type:"festival",country:"FR",city:"Marselha",url:"https://marsatac.com/",contact_name:"",contact_email:"",dates:"junho",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_azurite",name:"Azurite",type:"rádio/eventos",country:"FR",city:"Paris",url:"https://linktr.ee/azuriteparis",contact_name:"Benoit",contact_email:"benoit@azurite.live",dates:"",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_magnifique",name:"La Magnifique Society",type:"festival",country:"FR",city:"Reims",url:"https://lamagnifiquesociety.com/",contact_name:"",contact_email:"info@lamagnifiquesociety.com",dates:"junho",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_trans_musicales",name:"Trans Musicales",type:"festival",country:"FR",city:"Rennes",url:"https://www.lestrans.com/le-festival/",contact_name:"Mathieu Gervais",contact_email:"mathieu.gervais@lestrans.com",dates:"dezembro",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_berlin_atonal",name:"Berlin Atonal",type:"festival",country:"DE",city:"Berlim",url:"https://berlin-atonal.com/",contact_name:"",contact_email:"info@berlin-atonal.com",dates:"",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_ctm",name:"CTM Festival",type:"festival",country:"DE",city:"Berlim",url:"https://www.ctm-festival.de/",contact_name:"",contact_email:"submissions@ctm-festival.de",dates:"janeiro",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_alarme",name:"Alarme Festival",type:"festival",country:"DE",city:"Berlim",url:"https://www.alarmefestival.de/",contact_name:"Louis Rastig",contact_email:"lr@alarmefestival.de",dates:"agosto",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_radical_sounds",name:"Radical Sounds Latin America",type:"festival",country:"DE",city:"Berlim",url:"https://radicalsoundslatinamerica.com/",contact_name:"",contact_email:"press@radicalsoundslatinamerica.com",dates:"novembro",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_dice",name:"Dice Festival",type:"festival",country:"DE",city:"Berlim",url:"https://dice.berlin/",contact_name:"",contact_email:"",dates:"março",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_signals",name:"Signals Festival",type:"festival",country:"DE",city:"Berlim",url:"https://catalyst-berlin.com/about/signals",contact_name:"",contact_email:"",dates:"outubro",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_lecken",name:"Lecken",type:"festa",country:"DE",city:"Berlim",url:"https://www.instagram.com/lllecken/",contact_name:"Wanda",contact_email:"wandavra@gmail.com",dates:"/",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_maerzmusik",name:"MaerzMusik",type:"festival",country:"DE",city:"Berlim",url:"https://www.berlinerfestspiele.de/de/maerzmusik/start.html",contact_name:"",contact_email:"",dates:"março",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_fusion",name:"Fusion Festival",type:"festival",country:"DE",city:"Berlim",url:"",contact_name:"",contact_email:"",dates:"",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_whole",name:"Whole Festival",type:"festival",country:"DE",city:"Berlim",url:"",contact_name:"Raquel Fedato",contact_email:"raquel.fedato@gmail.com",dates:"",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_pornceptual",name:"Pornceptual",type:"festa",country:"DE",city:"Berlim",url:"https://www.instagram.com/pornceptual/",contact_name:"Raquel Fedato",contact_email:"raquel.fedato@gmail.com",dates:"",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_gegen",name:"Gegen",type:"festa",country:"DE",city:"Berlim",url:"https://gegenberlin.com/",contact_name:"Fabio",contact_email:"fabio@gegenberlin.com",dates:"",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_fluid",name:"Fluid Festival",type:"festival",country:"DE",city:"Berlim",url:"https://fluidfestival.de/en",contact_name:"",contact_email:"info@fluidfestival.de",dates:"junho",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_dave",name:"Dave Festival",type:"festival",country:"DE",city:"Dresden",url:"https://www.dave-festival.de/news/",contact_name:"",contact_email:"",dates:"outubro",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_objekt_klein_a",name:"Objekt Klein A",type:"venue",country:"DE",city:"Dresden",url:"https://objektkleina.com/",contact_name:"Josh",contact_email:"josh@objektkleina.com",dates:"/",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_rawmantique",name:"Rawmantique",type:"festa",country:"DE",city:"Dresden",url:"https://www.instagram.com/rawmantique/",contact_name:"Rakans",contact_email:"booking@rawmantique.com",dates:"/",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_butch",name:"Butch Der Traeumer",type:"festival",country:"DE",city:"Frankfurt",url:"https://bucht-der-traeumer.de/",contact_name:"Kotoe",contact_email:"kotoe@bucht-der-traeumer.de",dates:"agosto",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_papiripar",name:"Papiripar Festival",type:"festival",country:"DE",city:"Hamburgo",url:"http://papiripar.com/",contact_name:"",contact_email:"",dates:"maio",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_kampnagel",name:"Kampnagel",type:"espaço cultural",country:"DE",city:"Hamburgo",url:"https://kampnagel.de/",contact_name:"Nadine Jessen",contact_email:"nadine.jessen@kampnagel.de",dates:"/",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_kinky_sundays",name:"Kinky Sundays",type:"festa",country:"DE",city:"Hamburgo",url:"https://www.instagram.com/kinky.sundays/",contact_name:"Thor",contact_email:"thor@kinkysundays.com",dates:"/",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_experimance",name:"Experimance Festival",type:"festival/showcase",country:"DE",city:"Sarbruque",url:"https://www.experimance.de/",contact_name:"",contact_email:"",dates:"julho",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_salon_amatuers",name:"Salon des Amatuers",type:"venue",country:"DE",city:"Dusseldorf",url:"https://www.instagram.com/salon_des_amateurs/",contact_name:"",contact_email:"chef@lucasino.de",dates:"/",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_blitz",name:"Blitz",type:"club",country:"DE",city:"Munich",url:"https://www.blitz.club/contact/",contact_name:"",contact_email:"programming@blitz.club",dates:"/",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_inferno_london",name:"Inferno London",type:"festa",country:"GB",city:"Londres",url:"https://www.instagram.com/inferno_london/",contact_name:"Lewis",contact_email:"lewisgburton@gmail.com",dates:"/",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_dalston",name:"Dalston Superstore",type:"venue",country:"GB",city:"Londres",url:"https://www.instagram.com/dsuperstore/",contact_name:"Emma",contact_email:"emma@dalstonsuperstore.com",dates:"/",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_lucky_dip",name:"Lucky Dip",type:"dj/promoter",country:"GB",city:"Glasgow",url:"https://www.instagram.com/_luckydip_/",contact_name:"",contact_email:"luckydipdjs@gmail.com",dates:"/",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_lunga",name:"LungA",type:"festival",country:"IS",city:"Seyðisfjörður",url:"https://www.lunga.is/Concerts",contact_name:"Tinna",contact_email:"tinna@lunga.is",dates:"julho",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_dark_music_days",name:"Dark Music Days",type:"festival",country:"IS",city:"Reykjavik",url:"https://www.darkmusicdays.is/en/thefestival",contact_name:"Ásmundur Jósson",contact_email:"asi@darkmusicdays.is",dates:"janeiro",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_transart",name:"Transart Festival",type:"festival",country:"IT",city:"Bolzano",url:"https://www.transart.it/en",contact_name:"",contact_email:"info@transart.it",dates:"",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_lost_music",name:"Lost Music Festival",type:"festival",country:"IT",city:"Parma",url:"https://www.lostmusicfestival.com/",contact_name:"",contact_email:"info@lostmusicfestival.com",dates:"junho/julho",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_terraforma",name:"Terraforma",type:"festival",country:"IT",city:"Villa Arconati",url:"https://www.terraformafestival.com/",contact_name:"",contact_email:"info@terraformafestival.com",dates:"junho",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_tempio",name:"Tempio del Futuro",type:"venue",country:"IT",city:"Milão",url:"http://www.tempiodelfuturo.art/en/events",contact_name:"",contact_email:"hello.tempiodelfuturo@gmail.com",dates:"/",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_audio_obscura",name:"Audio Obscura",type:"festival",country:"NL",city:"Amsterdam",url:"https://www.audio-obscura.com/",contact_name:"",contact_email:"",dates:"",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_pamela",name:"Pamela Amsterdam",type:"venue",country:"NL",city:"Amsterdam",url:"https://www.pamela.amsterdam/",contact_name:"Carlos",contact_email:"carlos@isburning.com",dates:"/",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_honey_honey",name:"Honey Honey",type:"festa",country:"NL",city:"Amsterdam",url:"",contact_name:"",contact_email:"doppelgang@live.nl",dates:"/",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_insominia",name:"Insominia Festival",type:"festival",country:"NL",city:"Tromso",url:"https://insomniafestival.no/2022/info",contact_name:"",contact_email:"post@insomniafestival.no",dates:"outubro",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_open_out",name:"Open Out Festival",type:"festival",country:"NL",city:"Tromso",url:"https://openoutfestival.com/",contact_name:"",contact_email:"",dates:"setembro/outubro",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_spring",name:"Spring / Spring in Autumn",type:"festival",country:"NL",city:"Utrecht",url:"https://springutrecht.nl/over-spring?language=en",contact_name:"",contact_email:"info@springutrecht.nl",dates:"maio / outubro",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_le_guess_who",name:"Le Guess Who",type:"festival",country:"NL",city:"Utrecht",url:"https://leguesswho.com/",contact_name:"",contact_email:"",dates:"novembro",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_esns",name:"ESNS (Eurosonic)",type:"showcase",country:"NL",city:"Groningen",url:"https://www.esns.nl/",contact_name:"Robert Meijerink",contact_email:"robert.meijerink@esns.nl",dates:"janeiro",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_borealis",name:"Borealis",type:"festival",country:"NO",city:"Bergen",url:"https://www.borealisfestival.no/en/home/",contact_name:"",contact_email:"ideer@borealisfestival.no",dates:"março",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_ephemera",name:"Ephemera Festival",type:"festival",country:"PL",city:"Varsóvia",url:"https://ephemerafestival.com/",contact_name:"",contact_email:"info@ephemerafestival.com",dates:"junho",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_impulso",name:"Festival Impulso",type:"festival",country:"PT",city:"Caldas da Rainha",url:"https://www.festivalimpulso.pt/",contact_name:"Nuno Monteiro",contact_email:"nunomonteiro@festivalimpulso.pt",dates:"junho",region:"Europa",language_required:"PT",disciplinas:"musica"},
+  {id:"mp_bleza",name:"Clube B.leza",type:"venue",country:"PT",city:"Lisboa",url:"https://linktr.ee/b.leza",contact_name:"",contact_email:"geral.bleza@gmail.com",dates:"/",region:"Europa",language_required:"PT",disciplinas:"musica"},
+  {id:"mp_damas",name:"Damas",type:"venue",country:"PT",city:"Lisboa",url:"https://www.instagram.com/damas.lisboa/",contact_name:"Alexandra Vidal",contact_email:"damas.lisboa@gmail.com",dates:"/",region:"Europa",language_required:"PT",disciplinas:"musica"},
+  {id:"mp_zdb",name:"Galeria Z dos Bois",type:"venue",country:"PT",city:"Lisboa",url:"https://zedosbois.org/",contact_name:"",contact_email:"jmarcoss.silva@gmail.com",dates:"/",region:"Europa",language_required:"PT",disciplinas:"musica"},
+  {id:"mp_lounge",name:"Lounge Lisboa",type:"venue",country:"PT",city:"Lisboa",url:"https://www.loungelisboa.com.pt/",contact_name:"",contact_email:"booking@loungelisboa.com.pt",dates:"",region:"Europa",language_required:"PT",disciplinas:"musica"},
+  {id:"mp_musicbox",name:"Musicbox",type:"venue",country:"PT",city:"Lisboa",url:"https://musicboxlisboa.com/mb/",contact_name:"Pedro Azevedo",contact_email:"pedro.azevedo@musicboxlisboa.pt",dates:"/",region:"Europa",language_required:"PT",disciplinas:"musica"},
+  {id:"mp_planeta_manas",name:"Planeta Manas",type:"venue",country:"PT",city:"Lisboa",url:"https://planetamanas.com/",contact_name:"Pedro Marum",contact_email:"pedro@minasuspension.com",dates:"/",region:"Europa",language_required:"PT",disciplinas:"musica"},
+  {id:"mp_radio_quantica",name:"Rádio Quântica",type:"rádio",country:"PT",city:"Lisboa",url:"",contact_name:"Bruno Trigo",contact_email:"bruno@mythagency.org",dates:"",region:"Europa",language_required:"PT",disciplinas:"musica"},
+  {id:"mp_super_bock",name:"Super Bock Super Rock",type:"festival",country:"PT",city:"Lisboa",url:"https://www.superbocksuperrock.pt/",contact_name:"Paola Wescher",contact_email:"paolawescher@mnc.pt",dates:"julho e novembro",region:"Europa",language_required:"PT",disciplinas:"musica"},
+  {id:"mp_valsa",name:"Valsa",type:"venue",country:"PT",city:"Lisboa",url:"https://www.valsa.pt/",contact_name:"Nika",contact_email:"",dates:"",region:"Europa",language_required:"PT",disciplinas:"musica"},
+  {id:"mp_mil",name:"MIL Lisboa",type:"showcase",country:"PT",city:"Lisboa",url:"https://millisboa.com/mil/?lang=pt-pt",contact_name:"Pedro Azevedo",contact_email:"",dates:"setembro",region:"Europa",language_required:"PT",disciplinas:"musica"},
+  {id:"mp_arroz",name:"Arroz Estudios",type:"venue",country:"PT",city:"Lisboa",url:"",contact_name:"",contact_email:"lourenco@arrozestudios.pt",dates:"/",region:"Europa",language_required:"PT",disciplinas:"musica"},
+  {id:"mp_rivoli",name:"Rivoli",type:"venue",country:"PT",city:"Porto",url:"https://www.teatromunicipaldoporto.pt/pt/",contact_name:"Cristina Leitão",contact_email:"cristinaleitao@agoraporto.pt",dates:"/",region:"Europa",language_required:"PT",disciplinas:"musica"},
+  {id:"mp_pedreira",name:"Pedreira",type:"espaço cultural",country:"PT",city:"Porto",url:"",contact_name:"Marina Rei",contact_email:"marinadacosta.rei@gmail.com",dates:"/",region:"Europa",language_required:"PT",disciplinas:"musica"},
+  {id:"mp_maus_habitos",name:"Maus Hábitos",type:"venue",country:"PT",city:"Porto",url:"https://www.maushabitos.com/",contact_name:"Luis Salgado",contact_email:"luis.salgado@maushabitos.com",dates:"/",region:"Europa",language_required:"PT",disciplinas:"musica"},
+  {id:"mp_perola_negra",name:"Pérola Negra",type:"club",country:"PT",city:"Porto",url:"https://www.instagram.com/perolanegraporto/",contact_name:"Jonathan",contact_email:"jonathan@perolanegraclub.com",dates:"/",region:"Europa",language_required:"PT",disciplinas:"musica"},
+  {id:"mp_plano_b",name:"Plano B",type:"club",country:"PT",city:"Porto",url:"https://www.instagram.com/planobporto/",contact_name:"",contact_email:"plano.b.geral@gmail.com",dates:"/",region:"Europa",language_required:"PT",disciplinas:"musica"},
+  {id:"mp_tremor",name:"Tremor",type:"festival",country:"PT",city:"São Miguel",url:"http://www.tremor-pdl.com/pt/",contact_name:"Joaquim",contact_email:"joaquim@loversandlollypops.net",dates:"março/abril",region:"Europa",language_required:"PT",disciplinas:"musica"},
+  {id:"mp_changeover",name:"Changeover Belgrade",type:"festival",country:"RS",city:"Belgrade",url:"http://changeoverbelgrade.com/",contact_name:"",contact_email:"",dates:"outubro",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_my_wild_flag",name:"My Wild Flag",type:"festival",country:"SE",city:"Estocolmo",url:"https://www.mywildflag.com/info",contact_name:"",contact_email:"info@mywildflag.com",dates:"agosto",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_queer_art_fest",name:"Queer Art Fest",type:"festival",country:"SE",city:"Estocolmo",url:"https://english.queerartfeststhlm.com/",contact_name:"",contact_email:"queerartfeststockholm@gmail.com",dates:"setembro",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_stockholm_fringe",name:"Stockholm Fringe Festival",type:"festival",country:"SE",city:"Estocolmo",url:"https://stockholmfringe.com/about",contact_name:"Helena Bunker",contact_email:"info@stockholmfringe.com",dates:"setembro",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_intonal",name:"Intonal",type:"festival",country:"SE",city:"Malmo",url:"https://www.intonalfestival.com/",contact_name:"Ulf Eriksson",contact_email:"ulf@inkonst.com",dates:"abril",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_erotikafton",name:"Erotikafton",type:"festival",country:"SE",city:"Malmo",url:"https://www.erotikafton.com/",contact_name:"",contact_email:"fennekfilm@gmail.com",dates:"maio/junho",region:"Europa",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_nyege_nyege",name:"Nyege Nyege",type:"festival",country:"UG",city:"Uganda",url:"https://nyegenyege.com/#about",contact_name:"",contact_email:"",dates:"setembro",region:"Global",language_required:"EN",disciplinas:"musica"},
+  {id:"mp_ladyland",name:"Ladyland Festival",type:"festival",country:"US",city:"NYC",url:"https://www.ladylandfestival.com/",contact_name:"",contact_email:"",dates:"junho",region:"Estados Unidos",language_required:"EN",disciplinas:"musica"},
+];
+
+// ── SEARCH QUERIES — 8 pesquisas paralelas por categoria ────────────────────
+const buildQueries = (artist) => [
+  { label:"🌍 Festivais música Europa",
+    q:`Search for music festivals in Europe in 2026 that welcome independent international artists, especially from Latin America or Africa. Find 8 real festivals. Return ONLY a JSON array, no other text: [{"name":"","type":"festival","country":"","city":"","url":"","contact_email":"","dates":"","language_required":"EN","disciplinas":"musica","region":"Europa"}]` },
+  { label:"🎵 Venues PT · ES",
+    q:`Search for music venues and cultural spaces in Portugal and Spain (Lisboa, Porto, Barcelona, Madrid, Sevilha) that regularly book independent artists. Find 8 real venues. Return ONLY JSON array: [{"name":"","type":"venue","country":"","city":"","url":"","contact_email":"","dates":"","language_required":"","disciplinas":"musica","region":"Europa"}]` },
+  { label:"🎵 Venues DE · BE · FR · IT",
+    q:`Search for music clubs, cultural venues and concert halls in Germany, Belgium, France and Italy that book world music, afrobeat or Latin music artists. Find 8. Return ONLY JSON array: [{"name":"","type":"","country":"","city":"","url":"","contact_email":"","dates":"","language_required":"EN","disciplinas":"musica","region":"Europa"}]` },
+  { label:"🇬🇧 UK · Nórdicos · Países Baixos",
+    q:`Search for music festivals and venues in United Kingdom, Sweden, Netherlands, Norway and Denmark welcoming international artists. Find 8. Return ONLY JSON array: [{"name":"","type":"","country":"","city":"","url":"","contact_email":"","dates":"","language_required":"EN","disciplinas":"musica","region":"Europa"}]` },
+  { label:"🇧🇷 Brasil — festivais e SESC",
+    q:`Search for music festivals, SESC units and cultural centres in Brazil (São Paulo, Rio de Janeiro, Recife, Salvador, Fortaleza, Belo Horizonte) that program independent artists for shows or residencies. Find 8. Return ONLY JSON array: [{"name":"","type":"","country":"BR","city":"","url":"","contact_email":"","dates":"","language_required":"PT","disciplinas":"musica","region":"Brasil"}]` },
+  { label:"🌎 América Latina",
+    q:`Search for music festivals and cultural venues in Latin America (Argentina, Colombia, Mexico, Chile, Uruguay, Peru) that book independent Brazilian or international artists. Find 8. Return ONLY JSON array: [{"name":"","type":"","country":"","city":"","url":"","contact_email":"","dates":"","language_required":"","disciplinas":"musica","region":"América Latina"}]` },
+  { label:"🎤 Showcases internacionais",
+    q:`Search for international music showcase festivals in 2026 that accept applications: like WOMEX, SXSW, Eurosonic, Trans Musicales, Primavera Pro, FOKUS, BIME. Find 8 with submission info. Return ONLY JSON array: [{"name":"","type":"showcase","country":"","city":"","url":"","contact_email":"","dates":"","language_required":"EN","disciplinas":"musica","region":"Global"}]` },
+  { label:`🌿 Afrodiáspora · ${(artist.vocab||[]).slice(0,2).join(" · ")}`,
+    q:`Search for music festivals, clubs and cultural spaces in Europe specifically focused on afrodiaspora, Black music, Afrobeat, MPB, brega, funk or artists from Brazil. Keywords: ${(artist.vocab||[]).join(", ")}. Find 8. Return ONLY JSON array: [{"name":"","type":"","country":"","city":"","url":"","contact_email":"","dates":"","language_required":"","disciplinas":"musica","region":"Europa"}]` },
+];
+
+// ── MATCHING ENGINE ──────────────────────────────────────────────────────────
+function calcFit(opp, artist) {
+  const discArtist = artist.disciplinas.map(d => d.toLowerCase());
+  const discOpp = (opp.disciplinas||"").toLowerCase().split(",").map(d=>d.trim());
+  if (!discArtist.some(d => discOpp.includes(d))) return 0;
+  if (opp.country && artist.paises_alvo?.length > 0 && !artist.paises_alvo.includes(opp.country)) return 0;
+  let s = 40;
+  if ((artist.idiomas||[]).includes(opp.language_required)) s += 20; else s -= 10;
+  const hay = `${opp.name} ${opp.type} ${opp.city} ${opp.country}`.toLowerCase();
+  const vm = (artist.vocab||[]).filter(v => hay.includes(v.toLowerCase())).length;
+  s += Math.min(vm*8, 24);
+  if (opp.contact_email) s += 8;
+  if (opp.contact_name) s += 4;
+  if (opp.url) s += 4;
+  return Math.min(100, Math.round(s));
+}
+
+function getMatches(artist, opps) {
+  return opps.map(o => ({...o, fit: calcFit(o, artist)})).filter(o => o.fit > 0).sort((a,b) => b.fit - a.fit);
+}
+
+// ── CSV ──────────────────────────────────────────────────────────────────────
+function toCSV(opps, artists) {
+  const headers = ["Nome","Tipo","País","Cidade","Datas","Idioma","URL","Contacto Nome","Contacto Email","Região","Disciplinas","Fonte",...artists.map(a=>`FIT_${a.name.split(" ")[0]}`)];
+  const rows = opps.map(o => [o.name,o.type,o.country,o.city,o.dates,o.language_required,o.url,o.contact_name||"",o.contact_email||"",o.region,o.disciplinas,o.source||"base",...artists.map(a=>calcFit(o,a))]);
+  const e = v => `"${String(v??'').replace(/"/g,'""')}"`;
+  return [headers,...rows].map(r=>r.map(e).join(",")).join("\n");
+}
+
+// ── STORAGE ──────────────────────────────────────────────────────────────────
+const db = { async get(k){try{const r=await window.storage.get(k);return r?JSON.parse(r.value):null;}catch{return null;}}, async set(k,v){try{await window.storage.set(k,JSON.stringify(v));}catch{}} };
+
+const DEFAULT_ARTISTS = [{id:"karina",name:"Karina BlackZ",email:"kmbf2104@gmail.com",origin:"Brasil · Recife",base:"Barcelona",disciplinas:["musica"],especialidades:["Cantora","Compositora"],idiomas:["ES","PT","IT"],paises_alvo:["ES","PT","FR","BE","BR","IE","GB"],cache_minimo:600,pode_viajar:true,passaporte_ue:false,vocab:["afrodiaspora","brega funk","empoderamento","ancestralidade","resistencia","samba","MPB"],projetos:["Empoderada","Consciencia","Inteira"],bio:"Cantautora afrodescendente de Pernambuco. Samba, MPB, pop, ritmos nordestinos. Identidade, cultura, empoderamento LGBTQIAP+.",materiais:{bio_es:true,bio_pt:false,bio_en:false,foto:false,video:false,rider:false},activo:true}];
+const fitColor = s => s>=80?"#22c55e":s>=60?"#eab308":s>=40?"#f97316":"#6b7280";
+
+// ── APP ──────────────────────────────────────────────────────────────────────
+export default function SomaScout() {
+  const [artists, setArtists] = useState(DEFAULT_ARTISTS);
+  const [extraOpps, setExtraOpps] = useState([]);
+  const [tab, setTab] = useState("matches");
+  const [selArtist, setSelArtist] = useState(DEFAULT_ARTISTS[0]);
+  const [filterPais, setFilterPais] = useState("all");
+  const [filterType, setFilterType] = useState("all");
+  const [filterRegion, setFilterRegion] = useState("all");
+  const [searching, setSearching] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 8, label: "" });
+  const [searchLog, setSearchLog] = useState([]);
+  const [editingArtist, setEditingArtist] = useState(null);
+  const logRef = useRef(null);
+
+  const allOpps = [...BASE_DB, ...extraOpps];
+
+  useEffect(() => {
+    (async () => {
+      const a = await db.get("soma_v3_artists"); if (a?.length) setArtists(a);
+      const e = await db.get("soma_v3_extra"); if (e?.length) setExtraOpps(e);
+    })();
+  }, []);
+  useEffect(() => { db.set("soma_v3_artists", artists); }, [artists]);
+  useEffect(() => { logRef.current?.scrollTo(0, logRef.current.scrollHeight); }, [searchLog]);
+
+  const log = msg => setSearchLog(p => [...p, { t: new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit"}), msg }]);
+
+  const parseJSON = (text) => {
+    try {
+      const clean = text.replace(/```json|```/g,"").trim();
+      const s = clean.indexOf("["), e = clean.lastIndexOf("]");
+      if (s === -1) return [];
+      return JSON.parse(clean.substring(s, e+1)).filter(o => o?.name?.trim());
+    } catch { return []; }
+  };
+
+  const runSearch = async () => {
+    if (searching || !selArtist) return;
+    setSearching(true);
+    setSearchLog([]);
+    const queries = buildQueries(selArtist);
+    setProgress({ current: 0, total: queries.length, label: "A iniciar..." });
+    log(`Iniciando busca para: ${selArtist.name}`);
+    log(`Disciplinas: ${selArtist.disciplinas.join(", ")} · Regiões: Europa, Brasil, LatAm, Global`);
+
+    const existingNames = new Set(allOpps.map(o => o.name.toLowerCase().trim()));
+    let allFound = [];
+
+    for (let i = 0; i < queries.length; i++) {
+      const q = queries[i];
+      setProgress({ current: i+1, total: queries.length, label: q.label });
+      log(`[${i+1}/${queries.length}] ${q.label}`);
+      try {
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({
+            model:"claude-sonnet-4-20250514", max_tokens:1000,
+            tools:[{type:"web_search_20250305",name:"web_search"}],
+            messages:[{role:"user", content: q.q}]
+          })
+        });
+        const data = await res.json();
+        const text = data.content?.map(c=>c.text||"").join("") || "";
+        const found = parseJSON(text);
+        const fresh = found.filter(o => !existingNames.has(o.name.toLowerCase().trim()))
+          .map(o => ({...o, id:`s${Date.now()}${Math.random().toString(36).slice(2,5)}`, disciplinas:o.disciplinas||selArtist.disciplinas[0], source:"search"}));
+        fresh.forEach(o => existingNames.add(o.name.toLowerCase().trim()));
+        allFound = [...allFound, ...fresh];
+        log(`   ✓ ${found.length} encontrados · ${fresh.length} novos`);
+      } catch(e) {
+        log(`   ⚠ Erro: ${e.message.slice(0,50)}`);
+      }
+    }
+
+    if (allFound.length > 0) {
+      setExtraOpps(prev => { const u=[...allFound,...prev]; db.set("soma_v3_extra",u); return u; });
+      log(`━━━ Busca concluída: ${allFound.length} venues/festivais novos adicionados ━━━`);
+    } else {
+      log("━━━ Sem novos resultados ━━━");
+    }
+    setProgress({ current: queries.length, total: queries.length, label: "Concluído" });
+    setSearching(false);
+    setTimeout(() => setTab("matches"), 800);
+  };
+
+  const matches = selArtist ? getMatches(selArtist, allOpps).filter(o => {
+    if (filterPais !== "all" && o.country !== filterPais) return false;
+    if (filterType !== "all" && o.type !== filterType) return false;
+    if (filterRegion !== "all" && o.region !== filterRegion) return false;
+    return true;
+  }) : [];
+
+  const allCountries = [...new Set(allOpps.map(o=>o.country).filter(Boolean))].sort();
+  const allTypes = [...new Set(allOpps.map(o=>o.type).filter(Boolean))].sort();
+  const allRegions = [...new Set(allOpps.map(o=>o.region).filter(Boolean))].sort();
+
+  const ArtistForm = ({ artist, onSave, onClose }) => {
+    const blank = {id:`a_${Date.now()}`,name:"",email:"",origin:"",base:"",disciplinas:["musica"],idiomas:["PT","ES","EN"],paises_alvo:["ES","PT","FR","BE"],cache_minimo:600,pode_viajar:true,passaporte_ue:false,vocab:[],projetos:[],bio:"",activo:true,materiais:{}};
+    const [f,setF] = useState(artist ? {...artist,disc_str:artist.disciplinas?.join(", "),lang_str:artist.idiomas?.join(", "),paises_str:artist.paises_alvo?.join(", "),vocab_str:artist.vocab?.join(", ")} : {...blank,disc_str:"musica",lang_str:"PT,ES,EN",paises_str:"ES,PT,FR,BE",vocab_str:""});
+    const upd=(k,v)=>setF(p=>({...p,[k]:v}));
+    const parse=s=>s.split(",").map(x=>x.trim()).filter(Boolean);
+    const save=()=>onSave({...f,disciplinas:parse(f.disc_str||""),idiomas:parse(f.lang_str||""),paises_alvo:parse(f.paises_str||""),vocab:parse(f.vocab_str||""),cache_minimo:Number(f.cache_minimo)||0});
+    return (
+      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center"}}>
+        <div style={{background:"var(--color-background-primary)",border:"0.5px solid var(--color-border-tertiary)",borderRadius:14,padding:28,width:500,maxHeight:"88vh",overflowY:"auto"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+            <span style={{fontWeight:500,fontSize:14,color:"var(--color-text-primary)"}}>{artist?"Editar":"Novo artista"}</span>
+            <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,color:"var(--color-text-secondary)"}}>×</button>
+          </div>
+          {[["Nome artístico","name"],["Email","email"],["Origem","origin"],["Cidade base","base"]].map(([l,k])=>(
+            <div key={k} style={{marginBottom:11}}>
+              <label style={{display:"block",fontSize:10,color:"var(--color-text-secondary)",marginBottom:4,letterSpacing:1}}>{l.toUpperCase()}</label>
+              <input value={f[k]||""} onChange={e=>upd(k,e.target.value)} style={{width:"100%",boxSizing:"border-box"}}/>
+            </div>
+          ))}
+          <div style={{marginBottom:11}}>
+            <label style={{display:"block",fontSize:10,color:"var(--color-text-secondary)",marginBottom:4,letterSpacing:1}}>BIO</label>
+            <textarea value={f.bio||""} onChange={e=>upd("bio",e.target.value)} rows={2} style={{width:"100%",boxSizing:"border-box",resize:"none"}}/>
+          </div>
+          {[["Disciplinas (musica, dança, teatro...)", "disc_str"],["Idiomas (PT,ES,EN,FR...)", "lang_str"],["Países alvo (ES,PT,FR,BE,BR...)", "paises_str"],["Vocabulário SOMA — keywords", "vocab_str"]].map(([l,k])=>(
+            <div key={k} style={{marginBottom:11}}>
+              <label style={{display:"block",fontSize:10,color:"var(--color-text-secondary)",marginBottom:4,letterSpacing:1}}>{l.toUpperCase()}</label>
+              <input value={f[k]||""} onChange={e=>upd(k,e.target.value)} placeholder="separados por vírgula" style={{width:"100%",boxSizing:"border-box"}}/>
+            </div>
+          ))}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+            <div>
+              <label style={{display:"block",fontSize:10,color:"var(--color-text-secondary)",marginBottom:4,letterSpacing:1}}>CACHÊ MÍNIMO €</label>
+              <input type="number" value={f.cache_minimo||0} onChange={e=>upd("cache_minimo",e.target.value)} style={{width:"100%",boxSizing:"border-box"}}/>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:8,paddingTop:18}}>
+              <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:"var(--color-text-secondary)",cursor:"pointer"}}><input type="checkbox" checked={!!f.pode_viajar} onChange={e=>upd("pode_viajar",e.target.checked)}/> Pode viajar</label>
+              <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:"var(--color-text-secondary)",cursor:"pointer"}}><input type="checkbox" checked={!!f.passaporte_ue} onChange={e=>upd("passaporte_ue",e.target.checked)}/> Passaporte UE</label>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:10}}>
+            <button onClick={save} style={{flex:1,background:"#f5c518",color:"#000",border:"none",padding:11,borderRadius:8,fontWeight:500,cursor:"pointer",fontSize:13}}>Salvar</button>
+            <button onClick={onClose} style={{flex:1,padding:11,borderRadius:8,fontSize:13,cursor:"pointer"}}>Cancelar</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const downloadCSV = () => {
+    const csv = toCSV(allOpps, artists);
+    const blob = new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
+    const a = document.createElement("a"); a.href=URL.createObjectURL(blob);
+    a.download=`soma_scout_${new Date().toISOString().split("T")[0]}.csv`; a.click();
+  };
+
+  return (
+    <div style={{fontFamily:"var(--font-mono,'Courier New',monospace)",minHeight:"100vh",background:"var(--color-background-tertiary)",display:"flex",flexDirection:"column"}}>
+      {/* HEADER */}
+      <div style={{background:"#080808",padding:"0 18px",display:"flex",alignItems:"center",justifyContent:"space-between",height:48,flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <div style={{display:"flex",gap:4}}>
+            <div style={{width:7,height:7,borderRadius:"50%",background:"#f5c518",boxShadow:"0 0 8px #f5c51855"}}/>
+            <div style={{width:7,height:7,borderRadius:"50%",background:"#22c55e"}}/>
+          </div>
+          <span style={{color:"#fff",fontWeight:700,fontSize:13,letterSpacing:3}}>SOMA SCOUT</span>
+          <span style={{color:"#1a1a1a"}}>|</span>
+          <span style={{color:"#2a2a2a",fontSize:9,letterSpacing:2}}>{allOpps.length} VENUES · {artists.length} ARTISTAS</span>
+        </div>
+        <div style={{display:"flex",gap:4}}>
+          {[["matches",`Matches (${matches.length})`],["scout","Buscar"],["artistas","Artistas"],["export","Export"]].map(([t,l])=>(
+            <button key={t} onClick={()=>setTab(t)} style={{background:tab===t?"#161616":"transparent",border:`1px solid ${tab===t?"#2a2a2a":"#111"}`,color:tab===t?"#ccc":"#333",padding:"5px 11px",borderRadius:5,cursor:"pointer",fontSize:9,letterSpacing:1,fontFamily:"inherit"}}>{l.toUpperCase()}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* MATCHES */}
+      {tab==="matches" && (
+        <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+          {/* Filters */}
+          <div style={{background:"var(--color-background-primary)",borderBottom:"0.5px solid var(--color-border-tertiary)",padding:"9px 18px",display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+            <div style={{display:"flex",gap:5}}>
+              {artists.filter(a=>a.activo).map(a=>(
+                <button key={a.id} onClick={()=>setSelArtist(a)} style={{background:selArtist?.id===a.id?"#f5c518":"transparent",color:selArtist?.id===a.id?"#000":"var(--color-text-secondary)",border:`0.5px solid ${selArtist?.id===a.id?"#f5c518":"var(--color-border-tertiary)"}`,padding:"4px 11px",borderRadius:6,cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:selArtist?.id===a.id?500:400}}>
+                  {a.name.split(" ")[0]}
+                </button>
+              ))}
+            </div>
+            <span style={{color:"var(--color-border-tertiary)"}}>|</span>
+            {[["País",filterPais,setFilterPais,[["all","Todos"]],...allCountries.map(c=>[c,c])],
+              ["Tipo",filterType,setFilterType,[["all","Todos"]],...allTypes.map(t=>[t,t.slice(0,14)])],
+              ["Região",filterRegion,setFilterRegion,[["all","Todas"]],...allRegions.map(r=>[r,r])]].map(([l,val,setter,...opts])=>(
+              <div key={l} style={{display:"flex",alignItems:"center",gap:5}}>
+                <span style={{fontSize:9,color:"var(--color-text-secondary)",letterSpacing:1}}>{l.toUpperCase()}</span>
+                <select value={val} onChange={e=>setter(e.target.value)} style={{fontSize:10,padding:"4px 7px",borderRadius:5,fontFamily:"inherit"}}>
+                  {opts.flat(1).map(([v,lb])=><option key={v} value={v}>{lb}</option>)}
+                </select>
+              </div>
+            ))}
+            <span style={{color:"var(--color-text-secondary)",fontSize:10,marginLeft:"auto"}}>{matches.length} resultados</span>
+          </div>
+
+          {/* Artist context strip */}
+          {selArtist && (
+            <div style={{background:"var(--color-background-secondary)",borderBottom:"0.5px solid var(--color-border-tertiary)",padding:"6px 18px",display:"flex",gap:14,alignItems:"center",flexWrap:"wrap"}}>
+              <span style={{fontSize:11,fontWeight:500,color:"var(--color-text-primary)"}}>{selArtist.name}</span>
+              <span style={{fontSize:10,color:"var(--color-text-secondary)"}}>🎵 {selArtist.disciplinas.join(", ")}</span>
+              <span style={{fontSize:10,color:"var(--color-text-secondary)"}}>🌍 {selArtist.paises_alvo?.join(" · ")}</span>
+              <span style={{fontSize:10,color:"var(--color-text-secondary)"}}>🗣 {selArtist.idiomas?.join(", ")}</span>
+              {selArtist.cache_minimo>0 && <span style={{fontSize:10,color:"var(--color-text-secondary)"}}>€ min {selArtist.cache_minimo}</span>}
+              <button onClick={()=>setTab("scout")} style={{marginLeft:"auto",background:"transparent",border:"0.5px solid var(--color-border-tertiary)",color:"var(--color-text-secondary)",padding:"3px 10px",borderRadius:5,cursor:"pointer",fontSize:9,fontFamily:"inherit",letterSpacing:1}}>+ BUSCAR NOVOS</button>
+            </div>
+          )}
+
+          {/* Results */}
+          <div style={{flex:1,overflowY:"auto",padding:"14px 18px"}}>
+            {matches.length===0 && (
+              <div style={{textAlign:"center",paddingTop:48}}>
+                <div style={{fontSize:28,opacity:.1,marginBottom:10}}>◎</div>
+                <div style={{fontSize:11,color:"var(--color-text-secondary)"}}>Nenhum resultado — o motor filtra por disciplina ({selArtist?.disciplinas.join(", ")}) e países alvo ({selArtist?.paises_alvo?.join(", ")})</div>
+              </div>
+            )}
+            {matches.map(o=>(
+              <div key={o.id} style={{background:"var(--color-background-primary)",border:"0.5px solid var(--color-border-tertiary)",borderRadius:9,padding:"11px 14px",marginBottom:7,display:"grid",gridTemplateColumns:"50px 1fr 80px",alignItems:"center",gap:12}}>
+                <div style={{textAlign:"center"}}>
+                  <div style={{fontSize:18,fontWeight:500,color:fitColor(o.fit)}}>{o.fit}</div>
+                  <div style={{fontSize:8,color:"var(--color-text-secondary)",letterSpacing:1}}>FIT</div>
+                </div>
+                <div>
+                  <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap",marginBottom:3}}>
+                    <span style={{fontWeight:500,fontSize:13,color:"var(--color-text-primary)"}}>{o.name}</span>
+                    <span style={{background:"var(--color-background-secondary)",color:"var(--color-text-secondary)",fontSize:9,padding:"1px 7px",borderRadius:20,border:"0.5px solid var(--color-border-tertiary)"}}>{o.type}</span>
+                    {o.source==="search" && <span style={{background:"var(--color-background-success)",color:"var(--color-text-success)",fontSize:8,padding:"1px 7px",borderRadius:20,letterSpacing:.5}}>NOVO</span>}
+                  </div>
+                  <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                    <span style={{fontSize:11,color:"var(--color-text-secondary)"}}>📍 {o.city||"—"} · {o.country}</span>
+                    {o.dates && o.dates!=="/" && <span style={{fontSize:11,color:"var(--color-text-secondary)"}}>🗓 {o.dates}</span>}
+                    <span style={{fontSize:11,color:"var(--color-text-secondary)"}}>🌐 {o.language_required||"—"}</span>
+                    {o.contact_email && <span style={{fontSize:10,color:"var(--color-text-secondary)"}}>✉ {o.contact_email.split(",")[0].trim().slice(0,35)}</span>}
+                  </div>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end"}}>
+                  {o.url && o.url.startsWith("http") && <a href={o.url} target="_blank" rel="noreferrer" style={{fontSize:10,color:"var(--color-text-info)",textDecoration:"none"}}>↗ ver</a>}
+                  <span style={{fontSize:9,color:"var(--color-text-secondary)"}}>{o.region}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* SCOUT */}
+      {tab==="scout" && (
+        <div style={{flex:1,overflowY:"auto",padding:20}}>
+          <div style={{fontSize:14,fontWeight:500,color:"var(--color-text-primary)",marginBottom:4}}>Motor de busca — 8 pesquisas simultâneas</div>
+          <div style={{fontSize:11,color:"var(--color-text-secondary)",lineHeight:1.7,marginBottom:18}}>Usa web search real para encontrar novos festivais, venues e espaços culturais além dos {BASE_DB.length} já na base. Cobre Europa, Brasil, América Latina, Showcases globais e espaços de afrodiáspora.</div>
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,marginBottom:20}}>
+            <div>
+              {/* Search categories */}
+              <div style={{marginBottom:14}}>
+                {buildQueries(selArtist||DEFAULT_ARTISTS[0]).map((q,i)=>(
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:8,background:"var(--color-background-secondary)",borderRadius:5,padding:"6px 10px",marginBottom:4}}>
+                    <div style={{width:6,height:6,borderRadius:"50%",background:searching&&progress.current===i+1?"#f5c518":searching&&progress.current>i+1?"#22c55e":"var(--color-border-tertiary)",flexShrink:0,transition:"background .3s"}}/>
+                    <span style={{fontSize:11,color:searching&&progress.current===i+1?"var(--color-text-primary)":"var(--color-text-secondary)"}}>{q.label}</span>
+                  </div>
+                ))}
+              </div>
+              {/* Artist selector */}
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
+                {artists.filter(a=>a.activo).map(a=>(
+                  <button key={a.id} onClick={()=>setSelArtist(a)} style={{background:selArtist?.id===a.id?"#f5c518":"var(--color-background-secondary)",color:selArtist?.id===a.id?"#000":"var(--color-text-secondary)",border:`0.5px solid ${selArtist?.id===a.id?"#f5c518":"var(--color-border-tertiary)"}`,padding:"5px 11px",borderRadius:6,cursor:"pointer",fontFamily:"inherit",fontSize:11}}>
+                    {a.name}
+                  </button>
+                ))}
+              </div>
+              {/* Progress bar */}
+              {searching && (
+                <div style={{marginBottom:10}}>
+                  <div style={{background:"var(--color-background-secondary)",borderRadius:6,height:6,overflow:"hidden"}}>
+                    <div style={{height:6,background:"#f5c518",width:`${(progress.current/progress.total)*100}%`,borderRadius:6,transition:"width .5s"}}/>
+                  </div>
+                  <div style={{fontSize:10,color:"var(--color-text-secondary)",marginTop:4}}>{progress.current}/{progress.total} · {progress.label}</div>
+                </div>
+              )}
+              <button onClick={runSearch} disabled={searching||!selArtist} style={{width:"100%",background:!searching&&selArtist?"#f5c518":"var(--color-background-secondary)",color:!searching&&selArtist?"#000":"var(--color-text-secondary)",border:"none",borderRadius:8,padding:"11px 0",fontWeight:500,cursor:searching||!selArtist?"not-allowed":"pointer",fontSize:12,fontFamily:"inherit",letterSpacing:1,transition:"all .2s"}}>
+                {searching?`⟳ Pesquisa ${progress.current} de ${progress.total}...`:"⟳ EXECUTAR BUSCA COMPLETA"}
+              </button>
+            </div>
+
+            {/* Log */}
+            <div>
+              <div style={{fontSize:10,color:"var(--color-text-secondary)",letterSpacing:1,marginBottom:8}}>LOG EM TEMPO REAL</div>
+              <div ref={logRef} style={{background:"var(--color-background-secondary)",borderRadius:8,padding:14,height:360,overflowY:"auto"}}>
+                {searchLog.length===0 ? (
+                  <div style={{color:"var(--color-text-secondary)",opacity:.3,fontSize:11}}>Clica em "Executar busca" para iniciar as 8 pesquisas...</div>
+                ) : searchLog.map((l,i)=>(
+                  <div key={i} style={{display:"flex",gap:8,marginBottom:4}}>
+                    <span style={{color:"var(--color-text-secondary)",fontSize:9,minWidth:50,flexShrink:0}}>{l.t}</span>
+                    <span style={{fontSize:10,color:l.msg.startsWith("   ✓")?"var(--color-text-success)":l.msg.startsWith("━")?"#f5c518":l.msg.startsWith("   ⚠")?"var(--color-text-warning)":"var(--color-text-primary)"}}>{l.msg}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
+            {[["Base de dados",BASE_DB.length,"var(--color-text-primary)"],["Via busca IA",extraOpps.length,"var(--color-text-success)"],["Total",allOpps.length,"#f5c518"],["Artistas",artists.filter(a=>a.activo).length,"var(--color-text-primary)"]].map(([l,v,c])=>(
+              <div key={l} style={{background:"var(--color-background-primary)",border:"0.5px solid var(--color-border-tertiary)",borderRadius:8,padding:"12px 14px"}}>
+                <div style={{fontSize:22,fontWeight:500,color:c}}>{v}</div>
+                <div style={{fontSize:9,color:"var(--color-text-secondary)",letterSpacing:1,marginTop:3}}>{l.toUpperCase()}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ARTISTAS */}
+      {tab==="artistas" && (
+        <div style={{flex:1,padding:20,overflowY:"auto"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+            <div style={{fontSize:14,fontWeight:500,color:"var(--color-text-primary)"}}>Roster</div>
+            <button onClick={()=>setEditingArtist("new")} style={{background:"#f5c518",color:"#000",border:"none",padding:"7px 14px",borderRadius:6,fontWeight:500,cursor:"pointer",fontSize:12,fontFamily:"inherit"}}>+ Novo artista</button>
+          </div>
+          {artists.map(a=>{
+            const m = getMatches(a, allOpps);
+            return (
+              <div key={a.id} style={{background:"var(--color-background-primary)",border:"0.5px solid var(--color-border-tertiary)",borderRadius:10,padding:16,marginBottom:12}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <div style={{width:34,height:34,borderRadius:"50%",background:"var(--color-background-info)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:500,color:"var(--color-text-info)"}}>
+                      {a.name.split(" ").map(n=>n[0]).slice(0,2).join("")}
+                    </div>
+                    <div>
+                      <div style={{fontWeight:500,fontSize:14,color:"var(--color-text-primary)"}}>{a.name}</div>
+                      <div style={{fontSize:11,color:"var(--color-text-secondary)"}}>{a.origin} → {a.base}</div>
+                    </div>
+                  </div>
+                  <div style={{display:"flex",gap:6}}>
+                    <button onClick={()=>{setSelArtist(a);setTab("matches");}} style={{background:"var(--color-background-info)",color:"var(--color-text-info)",border:"0.5px solid var(--color-border-info)",padding:"4px 10px",borderRadius:20,cursor:"pointer",fontSize:10,fontFamily:"inherit"}}>{m.length} matches →</button>
+                    <button onClick={()=>setEditingArtist(a)} style={{padding:"4px 10px",borderRadius:20,cursor:"pointer",fontSize:10,fontFamily:"inherit"}}>Editar</button>
+                  </div>
+                </div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>
+                  {[...a.disciplinas,...(a.paises_alvo||[]),...(a.idiomas||[])].slice(0,8).map(t=>(
+                    <span key={t} style={{background:"var(--color-background-secondary)",border:"0.5px solid var(--color-border-tertiary)",color:"var(--color-text-secondary)",padding:"1px 7px",borderRadius:20,fontSize:9}}>{t}</span>
+                  ))}
+                </div>
+                {a.vocab?.length>0 && (
+                  <div style={{fontSize:10,color:"var(--color-text-secondary)"}}>🔑 {a.vocab.join(" · ")}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* EXPORT */}
+      {tab==="export" && (
+        <div style={{flex:1,padding:20,overflowY:"auto"}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}>
+            <div style={{background:"var(--color-background-primary)",border:"0.5px solid var(--color-border-tertiary)",borderRadius:12,padding:20}}>
+              <div style={{fontWeight:500,fontSize:14,color:"var(--color-text-primary)",marginBottom:8}}>Export CSV → Google Sheets</div>
+              <div style={{fontSize:12,color:"var(--color-text-secondary)",lineHeight:1.7,marginBottom:14}}>Exporta todos os {allOpps.length} venues e festivais com scores de fit calculados por artista. Importa directamente no Google Sheets via <em>Ficheiro → Importar → CSV</em>.</div>
+              <div style={{background:"var(--color-background-secondary)",borderRadius:8,padding:12,marginBottom:14}}>
+                {[["Base Mimosa Tour",BASE_DB.length],["Encontrados via busca",extraOpps.length],["Total venues",allOpps.length],["Artistas no roster",artists.length],["Colunas de fit",artists.map(a=>a.name.split(" ")[0]).join(", ")]].map(([k,v])=>(
+                  <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:"0.5px solid var(--color-border-tertiary)"}}>
+                    <span style={{fontSize:11,color:"var(--color-text-secondary)"}}>{k}</span>
+                    <span style={{fontSize:11,color:"var(--color-text-primary)",fontFamily:"monospace"}}>{v}</span>
+                  </div>
+                ))}
+              </div>
+              <button onClick={downloadCSV} style={{width:"100%",background:"#f5c518",color:"#000",border:"none",borderRadius:8,padding:11,fontWeight:500,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>
+                ↓ Baixar CSV ({allOpps.length} linhas)
+              </button>
+            </div>
+            <div style={{background:"var(--color-background-primary)",border:"0.5px solid var(--color-border-tertiary)",borderRadius:12,padding:20}}>
+              <div style={{fontWeight:500,fontSize:14,color:"var(--color-text-primary)",marginBottom:12}}>Regras do matching</div>
+              {[["Disciplina (obrigatório)","Filtro duro — venue fora da disciplina do artista = score 0"],["País alvo (obrigatório)","Filtro duro — se o país não está na lista do artista = score 0"],["Idioma","+ 20 pts se o artista fala o idioma do venue"],["Vocabulário SOMA","+ 8 pts por keyword que aparece no nome/tipo/cidade"],["Contacto email","+ 8 pts se tem email de booking directo"],["Score base","40 pts para quem passa os dois filtros obrigatórios"]].map(([k,v])=>(
+                <div key={k} style={{background:"var(--color-background-secondary)",borderRadius:6,padding:"8px 12px",marginBottom:6}}>
+                  <div style={{fontSize:11,fontWeight:500,color:"var(--color-text-primary)"}}>{k}</div>
+                  <div style={{fontSize:10,color:"var(--color-text-secondary)",marginTop:2}}>{v}</div>
+                </div>
+              ))}
+              <div style={{marginTop:12,padding:"10px 14px",background:"var(--color-background-info)",borderRadius:8}}>
+                <div style={{fontSize:11,color:"var(--color-text-info)"}}>💡 Para adicionar um artista com disciplinas diferentes (dança, teatro, circo...), vai ao separador Artistas e cria o perfil. O motor adapta automaticamente os filtros.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingArtist && (
+        <ArtistForm
+          artist={editingArtist==="new"?null:editingArtist}
+          onSave={saved=>{
+            if(editingArtist==="new") setArtists(p=>[...p,saved]);
+            else setArtists(p=>p.map(a=>a.id===saved.id?saved:a));
+            setEditingArtist(null);
+          }}
+          onClose={()=>setEditingArtist(null)}
+        />
+      )}
+    </div>
+  );
+}
