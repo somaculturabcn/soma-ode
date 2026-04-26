@@ -1,5 +1,5 @@
 // src/App.tsx — SOMA ODÉ
-// Menu principal + Documentos/Google Drive
+// Mantém a estrutura atual + Documentos como sistema interno
 
 import { useState } from 'react'
 
@@ -8,7 +8,7 @@ import MatchView from './components/MatchView'
 import ContactsView from './components/ContactsView'
 import ContractManager from './components/ContractManager'
 import PipelineView from './components/PipelineView'
-import GoogleDriveConnect from './components/GoogleDriveConnect'
+import DocumentsView from './components/DocumentsView'
 
 type Tab =
   | 'ARTISTAS'
@@ -60,7 +60,7 @@ export default function App() {
         {activeTab === 'CONTACTOS' && <ContactsView />}
         {activeTab === 'CONTRATOS' && <ContractManager />}
         {activeTab === 'PIPELINE' && <PipelineView />}
-        {activeTab === 'DOCUMENTOS' && <GoogleDriveConnect />}
+        {activeTab === 'DOCUMENTOS' && <DocumentsView />}
       </main>
     </div>
   )
