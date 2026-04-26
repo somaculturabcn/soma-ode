@@ -9,8 +9,9 @@ import MatchView from './components/MatchView'
 import ContactsView from './components/ContactsView'
 import ContractManager from './components/ContractManager'
 import PipelineView from './components/PipelineView'
+import DocumentGenerator from './components/DocumentGenerator'
 
-type Tab = 'artistas' | 'oportunidades' | 'contactos' | 'contratos' | 'pipeline'
+type Tab = 'artistas' | 'oportunidades' | 'contactos' | 'contratos' | 'pipeline' | 'documentos'
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('artistas')
@@ -36,6 +37,7 @@ export default function App() {
               { id: 'contactos',     label: 'Contactos' },
               { id: 'contratos',     label: 'Contratos' },
               { id: 'pipeline',      label: 'Pipeline' },
+              { id: 'documentos',    label: 'Documentos' },
             ] as { id: Tab; label: string }[]
           ).map(({ id, label }) => (
             <button
@@ -60,6 +62,7 @@ export default function App() {
         {tab === 'contactos'     && <ContactsView />}
         {tab === 'contratos'     && <ContractManager />}
         {tab === 'pipeline'      && <PipelineView />}
+        {tab === 'documentos'    && <DocumentGenerator />}
       </main>
     </div>
   )

@@ -1,6 +1,8 @@
 // src/components/MatchView.tsx
-// SOMA ODÉ — Oportunidades v4.5
-// Buscador geral + importação CSV de venues/festivais + edição + matching com artista
+// SOMA ODÉ — Oportunidades v5 (Claude · 2026-04-25)
+// Buscador geral + importar CSV + adicionar manualmente + EDITAR qualquer oportunidade
+// Quando editas uma oportunidade real/mock, guarda uma cópia em manualOpportunitiesStore
+// (override). A original fica intacta no código.
 
 import { useMemo, useRef, useState } from 'react'
 import type { Artist } from '../types/artist'
@@ -16,870 +18,571 @@ import {
   clearCsvOpportunities,
 } from '../data/manualOpportunitiesStore'
 
+// ─── Tipos ───────────────────────────────────────────────────────────────────
+
 interface MatchViewProps {
   artist: Artist | null
 }
 
-type OpportunityWithSource = Opportunity & {
-  origin?: 'real' | 'mock' | 'manual'
+type OppWithOrigin = Opportunity & { _origin: 'real' | 'mock' | 'manual' }
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function clean(v?: string) {
+  return (v || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ').trim()
 }
 
-function cleanText(value?: string) {
-  return (value || '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .replace(/\s+/g, ' ')
-    .trim()
+function combineAll(manual: Opportunity[]): OppWithOrigin[] {
+  const map = new Map<string, OppWithOrigin>()
+  for (const o of realOpportunities) map.set(o.id, { ...o, _origin: 'real' })
+  for (const o of mockOpportunities) if (!map.has(o.id)) map.set(o.id, { ...o, _origin: 'mock' })
+  for (const o of manual) map.set(o.id, { ...o, _origin: 'manual' })
+  return Array.from(map.values()).sort((a, b) => clean(a.title).localeCompare(clean(b.title)))
 }
 
-function sortOpportunities<T extends Opportunity>(items: T[]): T[] {
-  return [...items].sort((a, b) => {
-    const A = cleanText(a.title || a.organization || '')
-    const B = cleanText(b.title || b.organization || '')
-    return A.localeCompare(B)
-  })
-}
-
-function splitCsvLine(line: string): string[] {
-  const result: string[] = []
-  let current = ''
-  let insideQuotes = false
-
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i]
-    const next = line[i + 1]
-
-    if (char === '"' && insideQuotes && next === '"') {
-      current += '"'
-      i++
-      continue
-    }
-
-    if (char === '"') {
-      insideQuotes = !insideQuotes
-      continue
-    }
-
-    if ((char === ',' || char === ';') && !insideQuotes) {
-      result.push(current.trim())
-      current = ''
-      continue
-    }
-
-    current += char
+function parseLine(line: string): string[] {
+  const out: string[] = []
+  let cur = ''
+  let inQ = false
+  for (const ch of line) {
+    if (ch === '"') { inQ = !inQ; continue }
+    if ((ch === ',' || ch === ';') && !inQ) { out.push(cur.trim()); cur = ''; continue }
+    cur += ch
   }
-
-  result.push(current.trim())
-  return result
+  out.push(cur.trim())
+  return out
 }
 
-function normalizeHeader(header: string) {
-  return cleanText(header)
-    .replace(/\s+/g, '_')
-    .replace(/-/g, '_')
+function normH(h: string) {
+  return clean(h).replace(/\s+/g, '_').replace(/-/g, '_')
 }
 
-function getValue(row: Record<string, string>, keys: string[]) {
-  for (const key of keys) {
-    const normalized = normalizeHeader(key)
-    if (row[normalized]) return row[normalized]
-  }
+function gv(row: Record<string, string>, keys: string[]) {
+  for (const k of keys) { const v = row[normH(k)]; if (v) return v }
   return ''
 }
 
-function parseCountryCity(value: string) {
-  const raw = (value || '').trim()
-
-  if (!raw) return { country: '', city: '' }
-
-  // Formato do teu Excel: "AT - Viena", "GE - Hamburgo", "BE - Bruxelas"
-  if (raw.includes(' - ')) {
-    const [country, ...cityParts] = raw.split(' - ')
-    return {
-      country: country.trim(),
-      city: cityParts.join(' - ').trim(),
-    }
+function parseCity(raw: string): { country: string; city: string } {
+  const s = (raw || '').trim()
+  if (!s) return { country: '', city: '' }
+  if (s.includes(' - ')) {
+    const [c, ...rest] = s.split(' - ')
+    return { country: c.trim(), city: rest.join(' - ').trim() }
   }
-
-  // Formato alternativo: "Viena, AT"
-  if (raw.includes(',')) {
-    const parts = raw.split(',').map(x => x.trim()).filter(Boolean)
-    if (parts.length >= 2) {
-      return {
-        city: parts[0],
-        country: parts[1],
-      }
-    }
+  if (s.includes(',')) {
+    const [city, country] = s.split(',').map(x => x.trim())
+    return { country, city }
   }
-
-  return { country: '', city: raw }
+  return { country: '', city: s }
 }
 
-function normalizeType(typeRaw: string): Opportunity['type'] {
-  const t = cleanText(typeRaw)
-
-  if (t.includes('festival')) return 'festival'
-  if (t.includes('showcase')) return 'showcase'
-  if (t.includes('resid')) return 'residency'
-  if (t.includes('grant') || t.includes('financi') || t.includes('fundo')) return 'grant'
-  if (t.includes('commission') || t.includes('comissao')) return 'commission'
-
+function guessType(t: string): Opportunity['type'] {
+  const s = clean(t)
+  if (s.includes('festival')) return 'festival'
+  if (s.includes('showcase')) return 'showcase'
+  if (s.includes('resid')) return 'residency'
+  if (s.includes('grant') || s.includes('financ') || s.includes('fundo')) return 'grant'
+  if (s.includes('commission') || s.includes('comissao')) return 'commission'
   return 'open_call'
 }
 
-function normalizeDisciplines(typeRaw: string, explicitDisciplines: string) {
-  if (explicitDisciplines) {
-    return explicitDisciplines
-      .split(/[|,;]/)
-      .map(x => cleanText(x))
-      .filter(Boolean)
-  }
-
-  const t = cleanText(typeRaw)
-
-  if (t.includes('musica') || t.includes('music') || t.includes('festival') || t.includes('venue')) {
-    return ['musica']
-  }
-
+function guessDiscs(typeRaw: string, discRaw: string): string[] {
+  if (discRaw) return discRaw.split(/[,;|]/).map(d => clean(d)).filter(Boolean)
+  const t = clean(typeRaw)
+  if (t.includes('teatro') || t.includes('theatre')) return ['teatro']
+  if (t.includes('danca') || t.includes('dance')) return ['danca']
   if (t.includes('cinema') || t.includes('film')) return ['cinema']
-  if (t.includes('teatro')) return ['teatro']
-  if (t.includes('danca') || t.includes('dança')) return ['danca']
   if (t.includes('performance')) return ['performance']
-
   return ['musica']
 }
 
-function parseOpportunitiesCsv(text: string): Opportunity[] {
-  const lines = text
-    .split(/\r?\n/)
-    .map(line => line.trim())
-    .filter(Boolean)
+function normCC(raw: string): string {
+  const code = raw.toUpperCase().trim()
+  const fix: Record<string, string> = { GE: 'DE', CZE: 'CZ', WAL: 'GB', UK: 'GB' }
+  return fix[code] || code
+}
 
+function parseCsv(text: string): Opportunity[] {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
   if (lines.length < 2) return []
+  const headers = parseLine(lines[0]).map(normH)
+  const results: Opportunity[] = []
 
-  const headers = splitCsvLine(lines[0]).map(normalizeHeader)
+  for (const line of lines.slice(1)) {
+    const vals = parseLine(line)
+    const row: Record<string, string> = {}
+    headers.forEach((h, i) => { row[h] = vals[i] || '' })
 
-  return lines
-    .slice(1)
-    .map(line => {
-      const values = splitCsvLine(line)
-      const row: Record<string, string> = {}
+    const name    = gv(row, ['nome', 'name', 'titulo', 'title', 'festival', 'venue'])
+    const typeRaw = gv(row, ['tipo', 'type', 'categoria'])
+    const site    = gv(row, ['site', 'website', 'url', 'link', 'web'])
+    const dates   = gv(row, ['datas', 'dates', 'data', 'date'])
+    const email   = gv(row, ['contato', 'contacto', 'email', 'mail', 'e_mail'])
+    const resp    = gv(row, ['responsavel', 'responsavel', 'responsible', 'programador'])
+    const cityRaw = gv(row, ['cidade', 'city', 'local', 'location'])
+    const paisRaw = gv(row, ['pais', 'country', 'pais_codigo', 'country_code', 'codigo'])
+    const obs     = gv(row, ['observacoes', 'observacoes', 'observations', 'notas', 'notes'])
+    const discRaw = gv(row, ['disciplinas', 'disciplines', 'area', 'areas'])
 
-      headers.forEach((header, index) => {
-        row[header] = values[index] || ''
-      })
+    if (!name && !site && !email) continue
 
-      const name = getValue(row, ['nome', 'name', 'titulo', 'título', 'title'])
-      const typeOriginal = getValue(row, ['tipo', 'type', 'categoria'])
-      const site = getValue(row, ['site', 'website', 'web', 'url', 'link'])
-      const dates = getValue(row, ['datas', 'dates', 'data', 'date'])
-      const contactEmail = getValue(row, ['contato', 'contacto', 'email', 'mail'])
-      const responsible = getValue(row, ['responsavel', 'responsável', 'responsible', 'programador', 'booker'])
-      const cityRaw = getValue(row, ['cidade', 'city', 'local', 'location'])
-      const observations = getValue(row, ['observacao', 'observação', 'observacoes', 'observações', 'observations', 'notas', 'notes'])
-      const disciplinesRaw = getValue(row, ['disciplinas', 'disciplines', 'area', 'área'])
+    let country = ''
+    let city = cityRaw
+    if (paisRaw) {
+      country = normCC(paisRaw)
+    } else {
+      const geo = parseCity(cityRaw)
+      country = geo.country
+      city = geo.city
+    }
 
-      const geo = parseCountryCity(cityRaw)
+    const title = name || '(sem nome)'
+    if (title === '(sem nome)' && !site) continue
 
-      const notes = [
-        typeOriginal ? `Tipo original: ${typeOriginal}` : '',
-        dates ? `Datas: ${dates}` : '',
-        responsible ? `Responsável: ${responsible}` : '',
-        observations ? `Observações: ${observations}` : '',
-      ].filter(Boolean).join(' · ')
+    const notes = [
+      typeRaw && 'Tipo: ' + typeRaw,
+      dates   && 'Datas: ' + dates,
+      resp    && 'Responsavel: ' + resp,
+      obs,
+    ].filter(Boolean).join(' . ')
 
-      const type = normalizeType(typeOriginal)
-      const disciplines = normalizeDisciplines(typeOriginal, disciplinesRaw)
-
-      return {
-        id: 'csv-opp-' + crypto.randomUUID(),
-        title: name || site || contactEmail || 'Oportunidade sem nome',
-        organization: name || '',
-        url: site || '',
-        type,
-        status: 'open',
-        country: geo.country,
-        countryName: geo.country,
-        city: geo.city,
-        disciplines,
-        languages: [],
-        coversCosts: false,
-        deadline: '2026-12-31',
-        contactEmail,
-        notes,
-        source: 'csv-opportunities',
-        keywords: [typeOriginal, ...disciplines, geo.city, geo.country].filter(Boolean),
-      } as Opportunity
-    })
-    .filter(o => o.title || o.organization || o.url || o.contactEmail)
+    results.push({
+      id: 'csv-opp-' + crypto.randomUUID(),
+      title,
+      organization: name || title,
+      url: site || '',
+      type: guessType(typeRaw),
+      status: 'open',
+      country,
+      countryName: country,
+      city,
+      disciplines: guessDiscs(typeRaw, discRaw),
+      languages: [],
+      coversCosts: false,
+      deadline: '2026-12-31',
+      contactEmail: email || undefined,
+      contactPerson: resp || undefined,
+      notes: notes || undefined,
+      source: 'csv-opportunities',
+      keywords: [typeRaw, city, country].filter(Boolean),
+    } as Opportunity)
+  }
+  return results
 }
 
-function combineOpportunities(manual: Opportunity[]): OpportunityWithSource[] {
-  const map = new Map<string, OpportunityWithSource>()
+// ─── Estado vazio do formulário ───────────────────────────────────────────────
 
-  for (const o of realOpportunities) {
-    map.set(o.id, { ...o, origin: 'real' })
+function emptyForm(): Partial<Opportunity> {
+  return {
+    title: '', organization: '', url: '', type: 'open_call', status: 'open',
+    country: '', countryName: '', city: '', disciplines: [], languages: [],
+    coversCosts: false, deadline: '', contactEmail: '', notes: '', keywords: [],
+    description: '', feeOffered: undefined, peopleSupported: undefined,
   }
-
-  for (const o of mockOpportunities) {
-    if (!map.has(o.id)) map.set(o.id, { ...o, origin: 'mock' })
-  }
-
-  for (const o of manual) {
-    map.set(o.id, { ...o, origin: 'manual' })
-  }
-
-  return sortOpportunities(Array.from(map.values()))
 }
+
+// ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function MatchView({ artist }: MatchViewProps) {
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
 
-  const [manualOpportunities, setManualOpportunities] = useState<Opportunity[]>(getManualOpportunities())
-  const [showForm, setShowForm] = useState(false)
-  const [editing, setEditing] = useState<Opportunity | null>(null)
+  const [manual, setManual] = useState<Opportunity[]>(getManualOpportunities)
+  const [editing, setEditing] = useState<{ opp: Partial<Opportunity>; isNew: boolean } | null>(null)
   const [showBlocked, setShowBlocked] = useState(false)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
   const [countryFilter, setCountryFilter] = useState('all')
-  const [disciplineFilter, setDisciplineFilter] = useState('all')
-  const [importSummary, setImportSummary] = useState('')
+  const [costsFilter, setCostsFilter] = useState(false)
+  const [importNote, setImportNote] = useState('')
 
-  const allOpportunities = useMemo(() => {
-    return combineOpportunities(manualOpportunities)
-  }, [manualOpportunities])
+  const all = useMemo(() => combineAll(manual), [manual])
 
-  const filteredBase = useMemo(() => {
-    const q = cleanText(search)
-
-    return allOpportunities.filter(opp => {
-      if (typeFilter !== 'all' && opp.type !== typeFilter) return false
-      if (countryFilter !== 'all' && cleanText(opp.country) !== cleanText(countryFilter)) return false
-
-      if (
-        disciplineFilter !== 'all' &&
-        !opp.disciplines.map(cleanText).includes(cleanText(disciplineFilter))
-      ) {
-        return false
-      }
-
+  const filtered = useMemo(() => {
+    const q = clean(search)
+    return all.filter(o => {
+      if (typeFilter !== 'all' && o.type !== typeFilter) return false
+      if (countryFilter !== 'all' && clean(o.country) !== clean(countryFilter)) return false
+      if (costsFilter && !o.coversCosts) return false
       if (!q) return true
-
-      return cleanText([
-        opp.title,
-        opp.organization,
-        opp.city,
-        opp.country,
-        opp.countryName,
-        opp.type,
-        opp.contactEmail,
-        opp.notes,
-        opp.url,
-        ...(opp.disciplines || []),
-        ...(opp.keywords || []),
-      ].join(' ')).includes(q)
+      return clean([o.title, o.organization, o.city, o.country, o.contactEmail, o.notes, ...(o.disciplines || []), ...(o.keywords || [])].join(' ')).includes(q)
     })
-  }, [allOpportunities, search, typeFilter, countryFilter, disciplineFilter])
+  }, [all, search, typeFilter, countryFilter, costsFilter])
 
-  const countries = useMemo(() => {
-    return Array.from(new Set(allOpportunities.map(o => o.country).filter(Boolean))).sort()
-  }, [allOpportunities])
+  const countries = useMemo(() => Array.from(new Set(all.map(o => o.country).filter(Boolean))).sort(), [all])
+  const types = useMemo(() => Array.from(new Set(all.map(o => o.type).filter(Boolean))).sort(), [all])
 
-  const disciplines = useMemo(() => {
-    return Array.from(new Set(allOpportunities.flatMap(o => o.disciplines || []).filter(Boolean))).sort()
-  }, [allOpportunities])
-
-  const types = useMemo(() => {
-    return Array.from(new Set(allOpportunities.map(o => o.type).filter(Boolean))).sort()
-  }, [allOpportunities])
-
-  const matchedResults = useMemo(() => {
+  const matched = useMemo(() => {
     if (!artist) return []
-    return runMatch(artist, filteredBase, { hideBlocked: false })
-  }, [artist, filteredBase])
+    return runMatch(artist, filtered, { hideBlocked: false })
+  }, [artist, filtered])
 
-  const viable = matchedResults.filter(r => r.match.blockers.length === 0)
-  const blocked = matchedResults.filter(r => r.match.blockers.length > 0)
+  const viable = matched.filter(r => r.match.blockers.length === 0)
+  const blocked = matched.filter(r => r.match.blockers.length > 0)
 
-  function refreshManual() {
-    setManualOpportunities(getManualOpportunities())
-  }
+  function refresh() { setManual(getManualOpportunities()) }
 
-  function removeManualOpportunity(id: string) {
-    if (!confirm('Apagar esta oportunidade manual/importada?')) return
-    deleteManualOpportunity(id)
-    refreshManual()
-  }
-
-  function clearCsv() {
-    if (!confirm('Apagar todas as oportunidades importadas por CSV?')) return
-    clearCsvOpportunities()
-    refreshManual()
-    setImportSummary('Oportunidades CSV apagadas.')
-  }
-
-  async function handleCsvImport(file: File) {
+  // — Importar CSV
+  async function handleCsv(file: File) {
     const text = await file.text()
-    const parsed = parseOpportunitiesCsv(text)
-
+    const parsed = parseCsv(text)
     clearCsvOpportunities()
-
-    const existing = combineOpportunities(
-      getManualOpportunities().filter(o => o.source !== 'csv-opportunities')
-    )
-
-    let imported = 0
-    let duplicated = 0
-
-    for (const opp of parsed) {
-      const duplicate = existing.some(e => {
-        const sameTitle = cleanText(e.title) && cleanText(e.title) === cleanText(opp.title)
-        const sameUrl = cleanText(e.url) && cleanText(e.url) === cleanText(opp.url)
-        const sameEmail = cleanText(e.contactEmail) && cleanText(e.contactEmail) === cleanText(opp.contactEmail)
-        return sameTitle || sameUrl || sameEmail
-      })
-
-      if (duplicate) {
-        duplicated++
-        continue
-      }
-
-      addManualOpportunity(opp)
-      imported++
-    }
-
-    refreshManual()
-
-    const summary = `${parsed.length} oportunidades lidas · ${imported} importadas · ${duplicated} duplicadas saltadas · CSV anterior substituído`
-    setImportSummary(summary)
-    alert(summary)
-
-    if (fileInputRef.current) fileInputRef.current.value = ''
+    parsed.forEach(addManualOpportunity)
+    refresh()
+    setImportNote(`✅ ${parsed.length} oportunidades importadas`)
+    if (fileRef.current) fileRef.current.value = ''
   }
 
-  function startEdit(opp: OpportunityWithSource) {
-    if (opp.origin !== 'manual') {
-      const duplicated: Opportunity = {
-        ...opp,
-        id: 'manual-opp-' + crypto.randomUUID(),
-        source: 'manual',
-      }
-      setEditing(duplicated)
-      return
+  // — Abrir editor
+  function openEdit(opp: OppWithOrigin) {
+    if (opp._origin === 'manual') {
+      setEditing({ opp: { ...opp }, isNew: false })
+    } else {
+      // Cria cópia editável em manual (override)
+      setEditing({ opp: { ...opp, id: opp.id, source: 'manual' }, isNew: true })
     }
-
-    setEditing(opp)
   }
+
+  function openNew() {
+    setEditing({ opp: emptyForm(), isNew: true })
+  }
+
+  // — Guardar edição
+  function saveEdit() {
+    if (!editing) return
+    const { opp, isNew } = editing
+    if (!opp.title?.trim()) { alert('Título obrigatório.'); return }
+    const final: Opportunity = {
+      id: opp.id || 'manual-opp-' + crypto.randomUUID(),
+      title: opp.title || '',
+      organization: opp.organization || opp.title || '',
+      url: opp.url || '',
+      type: (opp.type as Opportunity['type']) || 'open_call',
+      status: (opp.status as Opportunity['status']) || 'open',
+      country: opp.country || '',
+      countryName: opp.countryName || opp.country || '',
+      city: opp.city || '',
+      disciplines: opp.disciplines || [],
+      languages: opp.languages || [],
+      coversCosts: !!opp.coversCosts,
+      deadline: opp.deadline || '2026-12-31',
+      contactEmail: opp.contactEmail || '',
+      contactPerson: opp.contactPerson || '',
+      notes: opp.notes || '',
+      description: opp.description || '',
+      feeOffered: opp.feeOffered,
+      peopleSupported: opp.peopleSupported,
+      source: 'manual',
+      keywords: opp.keywords || [],
+    }
+    if (isNew) addManualOpportunity(final)
+    else updateManualOpportunity(final)
+    refresh()
+    setEditing(null)
+  }
+
+  function deleteOpp(id: string) {
+    if (!confirm('Apagar esta oportunidade?')) return
+    deleteManualOpportunity(id)
+    refresh()
+  }
+
+  const manualIds = useMemo(() => new Set(manual.map(o => o.id)), [manual])
+
+  // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div style={styles.wrapper}>
-      <header style={styles.header}>
+    <div style={s.wrap}>
+
+      {/* Header */}
+      <header style={s.header}>
         <div>
-          <h2 style={styles.title}>
-            Oportunidades <span style={styles.version}>v4.5</span>
-          </h2>
-
-          {artist ? (
-            <p style={styles.subtitle}>
-              Matches para <b>{artist.name}</b>{' '}
-              <span style={styles.muted}>
-                · {viable.length} viáveis · {blocked.length} bloqueadas
-              </span>
-            </p>
-          ) : (
-            <p style={styles.subtitle}>
-              Base geral de oportunidades. Selecciona um artista para ver matching.
-            </p>
-          )}
-
-          <p style={styles.poolSize}>
-            {filteredBase.length} de {allOpportunities.length} oportunidades · {realOpportunities.length} reais ·{' '}
-            {mockOpportunities.length} exemplo · {manualOpportunities.length} manuais/importadas
-          </p>
-
-          {importSummary && <p style={styles.importSummary}>{importSummary}</p>}
+          <h2 style={s.title}>Oportunidades <span style={s.badge}>v5</span></h2>
+          {artist
+            ? <p style={s.sub}>Matches para <b>{artist.name}</b> · {viable.length} viáveis · {blocked.length} bloqueadas</p>
+            : <p style={s.sub}>Base geral · selecciona um artista para ver matching</p>}
+          <p style={s.pool}>{filtered.length} de {all.length} · {realOpportunities.length} reais · {mockOpportunities.length} exemplo · {manual.length} manuais</p>
+          {importNote && <p style={s.note}>{importNote}</p>}
         </div>
-
-        <div style={styles.headerActions}>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,text/csv"
-            style={{ display: 'none' }}
-            onChange={e => {
-              const file = e.target.files?.[0]
-              if (file) handleCsvImport(file)
-            }}
-          />
-
-          <button style={styles.importBtn} onClick={() => fileInputRef.current?.click()}>
-            📥 Importar CSV
-          </button>
-
-          <button style={styles.clearBtn} onClick={clearCsv}>
-            Limpar CSV
-          </button>
-
-          <button style={styles.primaryBtn} onClick={() => setShowForm(true)}>
-            + Adicionar oportunidade
-          </button>
+        <div style={s.actions}>
+          <input ref={fileRef} type="file" accept=".csv" style={{ display: 'none' }}
+            onChange={e => { const f = e.target.files?.[0]; if (f) handleCsv(f) }} />
+          <button style={s.btnImport} onClick={() => fileRef.current?.click()}>📥 Importar CSV</button>
+          <button style={s.btnClear} onClick={() => { clearCsvOpportunities(); refresh(); setImportNote('CSV apagado') }}>Limpar CSV</button>
+          <button style={s.btnPrimary} onClick={openNew}>+ Adicionar</button>
         </div>
       </header>
 
-      <div style={styles.helpBox}>
-        Formato recomendado do CSV: <b>Nome, Tipo, Site, Datas, Contato, Responsável, Cidade, Observações</b>.
-        A coluna Cidade pode estar como <b>AT - Viena</b>, <b>ES - Barcelona</b> ou <b>Viena, AT</b>.
-      </div>
-
-      <div style={styles.toolbar}>
-        <input
-          style={styles.search}
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="🔍 Buscar por nome, cidade, país, disciplina, contacto, notas..."
-        />
-
-        <select style={styles.select} value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
+      {/* Filtros */}
+      <div style={s.toolbar}>
+        <input style={s.search} value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="🔍 Buscar por nome, cidade, email, disciplina..." />
+        <select style={s.select} value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
           <option value="all">Todos os tipos</option>
           {types.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
-
-        <select style={styles.select} value={countryFilter} onChange={e => setCountryFilter(e.target.value)}>
+        <select style={s.select} value={countryFilter} onChange={e => setCountryFilter(e.target.value)}>
           <option value="all">Todos os países</option>
           {countries.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-
-        <select style={styles.select} value={disciplineFilter} onChange={e => setDisciplineFilter(e.target.value)}>
-          <option value="all">Todas as disciplinas</option>
-          {disciplines.map(d => <option key={d} value={d}>{d}</option>)}
-        </select>
+        <label style={s.checkLabel}>
+          <input type="checkbox" checked={costsFilter} onChange={e => setCostsFilter(e.target.checked)} style={{ accentColor: '#1A6994' }} />
+          Só com custos cobertos
+        </label>
       </div>
 
+      {/* Lista com matching ou sem */}
       {artist ? (
         <>
-          {viable.length > 0 && (
-            <section>
-              <div style={styles.grid}>
-                {viable.slice(0, 80).map(opp => (
-                  <OpportunityCard
-                    key={opp.id}
-                    opp={opp}
-                    onDelete={removeManualOpportunity}
-                    onEdit={startEdit}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {viable.length === 0 && (
-            <div style={styles.emptyResults}>
-              Nenhuma oportunidade viável com os filtros actuais.
-            </div>
-          )}
-
+          <div style={s.grid}>
+            {viable.map(o => <OppCard key={o.id} opp={o} isManual={manualIds.has(o.id)} onEdit={() => openEdit(o as OppWithOrigin)} onDelete={() => deleteOpp(o.id)} />)}
+          </div>
+          {viable.length === 0 && <div style={s.empty}>Nenhuma oportunidade viável com estes filtros.</div>}
           {blocked.length > 0 && (
-            <section style={{ marginTop: 28 }}>
-              <button style={styles.toggleBlocked} onClick={() => setShowBlocked(!showBlocked)}>
+            <div style={{ marginTop: 24 }}>
+              <button style={s.toggleBtn} onClick={() => setShowBlocked(!showBlocked)}>
                 {showBlocked ? '▾' : '▸'} {blocked.length} bloqueadas · porquê?
               </button>
-
               {showBlocked && (
-                <div style={{ ...styles.grid, marginTop: 12 }}>
-                  {blocked.slice(0, 40).map(opp => (
-                    <OpportunityCard
-                      key={opp.id}
-                      opp={opp}
-                      onDelete={removeManualOpportunity}
-                      onEdit={startEdit}
-                    />
-                  ))}
+                <div style={{ ...s.grid, marginTop: 12 }}>
+                  {blocked.map(o => <OppCard key={o.id} opp={o} isManual={manualIds.has(o.id)} onEdit={() => openEdit(o as OppWithOrigin)} onDelete={() => deleteOpp(o.id)} />)}
                 </div>
               )}
-            </section>
+            </div>
           )}
         </>
       ) : (
-        <section>
-          <div style={styles.grid}>
-            {filteredBase.map(opp => (
-              <BaseOpportunityCard
-                key={opp.id}
-                opp={opp}
-                onDelete={removeManualOpportunity}
-                onEdit={startEdit}
-              />
-            ))}
-          </div>
-
-          {filteredBase.length === 0 && (
-            <div style={styles.emptyResults}>Nenhuma oportunidade encontrada.</div>
-          )}
-        </section>
+        <div style={s.grid}>
+          {filtered.map(o => <BaseCard key={o.id} opp={o} isManual={manualIds.has(o.id)} onEdit={() => openEdit(o)} onDelete={() => deleteOpp(o.id)} />)}
+          {filtered.length === 0 && <div style={s.empty}>Nenhuma oportunidade encontrada.</div>}
+        </div>
       )}
 
-      {showForm && (
-        <OpportunityManualForm
-          mode="create"
-          onClose={() => setShowForm(false)}
-          onSaved={() => {
-            setShowForm(false)
-            refreshManual()
-          }}
-        />
-      )}
-
+      {/* Modal de edição */}
       {editing && (
-        <OpportunityManualForm
-          mode="edit"
-          initial={editing}
-          onClose={() => setEditing(null)}
-          onSaved={() => {
-            setEditing(null)
-            refreshManual()
-          }}
-        />
+        <div style={s.overlay}>
+          <div style={s.modal}>
+            <h3 style={s.modalTitle}>{editing.isNew && !editing.opp.id ? 'Nova oportunidade' : 'Editar oportunidade'}</h3>
+
+            <div style={s.formGrid}>
+              <Field label="Título *" value={editing.opp.title || ''} onChange={v => setEditing(e => e && { ...e, opp: { ...e.opp, title: v } })} />
+              <Field label="Organização / venue" value={editing.opp.organization || ''} onChange={v => setEditing(e => e && { ...e, opp: { ...e.opp, organization: v } })} />
+              <Field label="País (ES, PT, AT...)" value={editing.opp.country || ''} onChange={v => setEditing(e => e && { ...e, opp: { ...e.opp, country: v, countryName: v } })} />
+              <Field label="Cidade" value={editing.opp.city || ''} onChange={v => setEditing(e => e && { ...e, opp: { ...e.opp, city: v } })} />
+              <Field label="Website / edital" value={editing.opp.url || ''} onChange={v => setEditing(e => e && { ...e, opp: { ...e.opp, url: v } })} />
+              <Field label="Email contacto" value={editing.opp.contactEmail || ''} onChange={v => setEditing(e => e && { ...e, opp: { ...e.opp, contactEmail: v } })} />
+              <Field label="Pessoa contacto" value={editing.opp.contactPerson || ''} onChange={v => setEditing(e => e && { ...e, opp: { ...e.opp, contactPerson: v } })} />
+              <Field label="Deadline (AAAA-MM-DD)" value={editing.opp.deadline || ''} onChange={v => setEditing(e => e && { ...e, opp: { ...e.opp, deadline: v } })} type="date" />
+              <Field label="Cachê oferecido (€)" value={String(editing.opp.feeOffered || '')} onChange={v => setEditing(e => e && { ...e, opp: { ...e.opp, feeOffered: v ? Number(v) : undefined } })} type="number" />
+              <Field label="Pessoas suportadas" value={String(editing.opp.peopleSupported || '')} onChange={v => setEditing(e => e && { ...e, opp: { ...e.opp, peopleSupported: v ? Number(v) : undefined } })} type="number" />
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label style={s.fieldLabel}>Tipo</label>
+                <select style={s.input} value={editing.opp.type || 'open_call'}
+                  onChange={e => setEditing(ed => ed && { ...ed, opp: { ...ed.opp, type: e.target.value as Opportunity['type'] } })}>
+                  <option value="open_call">Edital / Open call</option>
+                  <option value="festival">Festival</option>
+                  <option value="residency">Residência</option>
+                  <option value="showcase">Showcase</option>
+                  <option value="grant">Financiamento</option>
+                  <option value="commission">Comissão</option>
+                  <option value="venue">Venue / Sala</option>
+                  <option value="market">Mercado profissional</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label style={s.fieldLabel}>Status</label>
+                <select style={s.input} value={editing.opp.status || 'open'}
+                  onChange={e => setEditing(ed => ed && { ...ed, opp: { ...ed.opp, status: e.target.value as Opportunity['status'] } })}>
+                  <option value="open">Aberto</option>
+                  <option value="rolling">Sempre aberto</option>
+                  <option value="closed">Fechado</option>
+                  <option value="draft">Rascunho</option>
+                </select>
+              </div>
+            </div>
+
+            <Field label="Disciplinas (musica, danca, performance...)" value={(editing.opp.disciplines || []).join(', ')}
+              onChange={v => setEditing(e => e && { ...e, opp: { ...e.opp, disciplines: v.split(',').map(x => x.trim().toLowerCase()).filter(Boolean) } })} full />
+
+            <Field label="Idiomas (pt, es, en, fr...)" value={(editing.opp.languages || []).join(', ')}
+              onChange={v => setEditing(e => e && { ...e, opp: { ...e.opp, languages: v.split(',').map(x => x.trim().toLowerCase()).filter(Boolean) } })} full />
+
+            <Field label="Keywords (separadas por vírgula)" value={(editing.opp.keywords || []).join(', ')}
+              onChange={v => setEditing(e => e && { ...e, opp: { ...e.opp, keywords: v.split(',').map(x => x.trim()).filter(Boolean) } })} full />
+
+            <label style={s.checkLabel}>
+              <input type="checkbox" checked={!!editing.opp.coversCosts}
+                onChange={e => setEditing(ed => ed && { ...ed, opp: { ...ed.opp, coversCosts: e.target.checked } })}
+                style={{ accentColor: '#1A6994' }} />
+              Cobre custos (viagem / alojamento)
+            </label>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10 }}>
+              <label style={s.fieldLabel}>Notas / requisitos / responsáveis</label>
+              <textarea style={s.textarea} value={editing.opp.notes || ''}
+                onChange={e => setEditing(ed => ed && { ...ed, opp: { ...ed.opp, notes: e.target.value } })}
+                placeholder="Notas internas, requisitos da candidatura, responsáveis..." />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10 }}>
+              <label style={s.fieldLabel}>Descrição pública</label>
+              <textarea style={s.textarea} value={editing.opp.description || ''}
+                onChange={e => setEditing(ed => ed && { ...ed, opp: { ...ed.opp, description: e.target.value } })}
+                placeholder="Descrição do edital / festival para mostrar na ficha..." />
+            </div>
+
+            <div style={s.modalActions}>
+              <button style={s.btnSecondary} onClick={() => setEditing(null)}>Cancelar</button>
+              <button style={s.btnPrimary} onClick={saveEdit}>
+                {editing.isNew && !editing.opp.id ? 'Criar oportunidade' : 'Guardar alterações'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
 }
 
-function BaseOpportunityCard({
-  opp,
-  onDelete,
-  onEdit,
-}: {
-  opp: OpportunityWithSource
-  onDelete: (id: string) => void
-  onEdit: (opp: OpportunityWithSource) => void
+// ─── Field helper ─────────────────────────────────────────────────────────────
+
+function Field({ label, value, onChange, type = 'text', full }: {
+  label: string; value: string; onChange: (v: string) => void; type?: string; full?: boolean
 }) {
   return (
-    <article style={styles.card}>
-      <div style={styles.cardHeader}>
-        <div>
-          <h3 style={styles.cardTitle}>{opp.title}</h3>
-          <div style={styles.badgesRow}>
-            <span style={styles.typeBadge}>{opp.type}</span>
-            {opp.origin && <span style={styles.originBadge}>{opp.origin}</span>}
-          </div>
-        </div>
-      </div>
-
-      <p style={styles.meta}>
-        {opp.organization && opp.organization !== opp.title ? `${opp.organization} · ` : ''}
-        {[opp.countryName || opp.country, opp.city].filter(Boolean).join(' · ')}
-      </p>
-
-      <p style={styles.meta}>
-        {(opp.disciplines || []).join(' · ') || 'sem disciplina'} ·{' '}
-        {opp.status === 'rolling'
-          ? 'sempre aberto'
-          : opp.deadline
-          ? `até ${new Date(opp.deadline).toLocaleDateString('pt-PT')}`
-          : 'sem deadline'}
-      </p>
-
-      {opp.contactEmail && (
-        <p style={styles.contactLine}>
-          ✉ <a href={`mailto:${opp.contactEmail}`} style={styles.contactLink}>{opp.contactEmail}</a>
-        </p>
-      )}
-
-      {opp.url && (
-        <p style={styles.contactLine}>
-          🌐 <a href={opp.url} target="_blank" rel="noreferrer" style={styles.contactLink}>{opp.url}</a>
-        </p>
-      )}
-
-      {opp.notes && <p style={styles.notes}>{opp.notes}</p>}
-
-      <div style={styles.cardFooter}>
-        <button style={styles.secondaryBtn} onClick={() => onEdit(opp)}>
-          {opp.origin === 'manual' ? 'Editar' : 'Duplicar / editar'}
-        </button>
-
-        {opp.origin === 'manual' && (
-          <button style={styles.deleteBtn} onClick={() => onDelete(opp.id)}>
-            Apagar
-          </button>
-        )}
-      </div>
-    </article>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, gridColumn: full ? '1 / -1' : undefined }}>
+      <label style={s.fieldLabel}>{label}</label>
+      <input style={s.input} type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={label} />
+    </div>
   )
 }
 
-function OpportunityCard({
-  opp,
-  onDelete,
-  onEdit,
-}: {
-  opp: ScoredOpportunity & OpportunityWithSource
-  onDelete: (id: string) => void
-  onEdit: (opp: OpportunityWithSource) => void
+// ─── Card com matching ────────────────────────────────────────────────────────
+
+function OppCard({ opp, isManual, onEdit, onDelete }: {
+  opp: ScoredOpportunity; isManual: boolean; onEdit: () => void; onDelete: () => void
 }) {
   const { match } = opp
-  const isBlocked = match.blockers.length > 0
-
-  const scoreColor = isBlocked
-    ? '#666'
-    : match.percentage >= 70
-    ? '#6ef3a5'
-    : match.percentage >= 40
-    ? '#ffcf5c'
-    : '#ff8a8a'
+  const blocked = match.blockers.length > 0
+  const color = blocked ? '#666' : match.percentage >= 70 ? '#6ef3a5' : match.percentage >= 40 ? '#ffcf5c' : '#ff8a8a'
 
   return (
-    <article style={{ ...styles.card, opacity: isBlocked ? 0.55 : 1 }}>
-      <div style={styles.cardHeader}>
+    <article style={{ ...s.card, opacity: blocked ? 0.55 : 1 }}>
+      <div style={s.cardTop}>
         <div>
-          <h3 style={styles.cardTitle}>{opp.title}</h3>
-          <div style={styles.badgesRow}>
-            <span style={styles.typeBadge}>{opp.type}</span>
-            {opp.origin && <span style={styles.originBadge}>{opp.origin}</span>}
+          <h3 style={s.cardTitle}>{opp.title}</h3>
+          <div style={s.pills}>
+            <span style={s.pill}>{opp.type}</span>
+            {opp.coversCosts && <span style={{ ...s.pill, background: 'rgba(93,202,165,0.15)', color: '#5dcaa5' }}>custos cobertos</span>}
           </div>
         </div>
-
-        <span style={{ ...styles.score, color: scoreColor }}>{match.percentage}%</span>
+        <span style={{ ...s.score, color }}>{match.percentage}%</span>
       </div>
 
-      <p style={styles.meta}>
-        {opp.organization !== opp.title && `${opp.organization} · `}
-        {opp.countryName || opp.country}
-        {opp.city ? ` · ${opp.city}` : ''}
-      </p>
+      <p style={s.meta}>{[opp.organization !== opp.title && opp.organization, opp.countryName || opp.country, opp.city].filter(Boolean).join(' · ')}</p>
+      <p style={s.meta}>{(opp.disciplines || []).join(' · ')} · {opp.status === 'rolling' ? '🔁 sempre aberto' : `até ${new Date(opp.deadline).toLocaleDateString('pt-PT')}`}</p>
+      {opp.contactEmail && <p style={s.contact}>✉ <a href={`mailto:${opp.contactEmail}`} style={s.link}>{opp.contactEmail}</a></p>}
+      {opp.feeOffered && <p style={s.meta}>💶 €{opp.feeOffered}</p>}
 
-      <p style={styles.meta}>
-        {(opp.disciplines || []).join(' · ')}
-        {' · '}
-        {opp.status === 'rolling'
-          ? 'sempre aberto'
-          : `até ${new Date(opp.deadline).toLocaleDateString('pt-PT')}`}
-      </p>
+      {match.reasons.length > 0 && <Block color="rgba(110,243,165,0.08)" title="✓ A favor" items={match.reasons.slice(0, 3)} />}
+      {match.warnings.length > 0 && <Block color="rgba(255,207,92,0.08)" title="⚠ Atenção" items={match.warnings.slice(0, 3)} />}
+      {match.blockers.length > 0 && <Block color="rgba(255,138,138,0.08)" title="✕ Bloqueios" items={match.blockers} />}
 
-      {opp.contactEmail && (
-        <p style={styles.contactLine}>
-          ✉ <a href={`mailto:${opp.contactEmail}`} style={styles.contactLink}>{opp.contactEmail}</a>
-        </p>
-      )}
-
-      {match.reasons.length > 0 && (
-        <div style={styles.block}>
-          <strong style={styles.blockTitle}>✓ A favor</strong>
-          <ul style={styles.list}>
-            {match.reasons.slice(0, 4).map((r, i) => <li key={i}>{r}</li>)}
-          </ul>
-        </div>
-      )}
-
-      {match.warnings.length > 0 && (
-        <div style={styles.blockWarn}>
-          <strong style={styles.blockTitle}>⚠ Atenção</strong>
-          <ul style={styles.list}>
-            {match.warnings.slice(0, 3).map((w, i) => <li key={i}>{w}</li>)}
-          </ul>
-        </div>
-      )}
-
-      {match.blockers.length > 0 && (
-        <div style={styles.blockError}>
-          <strong style={styles.blockTitle}>✕ Bloqueios</strong>
-          <ul style={styles.list}>
-            {match.blockers.map((b, i) => <li key={i}>{b}</li>)}
-          </ul>
-        </div>
-      )}
-
-      <div style={styles.cardFooter}>
-        <button style={styles.secondaryBtn} onClick={() => onEdit(opp)}>
-          {opp.origin === 'manual' ? 'Editar' : 'Duplicar / editar'}
-        </button>
-
-        {opp.origin === 'manual' && (
-          <button style={styles.deleteBtn} onClick={() => onDelete(opp.id)}>
-            Apagar
-          </button>
-        )}
+      <div style={s.cardFooter}>
+        <button style={s.btnEdit} onClick={onEdit}>✏ Editar</button>
+        {opp.url && <a href={opp.url} target="_blank" rel="noreferrer" style={s.link}>ver site →</a>}
+        {isManual && <button style={s.btnDelete} onClick={onDelete}>apagar</button>}
       </div>
     </article>
   )
 }
 
-function OpportunityManualForm({
-  mode,
-  initial,
-  onClose,
-  onSaved,
-}: {
-  mode: 'create' | 'edit'
-  initial?: Opportunity
-  onClose: () => void
-  onSaved: () => void
+// ─── Card sem matching ────────────────────────────────────────────────────────
+
+function BaseCard({ opp, isManual, onEdit, onDelete }: {
+  opp: OppWithOrigin; isManual: boolean; onEdit: () => void; onDelete: () => void
 }) {
-  const [form, setForm] = useState<Partial<Opportunity>>(
-    initial || {
-      title: '',
-      organization: '',
-      country: '',
-      countryName: '',
-      city: '',
-      url: '',
-      type: 'open_call',
-      status: 'open',
-      disciplines: [],
-      languages: [],
-      coversCosts: false,
-      deadline: '',
-      contactEmail: '',
-      notes: '',
-      source: 'manual',
-    }
-  )
-
-  function update(field: string, value: any) {
-    setForm(prev => ({ ...prev, [field]: value }))
-  }
-
-  function save() {
-    if (!form.title?.trim()) {
-      alert('Título obrigatório.')
-      return
-    }
-
-    const opp: Opportunity = {
-      id: initial?.id || 'manual-opp-' + crypto.randomUUID(),
-      title: form.title || '',
-      organization: form.organization || form.title || '',
-      url: form.url || '',
-      type: form.type as any,
-      status: form.status as any,
-      country: form.country || '',
-      countryName: form.countryName || form.country || '',
-      city: form.city || '',
-      disciplines: form.disciplines || [],
-      languages: form.languages || [],
-      coversCosts: !!form.coversCosts,
-      deadline: form.deadline || '2026-12-31',
-      contactEmail: form.contactEmail || '',
-      notes: form.notes || '',
-      source: initial?.source || 'manual',
-      keywords: form.keywords || [],
-    }
-
-    if (mode === 'edit') updateManualOpportunity(opp)
-    else addManualOpportunity(opp)
-
-    onSaved()
-  }
-
   return (
-    <div style={styles.overlay}>
-      <div style={styles.modal}>
-        <h3 style={styles.modalTitle}>
-          {mode === 'edit' ? 'Editar oportunidade' : 'Nova oportunidade'}
-        </h3>
-
-        <div style={styles.formGrid}>
-          <input style={styles.input} placeholder="Título *" value={form.title || ''} onChange={e => update('title', e.target.value)} />
-          <input style={styles.input} placeholder="Organização / venue" value={form.organization || ''} onChange={e => update('organization', e.target.value)} />
-          <input style={styles.input} placeholder="País (AT, ES, PT...)" value={form.country || ''} onChange={e => update('country', e.target.value)} />
-          <input style={styles.input} placeholder="Cidade" value={form.city || ''} onChange={e => update('city', e.target.value)} />
-          <input style={styles.input} placeholder="Website / edital" value={form.url || ''} onChange={e => update('url', e.target.value)} />
-          <input style={styles.input} placeholder="Email contacto" value={form.contactEmail || ''} onChange={e => update('contactEmail', e.target.value)} />
-          <input style={styles.input} type="date" value={form.deadline || ''} onChange={e => update('deadline', e.target.value)} />
-
-          <select style={styles.input} value={form.type || 'open_call'} onChange={e => update('type', e.target.value)}>
-            <option value="open_call">Edital / Open call</option>
-            <option value="festival">Festival</option>
-            <option value="residency">Residência</option>
-            <option value="showcase">Showcase</option>
-            <option value="grant">Financiamento</option>
-            <option value="commission">Comissão</option>
-          </select>
-
-          <input
-            style={styles.input}
-            placeholder="Disciplinas: musica, danca, performance..."
-            value={(form.disciplines || []).join(', ')}
-            onChange={e => update('disciplines', e.target.value.split(',').map(x => cleanText(x)).filter(Boolean))}
-          />
-
-          <input
-            style={styles.input}
-            placeholder="Idiomas: pt, es, en..."
-            value={(form.languages || []).join(', ')}
-            onChange={e => update('languages', e.target.value.split(',').map(x => cleanText(x)).filter(Boolean))}
-          />
-        </div>
-
-        <label style={styles.checkbox}>
-          <input type="checkbox" checked={!!form.coversCosts} onChange={e => update('coversCosts', e.target.checked)} />
-          Cobre custos
-        </label>
-
-        <textarea
-          style={styles.textarea}
-          placeholder="Notas / requisitos / documentos / responsáveis"
-          value={form.notes || ''}
-          onChange={e => update('notes', e.target.value)}
-        />
-
-        <div style={styles.modalActions}>
-          <button style={styles.secondaryBtn} onClick={onClose}>Cancelar</button>
-          <button style={styles.primaryBtn} onClick={save}>
-            {mode === 'edit' ? 'Guardar alterações' : 'Guardar oportunidade'}
-          </button>
+    <article style={s.card}>
+      <div style={s.cardTop}>
+        <div>
+          <h3 style={s.cardTitle}>{opp.title}</h3>
+          <div style={s.pills}>
+            <span style={s.pill}>{opp.type}</span>
+            {opp._origin !== 'manual' && <span style={{ ...s.pill, background: 'rgba(110,243,165,0.1)', color: '#6ef3a5' }}>{opp._origin}</span>}
+            {opp.coversCosts && <span style={{ ...s.pill, background: 'rgba(93,202,165,0.15)', color: '#5dcaa5' }}>custos cobertos</span>}
+          </div>
         </div>
       </div>
+      <p style={s.meta}>{[opp.organization !== opp.title && opp.organization, opp.countryName || opp.country, opp.city].filter(Boolean).join(' · ')}</p>
+      <p style={s.meta}>{(opp.disciplines || []).join(' · ')} · {opp.status === 'rolling' ? '🔁 sempre aberto' : opp.deadline ? `até ${new Date(opp.deadline).toLocaleDateString('pt-PT')}` : '—'}</p>
+      {opp.contactEmail && <p style={s.contact}>✉ <a href={`mailto:${opp.contactEmail}`} style={s.link}>{opp.contactEmail}</a></p>}
+      {opp.feeOffered && <p style={s.meta}>💶 €{opp.feeOffered}</p>}
+      {opp.notes && <p style={s.notes}>{opp.notes}</p>}
+      <div style={s.cardFooter}>
+        <button style={s.btnEdit} onClick={onEdit}>✏ Editar</button>
+        {opp.url && <a href={opp.url} target="_blank" rel="noreferrer" style={s.link}>ver site →</a>}
+        {isManual && <button style={s.btnDelete} onClick={onDelete}>apagar</button>}
+      </div>
+    </article>
+  )
+}
+
+// ─── Block de razões/avisos ───────────────────────────────────────────────────
+
+function Block({ color, title, items }: { color: string; title: string; items: string[] }) {
+  return (
+    <div style={{ marginTop: 8, padding: 8, background: color, borderRadius: 6 }}>
+      <strong style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>{title}</strong>
+      <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, lineHeight: 1.5 }}>
+        {items.map((r, i) => <li key={i}>{r}</li>)}
+      </ul>
     </div>
   )
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  wrapper: { maxWidth: 1180, margin: '0 auto', padding: '24px 20px', color: '#fff' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 14 },
-  headerActions: { display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' },
+// ─── Estilos ──────────────────────────────────────────────────────────────────
+
+const s: Record<string, React.CSSProperties> = {
+  wrap: { maxWidth: 1180, margin: '0 auto', padding: '24px 20px', color: '#fff' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 16, flexWrap: 'wrap' },
   title: { margin: 0, fontSize: 24, color: '#fff' },
-  version: { fontSize: 11, color: '#6ef3a5', background: 'rgba(110,243,165,0.12)', padding: '2px 8px', borderRadius: 10, marginLeft: 8 },
-  subtitle: { margin: '5px 0 0', color: '#bbb', fontSize: 14 },
-  poolSize: { margin: '4px 0 0', color: 'rgba(255,255,255,0.4)', fontSize: 12 },
-  importSummary: { margin: '5px 0 0', color: '#6ef3a5', fontSize: 12 },
-  muted: { opacity: 0.7 },
-  helpBox: { marginBottom: 16, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: 10, color: 'rgba(255,255,255,0.58)', fontSize: 12, lineHeight: 1.5 },
-  toolbar: { display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 10, marginBottom: 18 },
-  search: { padding: '11px 14px', background: '#0a0a0a', color: '#fff', border: '0.5px solid rgba(255,255,255,0.12)', borderRadius: 8, fontSize: 13, outline: 'none' },
-  select: { padding: '11px 14px', background: '#0a0a0a', color: '#fff', border: '0.5px solid rgba(255,255,255,0.12)', borderRadius: 8, fontSize: 13, outline: 'none' },
+  badge: { fontSize: 11, color: '#6ef3a5', background: 'rgba(110,243,165,0.12)', padding: '2px 8px', borderRadius: 10, marginLeft: 8, fontWeight: 400 },
+  sub: { margin: '4px 0 0', color: '#bbb', fontSize: 14 },
+  pool: { margin: '3px 0 0', color: 'rgba(255,255,255,0.4)', fontSize: 12 },
+  note: { margin: '4px 0 0', color: '#6ef3a5', fontSize: 12 },
+  actions: { display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' },
+  toolbar: { display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: 10, marginBottom: 18, alignItems: 'center' },
+  search: { padding: '10px 14px', background: '#0a0a0a', color: '#fff', border: '0.5px solid rgba(255,255,255,0.12)', borderRadius: 8, fontSize: 13, outline: 'none' },
+  select: { padding: '10px 14px', background: '#0a0a0a', color: '#fff', border: '0.5px solid rgba(255,255,255,0.12)', borderRadius: 8, fontSize: 13, outline: 'none' },
+  checkLabel: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'rgba(255,255,255,0.65)', cursor: 'pointer', whiteSpace: 'nowrap' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 },
-  card: { background: '#111', border: '1px solid #2a2a2a', borderRadius: 12, padding: 16, color: '#eee' },
-  cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 6 },
-  cardTitle: { margin: 0, fontSize: 16, lineHeight: 1.3 },
-  badgesRow: { display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' },
-  typeBadge: { display: 'inline-block', fontSize: 10, padding: '2px 8px', borderRadius: 10, background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.55)' },
-  originBadge: { display: 'inline-block', fontSize: 10, padding: '2px 8px', borderRadius: 10, background: 'rgba(110,243,165,0.10)', color: '#6ef3a5' },
+  card: { background: '#111', border: '1px solid #2a2a2a', borderRadius: 12, padding: 16, color: '#eee', display: 'flex', flexDirection: 'column', gap: 4 },
+  cardTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 4 },
+  cardTitle: { margin: 0, fontSize: 15, lineHeight: 1.3, color: '#fff' },
+  pills: { display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' },
+  pill: { fontSize: 10, padding: '2px 8px', borderRadius: 10, background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.55)' },
   score: { fontWeight: 700, fontSize: 20, whiteSpace: 'nowrap' },
-  meta: { margin: '6px 0', fontSize: 13, color: '#aaa' },
-  contactLine: { margin: '6px 0', fontSize: 12, color: 'rgba(255,255,255,0.5)', wordBreak: 'break-all' },
-  contactLink: { color: '#7ab6ff', textDecoration: 'none' },
-  notes: { fontSize: 12, color: 'rgba(255,255,255,0.50)', lineHeight: 1.5, marginTop: 10 },
-  block: { marginTop: 10, padding: 8, background: 'rgba(110, 243, 165, 0.08)', borderRadius: 6 },
-  blockWarn: { marginTop: 8, padding: 8, background: 'rgba(255, 207, 92, 0.08)', borderRadius: 6 },
-  blockError: { marginTop: 8, padding: 8, background: 'rgba(255, 138, 138, 0.08)', borderRadius: 6 },
-  blockTitle: { fontSize: 12, display: 'block', marginBottom: 4 },
-  list: { margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.5 },
-  cardFooter: { marginTop: 12, display: 'flex', justifyContent: 'flex-end', gap: 10, alignItems: 'center', flexWrap: 'wrap' },
-  deleteBtn: { background: 'rgba(255,70,70,0.12)', color: '#ff8a8a', border: '1px solid rgba(255,70,70,0.25)', borderRadius: 8, padding: '7px 10px', fontSize: 12, cursor: 'pointer' },
-  toggleBlocked: { background: 'transparent', border: '0.5px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.65)', padding: '8px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer' },
-  emptyResults: { textAlign: 'center', padding: 40, color: 'rgba(255,255,255,0.4)', fontSize: 14 },
-  primaryBtn: { background: '#1676a3', color: '#fff', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
-  importBtn: { background: 'rgba(255,207,92,0.10)', color: '#ffcf5c', border: '1px solid rgba(255,207,92,0.30)', borderRadius: 8, padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
-  clearBtn: { background: 'rgba(255,80,80,0.10)', color: '#ff8a8a', border: '1px solid rgba(255,80,80,0.25)', borderRadius: 8, padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
-  secondaryBtn: { background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '9px 14px', fontSize: 13, cursor: 'pointer' },
-  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
-  modal: { width: 'min(860px, 100%)', maxHeight: '90vh', overflowY: 'auto', background: '#050505', border: '1px solid #1676a3', borderRadius: 14, padding: 22 },
-  modalTitle: { margin: '0 0 18px', color: '#fff', fontSize: 22 },
-  formGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 },
-  input: { background: '#111', color: '#fff', border: '1px solid #1676a3', borderRadius: 8, padding: '11px 12px', fontSize: 13, outline: 'none' },
-  checkbox: { display: 'flex', gap: 8, alignItems: 'center', marginTop: 12, fontSize: 13, color: '#ddd' },
-  textarea: { width: '100%', minHeight: 110, marginTop: 10, background: '#111', color: '#fff', border: '1px solid #1676a3', borderRadius: 8, padding: 12, fontSize: 13, outline: 'none', resize: 'vertical', boxSizing: 'border-box' },
-  modalActions: { display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 },
+  meta: { margin: '2px 0', fontSize: 13, color: '#aaa' },
+  contact: { margin: '2px 0', fontSize: 12, color: 'rgba(255,255,255,0.5)' },
+  notes: { fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.5 },
+  link: { color: '#7ab6ff', textDecoration: 'none' },
+  cardFooter: { marginTop: 10, display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' },
+  btnEdit: { background: 'rgba(26,105,148,0.15)', color: '#60b4e8', border: '0.5px solid rgba(26,105,148,0.4)', borderRadius: 7, padding: '6px 12px', fontSize: 12, cursor: 'pointer' },
+  btnDelete: { background: 'rgba(255,70,70,0.1)', color: '#ff8a8a', border: '0.5px solid rgba(255,70,70,0.3)', borderRadius: 7, padding: '6px 12px', fontSize: 12, cursor: 'pointer' },
+  toggleBtn: { background: 'transparent', border: '0.5px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)', padding: '8px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer' },
+  empty: { textAlign: 'center', padding: 60, color: 'rgba(255,255,255,0.35)', fontSize: 14 },
+  btnPrimary: { background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
+  btnSecondary: { background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '9px 14px', fontSize: 13, cursor: 'pointer' },
+  btnImport: { background: 'rgba(255,207,92,0.1)', color: '#ffcf5c', border: '1px solid rgba(255,207,92,0.3)', borderRadius: 8, padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
+  btnClear: { background: 'rgba(255,80,80,0.08)', color: '#ff8a8a', border: '1px solid rgba(255,80,80,0.25)', borderRadius: 8, padding: '9px 14px', fontSize: 13, cursor: 'pointer' },
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
+  modal: { width: 'min(900px, 100%)', maxHeight: '90vh', overflowY: 'auto', background: '#050505', border: '1px solid #1A6994', borderRadius: 14, padding: 24 },
+  modalTitle: { margin: '0 0 20px', color: '#fff', fontSize: 22 },
+  formGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10, marginBottom: 10 },
+  fieldLabel: { fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.05em' },
+  input: { background: '#111', color: '#fff', border: '1px solid rgba(26,105,148,0.5)', borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' },
+  textarea: { background: '#111', color: '#fff', border: '1px solid rgba(26,105,148,0.5)', borderRadius: 8, padding: 10, fontSize: 13, outline: 'none', width: '100%', minHeight: 80, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' },
+  modalActions: { display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 },
 }
