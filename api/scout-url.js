@@ -1,8 +1,7 @@
 // api/scout-url.js
-// SOMA ODÉ — Scout assistido por URL
-// Recebe URL, lê página, usa Claude API para extrair oportunidade em JSON.
+// SOMA ODÉ — Scout assistido por URL usando OpenAI
 
-const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5-20250929'
+const DEFAULT_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini'
 
 function stripHtml(html) {
   return html
@@ -19,10 +18,8 @@ function stripHtml(html) {
 }
 
 function fallbackExtract(url, text) {
-  const titleMatch = text.match(/.{0,80}(open call|convocatoria|call|residency|residência|festival).{0,120}/i)
-
   return {
-    title: titleMatch ? titleMatch[0].trim().slice(0, 160) : 'Oportunidade extraída por URL',
+    title: 'Oportunidade extraída por URL',
     organization: '',
     type: 'Edital',
     country: '',
@@ -32,7 +29,7 @@ function fallbackExtract(url, text) {
     disciplines: [],
     languages: [],
     deadline: '',
-    summary: text.slice(0, 500),
+    summary: text.slice(0, 700),
     link: url,
     keywords: [],
     requirements: [],
@@ -44,7 +41,7 @@ function fallbackExtract(url, text) {
       fee: false
     },
     coversCosts: false,
-    notes: 'Extração automática sem IA completa. Rever manualmente.'
+    notes: 'Extração básica. Rever manualmente.'
   }
 }
 
@@ -75,10 +72,10 @@ export default async function handler(req, res) {
     const html = await page.text()
     const text = stripHtml(html).slice(0, 18000)
 
-    if (!process.env.ANTHROPIC_API_KEY) {
+    if (!process.env.OPENAI_API_KEY) {
       return res.status(200).json({
         opportunity: fallbackExtract(url, text),
-        warning: 'ANTHROPIC_API_KEY não configurada. Usei extração básica.'
+        warning: 'OPENAI_API_KEY não configurada. Usei extração básica.'
       })
     }
 
@@ -120,10 +117,6 @@ Campos obrigatórios:
 Regras:
 - Se não souber um campo, deixa vazio.
 - countryCode deve ser ISO de 2 letras quando possível: ES, PT, BR, FR, DE etc.
-- regionId deve seguir estes valores quando possível:
-  europa_ocidental, europa_do_leste, america_sul, america_norte_central,
-  africa_ocidental, africa_oriental_austral, africa_norte,
-  medio_oriente, asia_oriental, asia_meridional, sudeste_asiatico, oceania.
 - requirements pode incluir: bio, pressPhoto, videoPresentation, technicalRider, pressKit, pressClippings, motivationLetter, projectDescription.
 - disciplines deve usar valores simples: musica, danca, teatro, performance, cinema, artes_visuais, pesquisa, multidisciplinar.
 - Faz uma síntese curta, prática e útil para produção.
@@ -132,17 +125,21 @@ TEXTO DA PÁGINA:
 ${text}
 `
 
-    const ai = await fetch('https://api.anthropic.com/v1/messages', {
+    const ai = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
+        authorization: `Bearer ${process.env.OPENAI_API_KEY}`
       },
       body: JSON.stringify({
         model: DEFAULT_MODEL,
-        max_tokens: 1800,
+        temperature: 0.2,
+        response_format: { type: 'json_object' },
         messages: [
+          {
+            role: 'system',
+            content: 'Responde apenas com JSON válido.'
+          },
           {
             role: 'user',
             content: prompt
@@ -152,33 +149,24 @@ ${text}
     })
 
     if (!ai.ok) {
-      const err = await ai.text()
+      const detail = await ai.text()
       return res.status(500).json({
-        error: 'Erro na API da Anthropic.',
-        detail: err.slice(0, 500)
+        error: 'Erro na API da OpenAI.',
+        detail: detail.slice(0, 800)
       })
     }
 
     const data = await ai.json()
-    const raw = (data.content || [])
-      .map(block => block.type === 'text' ? block.text : '')
-      .join('\n')
-      .trim()
-
-    const cleaned = raw
-      .replace(/^```json/i, '')
-      .replace(/^```/i, '')
-      .replace(/```$/i, '')
-      .trim()
+    const raw = data.choices?.[0]?.message?.content || ''
 
     let opportunity
 
     try {
-      opportunity = JSON.parse(cleaned)
+      opportunity = JSON.parse(raw)
     } catch {
       return res.status(500).json({
         error: 'A IA devolveu JSON inválido.',
-        raw: cleaned.slice(0, 1000)
+        raw: raw.slice(0, 1000)
       })
     }
 
