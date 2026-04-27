@@ -92,6 +92,19 @@ function normalizeForStore(op: ExtractedOpportunity) {
   }
 }
 
+function extractReadableError(data: any) {
+  if (typeof data?.detail === 'string') return data.detail
+  if (data?.detail?.error?.message) return data.detail.error.message
+  if (data?.detail?.message) return data.detail.message
+  if (data?.error) return data.error
+
+  try {
+    return JSON.stringify(data)
+  } catch {
+    return 'Erro ao extrair oportunidade.'
+  }
+}
+
 export default function ScoutUrlExtractor({ onSave }: Props) {
   const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
@@ -115,7 +128,7 @@ export default function ScoutUrlExtractor({ onSave }: Props) {
       const data = await res.json()
 
       if (!res.ok) {
-        throw new Error(data.error || 'Erro ao extrair oportunidade.')
+        throw new Error(extractReadableError(data))
       }
 
       setOpportunity(data.opportunity)
@@ -383,6 +396,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 10,
     borderRadius: 8,
     fontSize: 13,
+    whiteSpace: 'pre-wrap',
   },
   warning: {
     marginTop: 12,

@@ -53,14 +53,13 @@ export default async function handler(req, res) {
   try {
     const { url } = req.body || {}
 
-    if (!url || typeof url !== 'string') {
+    if (!url) {
       return res.status(400).json({ error: 'URL obrigatória.' })
     }
 
+    // 🔹 1. Ler página
     const page = await fetch(url, {
-      headers: {
-        'user-agent': 'SOMA-ODE-Scout/1.0'
-      }
+      headers: { 'user-agent': 'SOMA-ODE-Scout/1.0' }
     })
 
     if (!page.ok) {
@@ -70,35 +69,33 @@ export default async function handler(req, res) {
     }
 
     const html = await page.text()
-    const text = stripHtml(html).slice(0, 18000)
+    const text = stripHtml(html).slice(0, 15000)
 
+    // 🔹 2. Fallback se não houver API KEY
     if (!process.env.OPENAI_API_KEY) {
       return res.status(200).json({
         opportunity: fallbackExtract(url, text),
-        warning: 'OPENAI_API_KEY não configurada. Usei extração básica.'
+        warning: 'OPENAI_API_KEY não configurada.'
       })
     }
 
+    // 🔹 3. Prompt
     const prompt = `
-És um assistente de produção cultural da SOMA ODÉ.
+Extrai uma oportunidade cultural em JSON.
 
-Lê o texto de uma página de oportunidade cultural e extrai uma oportunidade estruturada.
-
-Responde APENAS em JSON válido. Não uses markdown.
-
-Campos obrigatórios:
+Campos:
 
 {
   "title": "",
   "organization": "",
-  "type": "Residência | Festival | Edital | Showcase | Touring | Comissão | Premio | Outro",
+  "type": "",
   "country": "",
   "countryCode": "",
   "city": "",
   "regionId": "",
   "disciplines": [],
   "languages": [],
-  "deadline": "YYYY-MM-DD ou vazio se não houver",
+  "deadline": "",
   "summary": "",
   "link": "${url}",
   "keywords": [],
@@ -114,17 +111,11 @@ Campos obrigatórios:
   "notes": ""
 }
 
-Regras:
-- Se não souber um campo, deixa vazio.
-- countryCode deve ser ISO de 2 letras quando possível: ES, PT, BR, FR, DE etc.
-- requirements pode incluir: bio, pressPhoto, videoPresentation, technicalRider, pressKit, pressClippings, motivationLetter, projectDescription.
-- disciplines deve usar valores simples: musica, danca, teatro, performance, cinema, artes_visuais, pesquisa, multidisciplinar.
-- Faz uma síntese curta, prática e útil para produção.
-
-TEXTO DA PÁGINA:
+Texto:
 ${text}
 `
 
+    // 🔹 4. OpenAI call
     const ai = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -136,23 +127,25 @@ ${text}
         temperature: 0.2,
         response_format: { type: 'json_object' },
         messages: [
-          {
-            role: 'system',
-            content: 'Responde apenas com JSON válido.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
+          { role: 'system', content: 'Responde apenas JSON válido.' },
+          { role: 'user', content: prompt }
         ]
       })
     })
 
+    // 🔴 DEBUG REAL
     if (!ai.ok) {
       const detail = await ai.text()
-      return res.status(500).json({
-        error: 'Erro na API da OpenAI.',
-        detail: detail.slice(0, 800)
+
+      let parsed = detail
+      try {
+        parsed = JSON.parse(detail)
+      } catch {}
+
+      return res.status(ai.status).json({
+        error: 'Erro na API da OpenAI',
+        status: ai.status,
+        detail: parsed
       })
     }
 
@@ -165,15 +158,16 @@ ${text}
       opportunity = JSON.parse(raw)
     } catch {
       return res.status(500).json({
-        error: 'A IA devolveu JSON inválido.',
-        raw: raw.slice(0, 1000)
+        error: 'JSON inválido da OpenAI',
+        raw: raw.slice(0, 800)
       })
     }
 
     return res.status(200).json({ opportunity })
-  } catch (error) {
+
+  } catch (err) {
     return res.status(500).json({
-      error: error?.message || 'Erro desconhecido no Scout.'
+      error: err.message || 'Erro interno'
     })
   }
 }
