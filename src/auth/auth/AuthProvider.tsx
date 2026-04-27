@@ -1,14 +1,15 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import type { Role } from './permissions'
 
-type User = {
+type AuthUser = {
   id: string
   email: string
-  role: string
+  role: Role
 }
 
 type AuthContextType = {
-  user: User | null
+  user: AuthUser | null
   loading: boolean
   signOut: () => Promise<void>
 }
@@ -20,43 +21,41 @@ const AuthContext = createContext<AuthContextType>({
 })
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
 
+  function handleSession(session: any) {
+    if (!session?.user) {
+      setUser(null)
+      return
+    }
+
+    const role = (session.user.user_metadata?.role || 'viewer') as Role
+
+    setUser({
+      id: session.user.id,
+      email: session.user.email || '',
+      role,
+    })
+  }
+
   useEffect(() => {
-    const getSession = async () => {
+    async function init() {
       const { data } = await supabase.auth.getSession()
       handleSession(data.session)
       setLoading(false)
     }
 
-    getSession()
+    init()
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        handleSession(session)
-      }
-    )
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      handleSession(session)
+    })
 
     return () => {
-      listener.subscription.unsubscribe()
+      data.subscription.unsubscribe()
     }
   }, [])
-
-  function handleSession(session: any) {
-    if (!session) {
-      setUser(null)
-      return
-    }
-
-    const role = session.user.user_metadata?.role || 'viewer'
-
-    setUser({
-      id: session.user.id,
-      email: session.user.email,
-      role,
-    })
-  }
 
   async function signOut() {
     await supabase.auth.signOut()
