@@ -1,7 +1,10 @@
-// src/App.tsx — SOMA ODÉ
-// Mantém a estrutura atual + Documentos como sistema interno
+// src/App.tsx — SOMA ODÉ (con Login + Roles + Protección)
 
 import { useState } from 'react'
+
+import { AuthProvider, useAuth } from './auth/AuthProvider'
+import LoginScreen from './auth/LoginScreen'
+import { hasAccess } from './auth/permissions'
 
 import ArtistManager from './components/ArtistManager'
 import MatchView from './components/MatchView'
@@ -9,6 +12,8 @@ import ContactsView from './components/ContactsView'
 import ContractManager from './components/ContractManager'
 import PipelineView from './components/PipelineView'
 import DocumentsView from './components/DocumentsView'
+
+// ─────────────────────────────────────────────────────────────
 
 type Tab =
   | 'ARTISTAS'
@@ -18,20 +23,42 @@ type Tab =
   | 'PIPELINE'
   | 'DOCUMENTOS'
 
-const tabs: { id: Tab; label: string }[] = [
-  { id: 'ARTISTAS', label: 'Artistas' },
-  { id: 'OPORTUNIDADES', label: 'Oportunidades' },
-  { id: 'CONTACTOS', label: 'Contactos' },
-  { id: 'CONTRATOS', label: 'Contratos' },
-  { id: 'PIPELINE', label: 'Pipeline' },
-  { id: 'DOCUMENTOS', label: 'Documentos' },
+const tabs: { id: Tab; label: string; permission: string }[] = [
+  { id: 'ARTISTAS', label: 'Artistas', permission: 'artists' },
+  { id: 'OPORTUNIDADES', label: 'Oportunidades', permission: 'opportunities' },
+  { id: 'CONTACTOS', label: 'Contactos', permission: 'contacts' },
+  { id: 'CONTRATOS', label: 'Contratos', permission: 'contracts' },
+  { id: 'PIPELINE', label: 'Pipeline', permission: 'pipeline' },
+  { id: 'DOCUMENTOS', label: 'Documentos', permission: 'documents' },
 ]
 
-export default function App() {
+// ─────────────────────────────────────────────────────────────
+
+function AppContent() {
+  const { user, loading, signOut } = useAuth()
   const [activeTab, setActiveTab] = useState<Tab>('ARTISTAS')
+
+  if (loading) {
+    return <div style={{ padding: 40 }}>Loading...</div>
+  }
+
+  if (!user) {
+    return <LoginScreen />
+  }
+
+  // Filtrar tabs según permisos
+  const visibleTabs = tabs.filter(tab =>
+    hasAccess(user.role as any, tab.permission)
+  )
+
+  // Si la tab actual no está permitida → fallback
+  const safeTab = visibleTabs.find(t => t.id === activeTab)
+    ? activeTab
+    : visibleTabs[0]?.id
 
   return (
     <div style={styles.app}>
+      {/* HEADER */}
       <header style={styles.header}>
         <div style={styles.logoWrap}>
           <span style={styles.logo}>SOMA</span>
@@ -39,12 +66,12 @@ export default function App() {
         </div>
 
         <nav style={styles.nav}>
-          {tabs.map(tab => (
+          {visibleTabs.map(tab => (
             <button
               key={tab.id}
               style={{
                 ...styles.navButton,
-                ...(activeTab === tab.id ? styles.navButtonActive : {}),
+                ...(safeTab === tab.id ? styles.navButtonActive : {}),
               }}
               onClick={() => setActiveTab(tab.id)}
             >
@@ -52,26 +79,61 @@ export default function App() {
             </button>
           ))}
         </nav>
+
+        {/* USER */}
+        <div style={styles.userBox}>
+          <span style={styles.userText}>
+            {user.email} · {user.role}
+          </span>
+          <button style={styles.logoutBtn} onClick={signOut}>
+            Sair
+          </button>
+        </div>
       </header>
 
+      {/* MAIN */}
       <main style={styles.main}>
-        {activeTab === 'ARTISTAS' && <ArtistManager />}
-        {activeTab === 'OPORTUNIDADES' && <MatchView />}
-        {activeTab === 'CONTACTOS' && <ContactsView />}
-        {activeTab === 'CONTRATOS' && <ContractManager />}
-        {activeTab === 'PIPELINE' && <PipelineView />}
-        {activeTab === 'DOCUMENTOS' && <DocumentsView />}
+        {safeTab === 'ARTISTAS' &&
+          hasAccess(user.role as any, 'artists') && <ArtistManager />}
+
+        {safeTab === 'OPORTUNIDADES' &&
+          hasAccess(user.role as any, 'opportunities') && <MatchView />}
+
+        {safeTab === 'CONTACTOS' &&
+          hasAccess(user.role as any, 'contacts') && <ContactsView />}
+
+        {safeTab === 'CONTRATOS' &&
+          hasAccess(user.role as any, 'contracts') && <ContractManager />}
+
+        {safeTab === 'PIPELINE' &&
+          hasAccess(user.role as any, 'pipeline') && <PipelineView />}
+
+        {safeTab === 'DOCUMENTOS' &&
+          hasAccess(user.role as any, 'documents') && <DocumentsView />}
       </main>
     </div>
   )
 }
+
+// ─────────────────────────────────────────────────────────────
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
 
 const styles: Record<string, React.CSSProperties> = {
   app: {
     minHeight: '100vh',
     background: '#000',
     color: '#fff',
-    fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    fontFamily:
+      'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   },
 
   header: {
@@ -85,6 +147,7 @@ const styles: Record<string, React.CSSProperties> = {
     top: 0,
     zIndex: 100,
     boxSizing: 'border-box',
+    gap: 20,
   },
 
   logoWrap: {
@@ -113,7 +176,8 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: 8,
     flexWrap: 'wrap',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    flex: 1,
   },
 
   navButton: {
@@ -130,6 +194,27 @@ const styles: Record<string, React.CSSProperties> = {
   navButtonActive: {
     background: 'rgba(255,255,255,0.18)',
     border: '1px solid rgba(255,255,255,0.42)',
+  },
+
+  userBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+  },
+
+  userText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.75)',
+  },
+
+  logoutBtn: {
+    background: 'rgba(0,0,0,0.25)',
+    border: '1px solid rgba(255,255,255,0.3)',
+    color: '#fff',
+    padding: '6px 10px',
+    borderRadius: 6,
+    cursor: 'pointer',
+    fontSize: 12,
   },
 
   main: {
