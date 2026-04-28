@@ -1,5 +1,5 @@
 // src/types/artist.ts
-// SOMA ODÉ — Artist type completo com Google Drive + Cartografia
+// SOMA ODÉ — Artist type completo com Google Drive + Cartografia + Portal do Artista
 
 // ─── Sub-tipos ─────────────────────────────────────────────
 
@@ -95,6 +95,8 @@ export type Cartografia = {
 
 export type Artist = {
   id: string
+  userId?: string  // Liga artista a auth.users (Portal do Artista)
+
   name: string
   artisticName?: string
   legalName?: string
@@ -140,6 +142,7 @@ export type Artist = {
 
 export function emptyArtist(): Omit<Artist, 'id'> {
   return {
+    userId: undefined,
     name: '',
     artisticName: '',
     legalName: '',

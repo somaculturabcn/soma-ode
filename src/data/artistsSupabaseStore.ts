@@ -1,5 +1,5 @@
 // src/data/artistsSupabaseStore.ts
-// SOMA ODÉ — Store Supabase para Artist completo (9 secções)
+// SOMA ODÉ — Store Supabase para Artist completo (9 secções + Portal do Artista)
 
 import { supabase } from '../lib/supabase'
 import type { Artist } from '../types/artist'
@@ -19,6 +19,25 @@ export async function loadArtistsFromSupabase(): Promise<Artist[]> {
   }
 
   return (data || []).map(rowToArtist)
+}
+
+// ─── LOAD ARTIST BY USER ID ──────────────────────
+// Usado pelo Portal do Artista: carrega só o artista ligado ao utilizador
+
+export async function loadArtistByUserId(userId: string): Promise<Artist | null> {
+  const { data, error } = await supabase
+    .from('artists')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (error) {
+    console.error('Erro ao carregar artista por user_id:', error)
+    return null
+  }
+
+  if (!data) return null
+  return rowToArtist(data)
 }
 
 // ─── SAVE (insert ou update) ──────────────────────
@@ -60,6 +79,7 @@ export async function deleteArtistFromSupabase(id: string) {
 function artistToRow(a: Artist): any {
   return {
     id: a.id,
+    user_id: a.userId || null,
 
     // 01 · Identidade
     artistic_name: a.name || a.artisticName || '',
@@ -124,6 +144,7 @@ function rowToArtist(row: any): Artist {
       ...emptyArtist(),
       ...row.payload,
       id: row.id,
+      userId: row.user_id,
       // Sobrescreve com colunas SQL (mais frescas que payload)
       name: row.artistic_name || row.payload.name || '',
       cartografia: row.cartografia || row.payload.cartografia || {},
@@ -139,6 +160,7 @@ function rowToArtist(row: any): Artist {
   return {
     ...emptyArtist(),
     id: row.id,
+    userId: row.user_id,
     name: row.artistic_name || '',
     legalName: row.legal_name || '',
     pronouns: row.pronouns || '',
