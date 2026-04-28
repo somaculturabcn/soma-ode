@@ -1,8 +1,5 @@
 // src/data/artistsSupabaseStore.ts
-
 import { supabase } from '../lib/supabase'
-
-// ─── LOAD ─────────────────────────────────────
 
 export async function loadArtistsFromSupabase() {
   const { data, error } = await supabase
@@ -12,15 +9,15 @@ export async function loadArtistsFromSupabase() {
 
   if (error) {
     console.error('Erro ao carregar artistas:', error)
-    throw error
+    return []
   }
 
-  return (data || []).map(row => row.payload)
+  return (data || []).map(row => row.payload).filter(Boolean)
 }
 
-// ─── SAVE ─────────────────────────────────────
-
 export async function saveArtistToSupabase(artist: any) {
+  const payload = artist
+
   const { error } = await supabase
     .from('artists')
     .upsert({
@@ -34,10 +31,24 @@ export async function saveArtistToSupabase(artist: any) {
       origin_country: artist.origin,
       base_city: artist.base,
       residence_country: artist.residenceCountry,
-      disciplines: artist.disciplines,
-      languages: artist.languages,
+      disciplines: artist.disciplines || [],
+      languages: artist.languages || [],
       bio: artist.bio,
-      payload: artist,
+      keywords: artist.keywords || [],
+      target_countries: artist.targetCountries || [],
+      projects: artist.projects || [],
+      materials_count: Object.entries(artist.materials || {}).filter(
+        ([, v]) => typeof v === 'boolean' && v
+      ).length,
+      mobility: {
+        canTravel: artist.canTravel,
+        hasEUPassport: artist.hasEUPassport,
+        passportCountry: artist.passportCountry,
+        minFee: artist.minFee,
+        availability: artist.availability,
+        visaNeeds: artist.visaNeeds,
+      },
+      payload,
     })
 
   if (error) {
@@ -46,13 +57,8 @@ export async function saveArtistToSupabase(artist: any) {
   }
 }
 
-// ─── DELETE ───────────────────────────────────
-
 export async function deleteArtistFromSupabase(id: string) {
-  const { error } = await supabase
-    .from('artists')
-    .delete()
-    .eq('id', id)
+  const { error } = await supabase.from('artists').delete().eq('id', id)
 
   if (error) {
     console.error('Erro ao apagar artista:', error)
