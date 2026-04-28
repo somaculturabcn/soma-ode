@@ -1,5 +1,7 @@
 // src/types/artist.ts
-// SOMA ODÉ — Artist type completo com Google Drive
+// SOMA ODÉ — Artist type completo com Google Drive + Cartografia
+
+// ─── Sub-tipos ─────────────────────────────────────────────
 
 export type Project = {
   id: string
@@ -49,6 +51,48 @@ export type ArtistDrive = {
   pressUrl?: string
 }
 
+// ─── Cartografia SOMA ──────────────────────────────────────
+
+export type CartografiaState = 'empty' | 'draft' | 'in_conversation' | 'validated'
+
+export type CartografiaRaiz = {
+  state?: CartografiaState
+  origins?: string
+  tensions?: string
+  vocabulario?: string[]
+}
+
+export type CartografiaCampo = {
+  state?: CartografiaState
+  audienceProfiles?: string
+  motivation?: string
+  audienceTerritories?: string[]
+}
+
+export type CartografiaTeia = {
+  state?: CartografiaState
+  pares?: string
+  legitimacy?: string
+  influenceNetworks?: string
+}
+
+export type CartografiaRota = {
+  state?: CartografiaState
+  gaps?: string
+  corredores?: string[]
+  expansionPlan?: string
+}
+
+export type Cartografia = {
+  raiz?: CartografiaRaiz
+  campo?: CartografiaCampo
+  teia?: CartografiaTeia
+  rota?: CartografiaRota
+  somaPositioning?: string
+}
+
+// ─── Artist ────────────────────────────────────────────────
+
 export type Artist = {
   id: string
   name: string
@@ -85,12 +129,14 @@ export type Artist = {
   availability?: string
   active?: boolean
 
-  cartografia?: any
+  cartografia?: Cartografia
   internal?: any
 
   createdAt?: string
   updatedAt?: string
 }
+
+// ─── Helpers ───────────────────────────────────────────────
 
 export function emptyArtist(): Omit<Artist, 'id'> {
   return {
@@ -131,7 +177,12 @@ export function emptyArtist(): Omit<Artist, 'id'> {
     availability: '',
     active: true,
 
-    cartografia: {},
+    cartografia: {
+      raiz: { state: 'empty', vocabulario: [] },
+      campo: { state: 'empty', audienceTerritories: [] },
+      teia: { state: 'empty' },
+      rota: { state: 'empty', corredores: [] },
+    },
     internal: {},
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -157,4 +208,29 @@ export function materialsCount(materials: ArtistMaterials = {}) {
     done,
     total: keys.length,
   }
+}
+
+export function cartografiaCount(c: Cartografia = {}): { filled: number; total: number } {
+  let filled = 0
+  const total = 13
+
+  if (c.raiz?.origins) filled++
+  if (c.raiz?.tensions) filled++
+  if (c.raiz?.vocabulario && c.raiz.vocabulario.length > 0) filled++
+
+  if (c.campo?.audienceProfiles) filled++
+  if (c.campo?.motivation) filled++
+  if (c.campo?.audienceTerritories && c.campo.audienceTerritories.length > 0) filled++
+
+  if (c.teia?.pares) filled++
+  if (c.teia?.legitimacy) filled++
+  if (c.teia?.influenceNetworks) filled++
+
+  if (c.rota?.gaps) filled++
+  if (c.rota?.corredores && c.rota.corredores.length > 0) filled++
+  if (c.rota?.expansionPlan) filled++
+
+  if (c.somaPositioning) filled++
+
+  return { filled, total }
 }
