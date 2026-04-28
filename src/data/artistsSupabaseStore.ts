@@ -1,5 +1,6 @@
-// src/data/artistsSupabaseStore.ts
 import { supabase } from '../lib/supabase'
+
+// ─── LOAD ─────────────────────────────────────────
 
 export async function loadArtistsFromSupabase() {
   const { data, error } = await supabase
@@ -12,53 +13,53 @@ export async function loadArtistsFromSupabase() {
     return []
   }
 
+  // devolvemos payload (perfil completo)
   return (data || []).map(row => row.payload).filter(Boolean)
 }
 
-export async function saveArtistToSupabase(artist: any) {
-  const payload = artist
+// ─── SAVE ─────────────────────────────────────────
 
-  const { error } = await supabase
-    .from('artists')
-    .upsert({
-      id: artist.id,
-      artistic_name: artist.name,
-      legal_name: artist.legalName,
-      email: artist.email,
-      phone: artist.phone,
-      instagram: artist.instagram,
-      website: artist.website,
-      origin_country: artist.origin,
-      base_city: artist.base,
-      residence_country: artist.residenceCountry,
-      disciplines: artist.disciplines || [],
-      languages: artist.languages || [],
-      bio: artist.bio,
-      keywords: artist.keywords || [],
-      target_countries: artist.targetCountries || [],
-      projects: artist.projects || [],
-      materials_count: Object.entries(artist.materials || {}).filter(
-        ([, v]) => typeof v === 'boolean' && v
-      ).length,
-      mobility: {
-        canTravel: artist.canTravel,
-        hasEUPassport: artist.hasEUPassport,
-        passportCountry: artist.passportCountry,
-        minFee: artist.minFee,
-        availability: artist.availability,
-        visaNeeds: artist.visaNeeds,
-      },
-      payload,
-    })
+export async function saveArtistToSupabase(artist: any) {
+  const { error } = await supabase.from('artists').upsert({
+    id: artist.id,
+
+    // campos simples
+    artistic_name: artist.name,
+    email: artist.email,
+    base_city: artist.base,
+    origin_country: artist.origin,
+    bio: artist.bio,
+
+    // arrays seguros
+    disciplines: artist.disciplines || [],
+    languages: artist.languages || [],
+    keywords: artist.keywords || [],
+    target_countries: artist.targetCountries || [],
+
+    // JSONB
+    projects: artist.projects || [],
+    mobility: {
+      canTravel: artist.canTravel || false,
+      hasEUPassport: artist.hasEUPassport || false,
+    },
+
+    // 🔥 lo más importante
+    payload: artist,
+  })
 
   if (error) {
-    console.error('Erro ao guardar artista:', error)
+    console.error('🔥 ERRO REAL SUPABASE:', error)
     throw error
   }
 }
 
+// ─── DELETE ───────────────────────────────────────
+
 export async function deleteArtistFromSupabase(id: string) {
-  const { error } = await supabase.from('artists').delete().eq('id', id)
+  const { error } = await supabase
+    .from('artists')
+    .delete()
+    .eq('id', id)
 
   if (error) {
     console.error('Erro ao apagar artista:', error)
