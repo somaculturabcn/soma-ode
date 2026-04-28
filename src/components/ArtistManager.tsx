@@ -1,5 +1,5 @@
 // src/components/ArtistManager.tsx
-// SOMA ODÉ — Artist Manager (Supabase version)
+// SOMA ODÉ — Artist Manager (Supabase version FINAL)
 
 import { useEffect, useState } from 'react'
 import {
@@ -8,7 +8,7 @@ import {
   deleteArtistFromSupabase,
 } from '../data/artistsSupabaseStore'
 
-// ─── Tipo simplificado (podes expandir depois) ─────────────────
+// ─── Tipo ─────────────────────────────────────────────────────
 
 type Artist = {
   id: string
@@ -20,31 +20,39 @@ type Artist = {
   bio: string
 }
 
-// ─── Componente ────────────────────────────────────────────────
+// ─── Componente ───────────────────────────────────────────────
 
 export default function ArtistManager() {
   const [artists, setArtists] = useState<Artist[]>([])
   const [editing, setEditing] = useState<Artist | null>(null)
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
 
-  // ─── LOAD ────────────────────────────────────────────────────
+  // ─── LOAD ───────────────────────────────────────────────────
 
   useEffect(() => {
     load()
   }, [])
 
   async function load() {
+    setLoading(true)
+
     try {
       const data = await loadArtistsFromSupabase()
-      setArtists(data)
+
+      // 🔒 garante que nunca quebra
+      const safe = (data || []).filter(Boolean)
+
+      setArtists(safe)
     } catch (err) {
       console.error(err)
       alert('Erro ao carregar artistas')
     }
+
     setLoading(false)
   }
 
-  // ─── CRUD ────────────────────────────────────────────────────
+  // ─── CRUD ───────────────────────────────────────────────────
 
   function newArtist() {
     setEditing({
@@ -66,14 +74,20 @@ export default function ArtistManager() {
       return
     }
 
+    setSaving(true)
+
     try {
       await saveArtistToSupabase(editing)
+
       await load()
+
       setEditing(null)
     } catch (err) {
       console.error(err)
       alert('Erro ao guardar artista')
     }
+
+    setSaving(false)
   }
 
   async function remove(id: string) {
@@ -81,7 +95,9 @@ export default function ArtistManager() {
 
     try {
       await deleteArtistFromSupabase(id)
-      await load()
+
+      // update otimista
+      setArtists(prev => prev.filter(a => a.id !== id))
     } catch (err) {
       console.error(err)
       alert('Erro ao apagar artista')
@@ -90,14 +106,16 @@ export default function ArtistManager() {
 
   function update(field: keyof Artist, value: any) {
     if (!editing) return
-    setEditing({ ...editing, [field]: value })
+    setEditing(prev => (prev ? { ...prev, [field]: value } : prev))
   }
 
-  // ─── UI LISTA ────────────────────────────────────────────────
+  // ─── UI LOADING ─────────────────────────────────────────────
 
   if (loading) {
-    return <div style={{ padding: 20 }}>Carregando...</div>
+    return <div style={{ padding: 20 }}>⏳ Carregando artistas...</div>
   }
+
+  // ─── UI LISTA ───────────────────────────────────────────────
 
   if (!editing) {
     return (
@@ -109,14 +127,19 @@ export default function ArtistManager() {
         </button>
 
         {artists.length === 0 && (
-          <p style={{ opacity: 0.6 }}>Nenhum artista ainda</p>
+          <p style={{ opacity: 0.6, marginTop: 20 }}>
+            Nenhum artista ainda — cria o primeiro 🚀
+          </p>
         )}
 
         <div style={styles.grid}>
           {artists.map(a => (
             <div key={a.id} style={styles.card}>
-              <h3>{a.name}</h3>
-              <p>{a.base} · {a.origin}</p>
+              <h3>{a.name || '—'}</h3>
+
+              <p style={{ opacity: 0.7 }}>
+                {a.base || '—'} · {a.origin || '—'}
+              </p>
 
               <div style={styles.actions}>
                 <button onClick={() => setEditing(a)}>Editar</button>
@@ -137,7 +160,7 @@ export default function ArtistManager() {
 
       <div style={styles.form}>
         <input
-          placeholder="Nome"
+          placeholder="Nome *"
           value={editing.name}
           onChange={e => update('name', e.target.value)}
         />
@@ -168,9 +191,12 @@ export default function ArtistManager() {
       </div>
 
       <div style={styles.actions}>
-        <button onClick={() => setEditing(null)}>Cancelar</button>
-        <button style={styles.primary} onClick={save}>
-          Guardar
+        <button onClick={() => setEditing(null)}>
+          Cancelar
+        </button>
+
+        <button style={styles.primary} onClick={save} disabled={saving}>
+          {saving ? '⏳ Guardando...' : 'Guardar'}
         </button>
       </div>
     </div>
@@ -211,5 +237,6 @@ const styles: any = {
     padding: '8px 12px',
     border: 'none',
     borderRadius: 6,
+    cursor: 'pointer',
   },
 }
