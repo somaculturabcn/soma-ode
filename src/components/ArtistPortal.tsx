@@ -1,5 +1,5 @@
 // src/components/ArtistPortal.tsx
-// SOMA ODÉ — Portal do Artista (COM TIMEOUT DE SEGURANÇA)
+// SOMA ODÉ — Portal do Artista (CORRIGIDO: CountryPicker com array seguro)
 import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import { loadArtistByUserId, saveArtistToSupabase } from '../data/artistsSupabaseStore'
@@ -36,7 +36,6 @@ export default function ArtistPortal() {
   const [responding, setResponding] = useState<string | null>(null)
 
   useEffect(() => {
-    // 🛡️ TIMEOUT DE SEGURANÇA: Força o fim do loading após 5 segundos
     const safetyTimer = setTimeout(() => {
       setLoading(false)
       console.warn('Portal do Artista: timeout de segurança atingido.')
@@ -135,6 +134,8 @@ export default function ArtistPortal() {
   )
 }
 
+// ─── SECÇÕES ─────────────────────────────────────────────
+
 function Section01({ data, onChange }: { data: any; onChange: (f: string, v: any) => void }) {
   return <div><h2 style={s.h2}>01 · Identidade</h2><div style={s.grid2}>
     <F label="Nome artistico" v={data.name || ''} onChange={v => onChange('name', v)} />
@@ -173,9 +174,18 @@ function Section03({ data, onChange }: { data: any; onChange: (f: string, v: any
 }
 
 function Section04({ data, onChange }: { data: any; onChange: (f: string, v: any) => void }) {
-  return <div><h2 style={s.h2}>04 · Países alvo</h2>
-    <CountryPicker selectedCountries={data.targetCountries || []} onChange={(codes: string[]) => onChange('targetCountries', codes)} />
-  </div>
+  // Garantir que targetCountries é sempre um array, nunca undefined
+  const safeCountries = Array.isArray(data?.targetCountries) ? data.targetCountries : []
+  
+  return (
+    <div>
+      <h2 style={s.h2}>04 · Países alvo</h2>
+      <CountryPicker 
+        selectedCountries={safeCountries} 
+        onChange={(codes: string[]) => onChange('targetCountries', codes)} 
+      />
+    </div>
+  )
 }
 
 function Section05({ data, onChange }: { data: any; onChange: (f: string, v: any) => void }) {
@@ -264,6 +274,8 @@ function Section09({ data, onChange }: { data: any; onChange: (f: string, v: any
   </div>
 }
 
+// ─── COMPONENTES BASE ────────────────────────────────────
+
 const F = ({ label, v, onChange, helper }: { label: string; v: string; onChange: (v: string) => void; helper?: string }) => (
   <label style={s.field}><span style={s.fieldLabel}>{label}</span>{helper && <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>{helper}</span>}<input style={s.input} value={v} onChange={e => onChange(e.target.value)} /></label>
 )
@@ -273,6 +285,8 @@ const FA = ({ label, v, onChange, helper }: { label: string; v: string; onChange
 const C = ({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) => (
   <label style={s.check}><input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} /> {label}</label>
 )
+
+// ─── ESTILOS ─────────────────────────────────────────────
 
 const s: Record<string, React.CSSProperties> = {
   center: { padding: 60, textAlign: 'center', color: '#fff' },
