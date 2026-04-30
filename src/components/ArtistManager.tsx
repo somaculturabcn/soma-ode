@@ -633,19 +633,91 @@ function Section06({ a, update }: SecProps) {
   )
 }
 
-function Section07({ a, update }: SecProps) {
-  const projects = a.projects || []
+ffunction Section07({ a, update }: SecProps) {
+  const projects = (a as any).projects || []
+  const [expanded, setExpanded] = useState<string | null>(null)
 
   function addProject() {
-    update('projects', [...projects, {
-      id: crypto.randomUUID(),
-      name: '',
-      format: '',
-      duration: '',
-      summary: '',
-      coversCosts: false,
-    }])
+    const newId = crypto.randomUUID()
+    const newProject = {
+      id: newId,
+      name: '', format: '', duration: '', language: '',
+      summary: '', technicalNeeds: '',
+      videoLink: '', driveLink: '', dossierLink: '',
+      projectTargetAudience: '', projectTerritories: '',
+      projectKeywords: '', projectFormat: '',
+      hasCirculated: false, circulationHistory: '',
+    }
+    update('projects', [...projects, newProject])
+    setExpanded(newId)
   }
+
+  function updateProject(id: string, field: string, value: any) {
+    update('projects', projects.map((p: any) => p.id === id ? { ...p, [field]: value } : p))
+  }
+
+  function removeProject(id: string) {
+    if (confirm('Remover este projeto?')) {
+      update('projects', projects.filter((p: any) => p.id !== id))
+      if (expanded === id) setExpanded(null)
+    }
+  }
+
+  return (
+    <div>
+      <h2 style={s.h2}>07 · Projectos</h2>
+      {projects.map((p: any, i: number) => (
+        <div key={p.id} style={s.projectCard}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setExpanded(expanded === p.id ? null : p.id)}>
+            <div>
+              <strong>Projeto {i + 1}: {p.name || 'Sem nome'}</strong>
+              {p.projectKeywords && <div style={{ fontSize: 11, color: '#ffcf5c', marginTop: 4 }}>{Array.isArray(p.projectKeywords) ? p.projectKeywords.join(', ') : p.projectKeywords}</div>}
+            </div>
+            <span style={{ color: '#60b4e8', fontSize: 18 }}>{expanded === p.id ? '▲' : '▼'}</span>
+          </div>
+
+          {expanded === p.id && (
+            <div style={{ marginTop: 14 }}>
+              <h4 style={{ color: '#60b4e8', marginBottom: 8 }}>📋 Dados do Projeto</h4>
+              <Field label="Nome do projeto"><input style={s.input} value={p.name || ''} onChange={e => updateProject(p.id, 'name', e.target.value)} /></Field>
+              <div style={s.grid2}>
+                <Field label="Formato"><input style={s.input} value={p.format || ''} onChange={e => updateProject(p.id, 'format', e.target.value)} /></Field>
+                <Field label="Duração"><input style={s.input} value={p.duration || ''} onChange={e => updateProject(p.id, 'duration', e.target.value)} /></Field>
+                <Field label="Idioma da obra"><input style={s.input} value={p.language || ''} onChange={e => updateProject(p.id, 'language', e.target.value)} /></Field>
+              </div>
+              <Field label="Resumo do projeto"><textarea style={s.textarea} value={p.summary || ''} onChange={e => updateProject(p.id, 'summary', e.target.value)} /></Field>
+              <Field label="Necessidades técnicas"><textarea style={s.textarea} value={p.technicalNeeds || ''} onChange={e => updateProject(p.id, 'technicalNeeds', e.target.value)} /></Field>
+
+              <h4 style={{ color: '#60b4e8', marginBottom: 8, marginTop: 18 }}>🔗 Links de Materiais</h4>
+              <div style={s.grid2}>
+                <Field label="Link Vídeo"><input style={s.input} value={p.videoLink || ''} onChange={e => updateProject(p.id, 'videoLink', e.target.value)} /></Field>
+                <Field label="Link Drive"><input style={s.input} value={p.driveLink || ''} onChange={e => updateProject(p.id, 'driveLink', e.target.value)} /></Field>
+                <Field label="Link Dossier"><input style={s.input} value={p.dossierLink || ''} onChange={e => updateProject(p.id, 'dossierLink', e.target.value)} /></Field>
+              </div>
+
+              <h4 style={{ color: '#ffcf5c', marginBottom: 8, marginTop: 18 }}>🧭 Mini-Cartografia do Projeto</h4>
+              <Field label="Público-alvo do projeto"><textarea style={s.textarea} value={p.projectTargetAudience || ''} onChange={e => updateProject(p.id, 'projectTargetAudience', e.target.value)} /></Field>
+              <Field label="Territórios onde o projeto faz sentido"><textarea style={s.textarea} value={p.projectTerritories || ''} onChange={e => updateProject(p.id, 'projectTerritories', e.target.value)} /></Field>
+              <Field label="Keywords do projeto (vírgula separa)"><input style={s.input} value={Array.isArray(p.projectKeywords) ? p.projectKeywords.join(', ') : (p.projectKeywords || '')} onChange={e => updateProject(p.id, 'projectKeywords', e.target.value.split(',').map((x: string) => x.trim()).filter(Boolean))} /></Field>
+              <Field label="Formato de apresentação"><input style={s.input} value={p.projectFormat || ''} onChange={e => updateProject(p.id, 'projectFormat', e.target.value)} /></Field>
+              <div style={{ marginTop: 8, marginBottom: 12 }}>
+                <label style={s.check}><input type="checkbox" checked={p.hasCirculated === true} onChange={e => updateProject(p.id, 'hasCirculated', e.target.checked)} /> Já circulou / foi apresentado?</label>
+              </div>
+              {p.hasCirculated && (
+                <Field label="Histórico de circulação"><textarea style={s.textarea} value={p.circulationHistory || ''} onChange={e => updateProject(p.id, 'circulationHistory', e.target.value)} /></Field>
+              )}
+
+              <div style={{ marginTop: 16 }}>
+                <button style={s.danger} onClick={() => removeProject(p.id)}>🗑 Remover projeto</button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+      <button style={s.primary} onClick={addProject}>+ Adicionar projeto</button>
+    </div>
+  )
+}
 
   function updateProject(id: string, field: keyof Project, value: any) {
     update('projects', projects.map(p =>
