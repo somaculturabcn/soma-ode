@@ -1,5 +1,5 @@
 // src/components/ArtistPortal.tsx
-// SOMA ODÉ — Portal do Artista (COMPLETO: inputs de tags corrigidos)
+// SOMA ODÉ — Portal do Artista (COMPLETO: secção 03 igual ao Admin)
 import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import { loadArtistByUserId, saveArtistToSupabase } from '../data/artistsSupabaseStore'
@@ -21,6 +21,23 @@ const SECTIONS = [
   { id: '09', label: 'Cartografia' },
 ]
 
+const DISCIPLINES = [
+  '🎵 Música', '💃 Dança', '🎭 Teatro', '🔥 Performance',
+  '🎨 Artes Visuais', '🎬 Cinema', '💡 Instalação',
+  '🎧 Arte Sonora', '📚 Pesquisa', '✨ Multidisciplinar',
+]
+
+const SPECIALTIES = [
+  '🎤 Artista', '🎛 Produtor/a', '🎧 DJ', '🎉 Promotor/a de festa',
+  '📣 Promotor/a cultural', '🤝 Associação / colectivo',
+  '🏛 Gestor/a cultural', '📋 Agente / booker',
+  '🖼 Curador/a', '📅 Programador/a', '💼 Manager',
+  '💿 Selo / label', '🎪 Festival / evento',
+  '🏠 Espaço cultural / venue', '📚 Investigador/a', '🎓 Educador/a',
+]
+
+const LANGUAGES = ['PT', 'EN', 'ES', 'FR', 'IT', 'DE', 'CA', 'GL', 'ZH', 'JA', 'KO', 'RU', 'HI']
+
 export default function ArtistPortal() {
   const { user } = useAuth()
   const [artist, setArtist] = useState<Artist | null>(null)
@@ -35,7 +52,6 @@ export default function ArtistPortal() {
   useEffect(() => {
     const safetyTimer = setTimeout(() => {
       setLoading(false)
-      console.warn('Portal do Artista: timeout de segurança atingido.')
     }, 5000)
 
     if (user?.id) {
@@ -79,6 +95,14 @@ export default function ArtistPortal() {
 
   function update(field: string, value: any) { setArtist(prev => prev ? { ...prev, [field]: value } as Artist : null) }
 
+  function toggleArrayItem(field: string, item: string) {
+    const current = ((artist as any)?.[field] as string[]) || []
+    const next = current.includes(item)
+      ? current.filter((x: string) => x !== item)
+      : [...current, item]
+    update(field, next)
+  }
+
   if (loading) return <div style={s.center}>A carregar o teu perfil...</div>
   if (!artist) return <div style={s.empty}><h2 style={s.h2}>Bem-vindo ao SOMA ODE</h2><p style={s.subtitle}>O teu perfil ainda nao foi configurado. Contacta a SOMA.</p></div>
 
@@ -107,7 +131,7 @@ export default function ArtistPortal() {
           <div style={s.section}>
             {section === '01' && <Section01 data={artist} onChange={update} />}
             {section === '02' && <Section02 data={artist} onChange={update} />}
-            {section === '03' && <Section03 data={artist} onChange={update} />}
+            {section === '03' && <Section03 data={artist} onChange={update} toggle={toggleArrayItem} />}
             {section === '04' && <Section04 data={artist} onChange={update} />}
             {section === '05' && <Section05 data={artist} onChange={update} />}
             {section === '06' && <Section06 data={artist} onChange={update} />}
@@ -131,8 +155,7 @@ export default function ArtistPortal() {
   )
 }
 
-// ─── SECÇÕES ─────────────────────────────────────────────
-
+// ─── SECÇÃO 01: IDENTIDADE ──────────────────────────────
 function Section01({ data, onChange }: { data: any; onChange: (f: string, v: any) => void }) {
   return <div><h2 style={s.h2}>01 · Identidade</h2><div style={s.grid2}>
     <F label="Nome artistico" v={data.name || ''} onChange={v => onChange('name', v)} />
@@ -147,6 +170,7 @@ function Section01({ data, onChange }: { data: any; onChange: (f: string, v: any
   </div></div>
 }
 
+// ─── SECÇÃO 02: LOCALIZAÇÃO ─────────────────────────────
 function Section02({ data, onChange }: { data: any; onChange: (f: string, v: any) => void }) {
   return <div><h2 style={s.h2}>02 · Localização</h2><div style={s.grid2}>
     <F label="País de origem" v={data.origin || ''} onChange={v => onChange('origin', v)} />
@@ -156,37 +180,85 @@ function Section02({ data, onChange }: { data: any; onChange: (f: string, v: any
   </div></div>
 }
 
-// ─── SECÇÃO 03 CORRIGIDA: Inputs normais que aceitam vírgulas ───
-function Section03({ data, onChange }: { data: any; onChange: (f: string, v: any) => void }) {
-  const arrToStr = (arr?: any[]) => Array.isArray(arr) ? arr.join(', ') : ''
-  const strToArr = (str: string) => str.split(',').map(x => x.trim()).filter(Boolean)
+// ─── SECÇÃO 03: PERFIL (CHIPS + INPUTS NORMAIS) ─────────
+function Section03({ data, onChange, toggle }: { data: any; onChange: (f: string, v: any) => void; toggle: (field: string, item: string) => void }) {
+  const disciplines = (data.disciplines as string[]) || []
+  const specialties = (data.specialties as string[]) || []
+  const languagesList = (data.languages as string[]) || []
 
-  return <div><h2 style={s.h2}>03 · Perfil</h2>
-    <FA label="Bio curta" v={data.bio || ''} onChange={v => onChange('bio', v)} />
-    <div style={s.grid2}>
-      <F label="Disciplinas (separar por vírgula)" v={arrToStr(data.disciplines)} onChange={v => onChange('disciplines', strToArr(v))} />
-      <F label="Função profissional (separar por vírgula)" v={arrToStr(data.specialties)} onChange={v => onChange('specialties', strToArr(v))} />
-      <F label="Idiomas (separar por vírgula)" v={arrToStr(data.languages)} onChange={v => onChange('languages', strToArr(v.toUpperCase()))} />
-      <F label="Keywords (separar por vírgula)" v={arrToStr(data.keywords)} onChange={v => onChange('keywords', strToArr(v))} />
-      <F label="Temas (separar por vírgula)" v={arrToStr(data.themes)} onChange={v => onChange('themes', strToArr(v))} />
-      <F label="Géneros (separar por vírgula)" v={arrToStr(data.genres)} onChange={v => onChange('genres', strToArr(v))} />
+  return (
+    <div>
+      <h2 style={s.h2}>03 · Perfil artístico</h2>
+
+      <div style={{ marginBottom: 18 }}>
+        <span style={s.fieldLabel}>Disciplinas (clica para seleccionar)</span>
+        <div style={s.chipGrid}>
+          {DISCIPLINES.map(d => (
+            <button key={d} type="button"
+              onClick={() => toggle('disciplines', d)}
+              style={{
+                ...s.chip,
+                ...(disciplines.includes(d) ? s.chipActive : {})
+              }}>
+              {d}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 18 }}>
+        <span style={s.fieldLabel}>Função profissional</span>
+        <div style={s.chipGrid}>
+          {SPECIALTIES.map(sp => (
+            <button key={sp} type="button"
+              onClick={() => toggle('specialties', sp)}
+              style={{
+                ...s.chip,
+                ...(specialties.includes(sp) ? s.chipActive : {})
+              }}>
+              {sp}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 18 }}>
+        <span style={s.fieldLabel}>Idiomas</span>
+        <div style={s.chipGrid}>
+          {LANGUAGES.map(l => (
+            <button key={l} type="button"
+              onClick={() => toggle('languages', l)}
+              style={{
+                ...s.chip,
+                ...(languagesList.includes(l) ? s.chipActive : {})
+              }}>
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <F label="Keywords (vírgula separa)" v={Array.isArray(data.keywords) ? data.keywords.join(', ') : (data.keywords || '')} onChange={v => onChange('keywords', v.split(',').map((x: string) => x.trim()).filter(Boolean))} />
+      <F label="Temas (vírgula separa)" v={Array.isArray(data.themes) ? data.themes.join(', ') : (data.themes || '')} onChange={v => onChange('themes', v.split(',').map((x: string) => x.trim()).filter(Boolean))} />
+      <F label="Géneros (vírgula separa)" v={Array.isArray(data.genres) ? data.genres.join(', ') : (data.genres || '')} onChange={v => onChange('genres', v.split(',').map((x: string) => x.trim()).filter(Boolean))} />
+
+      <FA label="Bio curta" v={data.bio || ''} onChange={v => onChange('bio', v)} />
     </div>
-  </div>
+  )
 }
 
+// ─── SECÇÃO 04: PAÍSES ──────────────────────────────────
 function Section04({ data, onChange }: { data: any; onChange: (f: string, v: any) => void }) {
   const safeCountries = Array.isArray(data?.targetCountries) ? data.targetCountries : []
   return (
     <div>
       <h2 style={s.h2}>04 · Países alvo</h2>
-      <CountryPicker 
-        selectedCountries={safeCountries} 
-        onChange={(codes: string[]) => onChange('targetCountries', codes)} 
-      />
+      <CountryPicker selectedCountries={safeCountries} onChange={(codes: string[]) => onChange('targetCountries', codes)} />
     </div>
   )
 }
 
+// ─── SECÇÃO 05: MOBILIDADE ──────────────────────────────
 function Section05({ data, onChange }: { data: any; onChange: (f: string, v: any) => void }) {
   const mob = data.mobility || {}
   return <div><h2 style={s.h2}>05 · Mobilidade</h2>
@@ -203,6 +275,7 @@ function Section05({ data, onChange }: { data: any; onChange: (f: string, v: any
   </div>
 }
 
+// ─── SECÇÃO 06: MATERIAIS ───────────────────────────────
 function Section06({ data, onChange }: { data: any; onChange: (f: string, v: any) => void }) {
   const mats = data.materials || {}
   const tog = (k: string) => onChange('materials', { ...mats, [k]: !mats[k] })
@@ -224,6 +297,7 @@ function Section06({ data, onChange }: { data: any; onChange: (f: string, v: any
   </div>
 }
 
+// ─── SECÇÃO 07: PROJECTOS ───────────────────────────────
 function Section07({ data, onChange, onSave }: { data: any; onChange: (f: string, v: any) => void; onSave: () => Promise<void> }) {
   const projects = data.projects || []
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -263,6 +337,7 @@ function Section07({ data, onChange, onSave }: { data: any; onChange: (f: string
   </div>
 }
 
+// ─── SECÇÃO 09: CARTOGRAFIA ─────────────────────────────
 function Section09({ data, onChange }: { data: any; onChange: (f: string, v: any) => void }) {
   const c = data.cartografia || {}
   return <div><h2 style={s.h2}>09 · Cartografia SOMA</h2>
@@ -274,7 +349,6 @@ function Section09({ data, onChange }: { data: any; onChange: (f: string, v: any
 }
 
 // ─── COMPONENTES BASE ────────────────────────────────────
-
 const F = ({ label, v, onChange, helper }: { label: string; v: string; onChange: (v: string) => void; helper?: string }) => (
   <label style={s.field}><span style={s.fieldLabel}>{label}</span>{helper && <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>{helper}</span>}<input style={s.input} value={v} onChange={e => onChange(e.target.value)} /></label>
 )
@@ -286,7 +360,6 @@ const C = ({ label, checked, onChange }: { label: string; checked: boolean; onCh
 )
 
 // ─── ESTILOS ─────────────────────────────────────────────
-
 const s: Record<string, React.CSSProperties> = {
   center: { padding: 60, textAlign: 'center', color: '#fff' },
   empty: { padding: 40, textAlign: 'center', color: 'rgba(255,255,255,0.6)' },
@@ -314,6 +387,9 @@ const s: Record<string, React.CSSProperties> = {
   textarea: { background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8, padding: 12, fontSize: 13, minHeight: 95, outline: 'none', resize: 'vertical', fontFamily: 'inherit' },
   checkRow: { display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 14 },
   check: { display: 'flex', gap: 8, alignItems: 'center', color: 'rgba(255,255,255,0.7)', fontSize: 13, cursor: 'pointer' },
+  chipGrid: { display: 'flex', gap: 8, flexWrap: 'wrap' },
+  chip: { padding: '8px 14px', background: 'transparent', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 24, fontSize: 13, cursor: 'pointer' },
+  chipActive: { background: 'rgba(26,105,148,0.3)', color: '#fff', border: '1px solid #1A6994' },
   footer: { display: 'flex', justifyContent: 'space-between', marginTop: 18, gap: 10 },
   primaryBtn: { background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 800, cursor: 'pointer' },
   btn: { background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '9px 14px', fontSize: 13, cursor: 'pointer' },
