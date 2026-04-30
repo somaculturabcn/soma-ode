@@ -1,5 +1,5 @@
 // src/components/ArtistManager.tsx
-// SOMA ODÉ — Artist Manager v2 (9 secções + Cartografia + Supabase)
+// SOMA ODÉ — Artist Manager v2 (9 secções + Cartografia + Supabase + Mini-Cartografia de Projetos)
 
 import { useEffect, useState } from 'react'
 import type { Artist, Project, ArtistMaterials, ArtistMobility } from '../types/artist'
@@ -645,20 +645,21 @@ function Section07({ a, update }: SecProps) {
       summary: '', technicalNeeds: '',
       videoLink: '', driveLink: '', dossierLink: '',
       projectTargetAudience: '', projectTerritories: '',
-      projectKeywords: '', projectFormat: '',
+      projectKeywords: [] as string[],
+      projectFormat: '',
       hasCirculated: false, circulationHistory: '',
     }
-    update('projects', [...projects, newProject])
+    update('projects' as any, [...projects, newProject])
     setExpanded(newId)
   }
 
   function updateProject(id: string, field: string, value: any) {
-    update('projects', projects.map((p: any) => p.id === id ? { ...p, [field]: value } : p))
+    update('projects' as any, projects.map((p: any) => p.id === id ? { ...p, [field]: value } : p))
   }
 
   function removeProject(id: string) {
     if (confirm('Remover este projeto?')) {
-      update('projects', projects.filter((p: any) => p.id !== id))
+      update('projects' as any, projects.filter((p: any) => p.id !== id))
       if (expanded === id) setExpanded(null)
     }
   }
@@ -671,7 +672,7 @@ function Section07({ a, update }: SecProps) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setExpanded(expanded === p.id ? null : p.id)}>
             <div>
               <strong>Projeto {i + 1}: {p.name || 'Sem nome'}</strong>
-              {p.projectKeywords && <div style={{ fontSize: 11, color: '#ffcf5c', marginTop: 4 }}>{Array.isArray(p.projectKeywords) ? p.projectKeywords.join(', ') : p.projectKeywords}</div>}
+              {p.projectKeywords && p.projectKeywords.length > 0 && <div style={{ fontSize: 11, color: '#ffcf5c', marginTop: 4 }}>{Array.isArray(p.projectKeywords) ? p.projectKeywords.join(', ') : p.projectKeywords}</div>}
             </div>
             <span style={{ color: '#60b4e8', fontSize: 18 }}>{expanded === p.id ? '▲' : '▼'}</span>
           </div>
@@ -696,15 +697,15 @@ function Section07({ a, update }: SecProps) {
               </div>
 
               <h4 style={{ color: '#ffcf5c', marginBottom: 8, marginTop: 18 }}>🧭 Mini-Cartografia do Projeto</h4>
-              <Field label="Público-alvo do projeto"><textarea style={s.textarea} value={p.projectTargetAudience || ''} onChange={e => updateProject(p.id, 'projectTargetAudience', e.target.value)} /></Field>
-              <Field label="Territórios onde o projeto faz sentido"><textarea style={s.textarea} value={p.projectTerritories || ''} onChange={e => updateProject(p.id, 'projectTerritories', e.target.value)} /></Field>
-              <Field label="Keywords do projeto (vírgula separa)"><input style={s.input} value={Array.isArray(p.projectKeywords) ? p.projectKeywords.join(', ') : (p.projectKeywords || '')} onChange={e => updateProject(p.id, 'projectKeywords', e.target.value.split(',').map((x: string) => x.trim()).filter(Boolean))} /></Field>
-              <Field label="Formato de apresentação"><input style={s.input} value={p.projectFormat || ''} onChange={e => updateProject(p.id, 'projectFormat', e.target.value)} /></Field>
+              <Field label="Público-alvo do projeto"><textarea style={s.textarea} value={p.projectTargetAudience || ''} onChange={e => updateProject(p.id, 'projectTargetAudience', e.target.value)} placeholder="Quem é o público ideal para este projeto?" /></Field>
+              <Field label="Territórios onde o projeto faz sentido"><textarea style={s.textarea} value={p.projectTerritories || ''} onChange={e => updateProject(p.id, 'projectTerritories', e.target.value)} placeholder="Em que cidades, países ou regiões?" /></Field>
+              <Field label="Keywords do projeto (vírgula separa)"><input style={s.input} value={Array.isArray(p.projectKeywords) ? p.projectKeywords.join(', ') : (p.projectKeywords || '')} onChange={e => updateProject(p.id, 'projectKeywords', e.target.value.split(',').map((x: string) => x.trim()).filter(Boolean))} placeholder="Ex: ritual, experimental, spoken word" /></Field>
+              <Field label="Formato de apresentação"><input style={s.input} value={p.projectFormat || ''} onChange={e => updateProject(p.id, 'projectFormat', e.target.value)} placeholder="Ex: Concerto, Performance, Instalação, DJ Set" /></Field>
               <div style={{ marginTop: 8, marginBottom: 12 }}>
                 <label style={s.check}><input type="checkbox" checked={p.hasCirculated === true} onChange={e => updateProject(p.id, 'hasCirculated', e.target.checked)} /> Já circulou / foi apresentado?</label>
               </div>
               {p.hasCirculated && (
-                <Field label="Histórico de circulação"><textarea style={s.textarea} value={p.circulationHistory || ''} onChange={e => updateProject(p.id, 'circulationHistory', e.target.value)} /></Field>
+                <Field label="Histórico de circulação"><textarea style={s.textarea} value={p.circulationHistory || ''} onChange={e => updateProject(p.id, 'circulationHistory', e.target.value)} placeholder="Onde já foi apresentado? Em que contexto?" /></Field>
               )}
 
               <div style={{ marginTop: 16 }}>
@@ -715,70 +716,6 @@ function Section07({ a, update }: SecProps) {
         </div>
       ))}
       <button style={s.primary} onClick={addProject}>+ Adicionar projeto</button>
-    </div>
-  )
-}
-
-  function updateProject(id: string, field: keyof Project, value: any) {
-    update('projects', projects.map(p =>
-      p.id === id ? { ...p, [field]: value } : p
-    ))
-  }
-
-  function removeProject(id: string) {
-    update('projects', projects.filter(p => p.id !== id))
-  }
-
-  return (
-    <div>
-      <h2 style={s.h2}>07 · Projectos</h2>
-
-      <button style={s.primary} onClick={addProject}>+ Adicionar projecto</button>
-
-      {projects.length === 0 && (
-        <p style={s.empty}>Nenhum projecto ainda.</p>
-      )}
-
-      {projects.map(p => (
-        <div key={p.id} style={s.projectCard}>
-          <div style={s.grid2}>
-            <Field label="Nome">
-              <input style={s.input} value={p.name}
-                onChange={e => updateProject(p.id, 'name', e.target.value)} />
-            </Field>
-            <Field label="Formato">
-              <input style={s.input}
-                placeholder="performance, álbum, residência, curta..."
-                value={p.format || ''}
-                onChange={e => updateProject(p.id, 'format', e.target.value)} />
-            </Field>
-            <Field label="Duração">
-              <input style={s.input} value={p.duration || ''}
-                onChange={e => updateProject(p.id, 'duration', e.target.value)} />
-            </Field>
-            <Field label="Vídeo">
-              <input style={s.input} value={p.videoLink || ''}
-                onChange={e => updateProject(p.id, 'videoLink', e.target.value)} />
-            </Field>
-          </div>
-          <Field label="Resumo">
-            <textarea style={s.textarea} rows={2} value={p.summary || ''}
-              onChange={e => updateProject(p.id, 'summary', e.target.value)} />
-          </Field>
-          <Field label="Necessidades técnicas">
-            <textarea style={s.textarea} rows={2} value={p.technicalNeeds || ''}
-              onChange={e => updateProject(p.id, 'technicalNeeds', e.target.value)} />
-          </Field>
-          <label style={s.check}>
-            <input type="checkbox" checked={p.coversCosts === true}
-              onChange={e => updateProject(p.id, 'coversCosts', e.target.checked)} />
-            Projecto cobre custos
-          </label>
-          <button style={s.danger} onClick={() => removeProject(p.id)}>
-            Remover projecto
-          </button>
-        </div>
-      ))}
     </div>
   )
 }
