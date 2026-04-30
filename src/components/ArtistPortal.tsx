@@ -1,5 +1,5 @@
 // src/components/ArtistPortal.tsx
-// SOMA ODÉ — Portal do Artista (VERSÃO CORRIGIDA: sem "A carregar..." infinito)
+// SOMA ODÉ — Portal do Artista (COM TIMEOUT DE SEGURANÇA)
 import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import { loadArtistByUserId, saveArtistToSupabase } from '../data/artistsSupabaseStore'
@@ -36,13 +36,19 @@ export default function ArtistPortal() {
   const [responding, setResponding] = useState<string | null>(null)
 
   useEffect(() => {
-    // Só tenta carregar se o user estiver realmente disponível
+    // 🛡️ TIMEOUT DE SEGURANÇA: Força o fim do loading após 5 segundos
+    const safetyTimer = setTimeout(() => {
+      setLoading(false)
+      console.warn('Portal do Artista: timeout de segurança atingido.')
+    }, 5000)
+
     if (user?.id) {
-      load()
+      load().finally(() => clearTimeout(safetyTimer))
     } else {
-      // Se não houver user, para o loading
       setLoading(false)
     }
+
+    return () => clearTimeout(safetyTimer)
   }, [user?.id])
 
   async function load() {
@@ -212,35 +218,10 @@ function Section06({ data, onChange }: { data: any; onChange: (f: string, v: any
 function Section07({ data, onChange, onSave }: { data: any; onChange: (f: string, v: any) => void; onSave: () => Promise<void> }) {
   const projects = data.projects || []
   const [expanded, setExpanded] = useState<string | null>(null)
-
-  const add = () => {
-    const newId = crypto.randomUUID()
-    const newProject = {
-      id: newId, name: '', format: '', duration: '', language: '',
-      summary: '', technicalNeeds: '', videoLink: '', driveLink: '', dossierLink: '',
-      projectTargetAudience: '', projectTerritories: '', projectKeywords: [],
-      projectFormat: '', hasCirculated: false, circulationHistory: '',
-    }
-    onChange('projects', [...projects, newProject])
-    setExpanded(newId)
-  }
-
-  const upd = (id: string, f: string, v: any) => {
-    onChange('projects', projects.map((p: any) => p.id === id ? { ...p, [f]: v } : p))
-  }
-
-  const del = (id: string) => {
-    if (confirm('Remover este projeto?')) {
-      onChange('projects', projects.filter((p: any) => p.id !== id))
-      if (expanded === id) setExpanded(null)
-    }
-  }
-
-  const saveProject = async (id: string) => {
-    await onSave()
-    setExpanded(null)
-  }
-
+  const add = () => { const newId = crypto.randomUUID(); const newProject = { id: newId, name: '', format: '', duration: '', language: '', summary: '', technicalNeeds: '', videoLink: '', driveLink: '', dossierLink: '', projectTargetAudience: '', projectTerritories: '', projectKeywords: [], projectFormat: '', hasCirculated: false, circulationHistory: '' }; onChange('projects', [...projects, newProject]); setExpanded(newId) }
+  const upd = (id: string, f: string, v: any) => { onChange('projects', projects.map((p: any) => p.id === id ? { ...p, [f]: v } : p)) }
+  const del = (id: string) => { if (confirm('Remover este projeto?')) { onChange('projects', projects.filter((p: any) => p.id !== id)); if (expanded === id) setExpanded(null) } }
+  const saveProject = async (id: string) => { await onSave(); setExpanded(null) }
   return <div><h2 style={s.h2}>07 · Projectos</h2>
     {projects.map((p: any, i: number) => (
       <div key={p.id} style={s.projectCard}>
@@ -252,19 +233,11 @@ function Section07({ data, onChange, onSave }: { data: any; onChange: (f: string
           <div style={{ marginTop: 14 }}>
             <h4 style={{ color: '#60b4e8', marginBottom: 8 }}>📋 Dados do Projeto</h4>
             <F label="Nome do projeto" v={p.name || ''} onChange={v => upd(p.id, 'name', v)} />
-            <div style={s.grid2}>
-              <F label="Formato" v={p.format || ''} onChange={v => upd(p.id, 'format', v)} />
-              <F label="Duração" v={p.duration || ''} onChange={v => upd(p.id, 'duration', v)} />
-              <F label="Idioma da obra" v={p.language || ''} onChange={v => upd(p.id, 'language', v)} />
-            </div>
+            <div style={s.grid2}><F label="Formato" v={p.format || ''} onChange={v => upd(p.id, 'format', v)} /><F label="Duração" v={p.duration || ''} onChange={v => upd(p.id, 'duration', v)} /><F label="Idioma da obra" v={p.language || ''} onChange={v => upd(p.id, 'language', v)} /></div>
             <FA label="Resumo do projeto" v={p.summary || ''} onChange={v => upd(p.id, 'summary', v)} />
             <FA label="Necessidades técnicas" v={p.technicalNeeds || ''} onChange={v => upd(p.id, 'technicalNeeds', v)} />
             <h4 style={{ color: '#60b4e8', marginBottom: 8, marginTop: 18 }}>🔗 Links de Materiais</h4>
-            <div style={s.grid2}>
-              <F label="Link Vídeo" v={p.videoLink || ''} onChange={v => upd(p.id, 'videoLink', v)} />
-              <F label="Link Drive" v={p.driveLink || ''} onChange={v => upd(p.id, 'driveLink', v)} />
-              <F label="Link Dossier" v={p.dossierLink || ''} onChange={v => upd(p.id, 'dossierLink', v)} />
-            </div>
+            <div style={s.grid2}><F label="Link Vídeo" v={p.videoLink || ''} onChange={v => upd(p.id, 'videoLink', v)} /><F label="Link Drive" v={p.driveLink || ''} onChange={v => upd(p.id, 'driveLink', v)} /><F label="Link Dossier" v={p.dossierLink || ''} onChange={v => upd(p.id, 'dossierLink', v)} /></div>
             <h4 style={{ color: '#ffcf5c', marginBottom: 8, marginTop: 18 }}>🧭 Mini-Cartografia do Projeto</h4>
             <FA label="Público-alvo do projeto" v={p.projectTargetAudience || ''} onChange={v => upd(p.id, 'projectTargetAudience', v)} helper="Quem é o público ideal para este projeto?" />
             <FA label="Territórios onde o projeto faz sentido" v={p.projectTerritories || ''} onChange={v => upd(p.id, 'projectTerritories', v)} helper="Em que cidades, países ou regiões?" />
@@ -272,10 +245,7 @@ function Section07({ data, onChange, onSave }: { data: any; onChange: (f: string
             <F label="Formato de apresentação" v={p.projectFormat || ''} onChange={v => upd(p.id, 'projectFormat', v)} helper="Ex: Concerto, Performance, Instalação, DJ Set" />
             <div style={{ marginTop: 8, marginBottom: 12 }}><C label="Já circulou / foi apresentado?" checked={p.hasCirculated === true} onChange={v => upd(p.id, 'hasCirculated', v)} /></div>
             {p.hasCirculated && <FA label="Histórico de circulação" v={p.circulationHistory || ''} onChange={v => upd(p.id, 'circulationHistory', v)} helper="Onde já foi apresentado? Em que contexto?" />}
-            <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-              <button style={s.primaryBtn} onClick={() => saveProject(p.id)}>💾 Guardar Projeto</button>
-              <button style={s.dangerBtn} onClick={() => del(p.id)}>🗑 Remover</button>
-            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 16 }}><button style={s.primaryBtn} onClick={() => saveProject(p.id)}>💾 Guardar Projeto</button><button style={s.dangerBtn} onClick={() => del(p.id)}>🗑 Remover</button></div>
           </div>
         )}
       </div>
