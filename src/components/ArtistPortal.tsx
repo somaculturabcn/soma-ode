@@ -1,5 +1,5 @@
 // src/components/ArtistPortal.tsx
-// SOMA ODÉ — Portal do Artista (CORRIGIDO: CountryPicker com array seguro)
+// SOMA ODÉ — Portal do Artista (COMPLETO: inputs de tags corrigidos)
 import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import { loadArtistByUserId, saveArtistToSupabase } from '../data/artistsSupabaseStore'
@@ -9,9 +9,6 @@ import type { Proposal } from '../types/proposal'
 import { PROPOSAL_STATUSES } from '../types/proposal'
 import { materialsCount, cartografiaCount } from '../types/artist'
 import CountryPicker from './CountryPicker'
-
-function joinTags(arr?: string[]) { return Array.isArray(arr) ? arr.join(', ') : '' }
-function splitTags(str: string) { return str.split(',').map(x => x.trim()).filter(Boolean) }
 
 const SECTIONS = [
   { id: '01', label: 'Identidade' },
@@ -159,24 +156,26 @@ function Section02({ data, onChange }: { data: any; onChange: (f: string, v: any
   </div></div>
 }
 
+// ─── SECÇÃO 03 CORRIGIDA: Inputs normais que aceitam vírgulas ───
 function Section03({ data, onChange }: { data: any; onChange: (f: string, v: any) => void }) {
+  const arrToStr = (arr?: any[]) => Array.isArray(arr) ? arr.join(', ') : ''
+  const strToArr = (str: string) => str.split(',').map(x => x.trim()).filter(Boolean)
+
   return <div><h2 style={s.h2}>03 · Perfil</h2>
     <FA label="Bio curta" v={data.bio || ''} onChange={v => onChange('bio', v)} />
     <div style={s.grid2}>
-      <F label="Disciplinas" v={joinTags(data.disciplines)} onChange={v => onChange('disciplines', splitTags(v))} />
-      <F label="Função profissional" v={joinTags(data.specialties)} onChange={v => onChange('specialties', splitTags(v))} />
-      <F label="Idiomas" v={joinTags(data.languages)} onChange={v => onChange('languages', splitTags(v.toUpperCase()))} />
-      <F label="Keywords" v={joinTags(data.keywords)} onChange={v => onChange('keywords', splitTags(v))} />
-      <F label="Temas" v={joinTags(data.themes)} onChange={v => onChange('themes', splitTags(v))} />
-      <F label="Géneros" v={joinTags(data.genres)} onChange={v => onChange('genres', splitTags(v))} />
+      <F label="Disciplinas (separar por vírgula)" v={arrToStr(data.disciplines)} onChange={v => onChange('disciplines', strToArr(v))} />
+      <F label="Função profissional (separar por vírgula)" v={arrToStr(data.specialties)} onChange={v => onChange('specialties', strToArr(v))} />
+      <F label="Idiomas (separar por vírgula)" v={arrToStr(data.languages)} onChange={v => onChange('languages', strToArr(v.toUpperCase()))} />
+      <F label="Keywords (separar por vírgula)" v={arrToStr(data.keywords)} onChange={v => onChange('keywords', strToArr(v))} />
+      <F label="Temas (separar por vírgula)" v={arrToStr(data.themes)} onChange={v => onChange('themes', strToArr(v))} />
+      <F label="Géneros (separar por vírgula)" v={arrToStr(data.genres)} onChange={v => onChange('genres', strToArr(v))} />
     </div>
   </div>
 }
 
 function Section04({ data, onChange }: { data: any; onChange: (f: string, v: any) => void }) {
-  // Garantir que targetCountries é sempre um array, nunca undefined
   const safeCountries = Array.isArray(data?.targetCountries) ? data.targetCountries : []
-  
   return (
     <div>
       <h2 style={s.h2}>04 · Países alvo</h2>
@@ -251,7 +250,7 @@ function Section07({ data, onChange, onSave }: { data: any; onChange: (f: string
             <h4 style={{ color: '#ffcf5c', marginBottom: 8, marginTop: 18 }}>🧭 Mini-Cartografia do Projeto</h4>
             <FA label="Público-alvo do projeto" v={p.projectTargetAudience || ''} onChange={v => upd(p.id, 'projectTargetAudience', v)} helper="Quem é o público ideal para este projeto?" />
             <FA label="Territórios onde o projeto faz sentido" v={p.projectTerritories || ''} onChange={v => upd(p.id, 'projectTerritories', v)} helper="Em que cidades, países ou regiões?" />
-            <F label="Keywords do projeto" v={joinTags(p.projectKeywords)} onChange={v => upd(p.id, 'projectKeywords', splitTags(v))} helper="Ex: ritual, experimental, spoken word" />
+            <F label="Keywords do projeto" v={Array.isArray(p.projectKeywords) ? p.projectKeywords.join(', ') : (p.projectKeywords || '')} onChange={v => upd(p.id, 'projectKeywords', v.split(',').map((x: string) => x.trim()).filter(Boolean))} helper="Ex: ritual, experimental, spoken word" />
             <F label="Formato de apresentação" v={p.projectFormat || ''} onChange={v => upd(p.id, 'projectFormat', v)} helper="Ex: Concerto, Performance, Instalação, DJ Set" />
             <div style={{ marginTop: 8, marginBottom: 12 }}><C label="Já circulou / foi apresentado?" checked={p.hasCirculated === true} onChange={v => upd(p.id, 'hasCirculated', v)} /></div>
             {p.hasCirculated && <FA label="Histórico de circulação" v={p.circulationHistory || ''} onChange={v => upd(p.id, 'circulationHistory', v)} helper="Onde já foi apresentado? Em que contexto?" />}
@@ -267,10 +266,10 @@ function Section07({ data, onChange, onSave }: { data: any; onChange: (f: string
 function Section09({ data, onChange }: { data: any; onChange: (f: string, v: any) => void }) {
   const c = data.cartografia || {}
   return <div><h2 style={s.h2}>09 · Cartografia SOMA</h2>
-    <details style={s.detail} open><summary style={s.summary}>🌱 RAIZ — origens, tensões, vocabulário</summary><FA label="Origens" v={c.raiz?.origins || ''} onChange={v => onChange('cartografia', { ...c, raiz: { ...c.raiz, origins: v } })} /><FA label="Tensões fundamentais" v={c.raiz?.tensions || ''} onChange={v => onChange('cartografia', { ...c, raiz: { ...c.raiz, tensions: v } })} /><F label="Vocabulário" v={joinTags(c.raiz?.vocabulario)} onChange={v => onChange('cartografia', { ...c, raiz: { ...c.raiz, vocabulario: splitTags(v) } })} /></details>
-    <details style={s.detail}><summary style={s.summary}>🎯 CAMPO — quem recebe e por quê</summary><FA label="Perfis de audiência" v={c.campo?.audienceProfiles || ''} onChange={v => onChange('cartografia', { ...c, campo: { ...c.campo, audienceProfiles: v } })} /><FA label="Motivação de adesão" v={c.campo?.motivation || ''} onChange={v => onChange('cartografia', { ...c, campo: { ...c.campo, motivation: v } })} /><F label="Territórios da audiência" v={joinTags(c.campo?.audienceTerritories)} onChange={v => onChange('cartografia', { ...c, campo: { ...c.campo, audienceTerritories: splitTags(v) } })} /></details>
+    <details style={s.detail} open><summary style={s.summary}>🌱 RAIZ — origens, tensões, vocabulário</summary><FA label="Origens" v={c.raiz?.origins || ''} onChange={v => onChange('cartografia', { ...c, raiz: { ...c.raiz, origins: v } })} /><FA label="Tensões fundamentais" v={c.raiz?.tensions || ''} onChange={v => onChange('cartografia', { ...c, raiz: { ...c.raiz, tensions: v } })} /><F label="Vocabulário" v={Array.isArray(c.raiz?.vocabulario) ? c.raiz.vocabulario.join(', ') : (c.raiz?.vocabulario || '')} onChange={v => onChange('cartografia', { ...c, raiz: { ...c.raiz, vocabulario: v.split(',').map((x: string) => x.trim()).filter(Boolean) } })} /></details>
+    <details style={s.detail}><summary style={s.summary}>🎯 CAMPO — quem recebe e por quê</summary><FA label="Perfis de audiência" v={c.campo?.audienceProfiles || ''} onChange={v => onChange('cartografia', { ...c, campo: { ...c.campo, audienceProfiles: v } })} /><FA label="Motivação de adesão" v={c.campo?.motivation || ''} onChange={v => onChange('cartografia', { ...c, campo: { ...c.campo, motivation: v } })} /><F label="Territórios da audiência" v={Array.isArray(c.campo?.audienceTerritories) ? c.campo.audienceTerritories.join(', ') : (c.campo?.audienceTerritories || '')} onChange={v => onChange('cartografia', { ...c, campo: { ...c.campo, audienceTerritories: v.split(',').map((x: string) => x.trim()).filter(Boolean) } })} /></details>
     <details style={s.detail}><summary style={s.summary}>🕸️ TEIA — estrutura do circuito</summary><FA label="Pares" v={c.teia?.pares || ''} onChange={v => onChange('cartografia', { ...c, teia: { ...c.teia, pares: v } })} /><FA label="Quem legitima" v={c.teia?.legitimacy || ''} onChange={v => onChange('cartografia', { ...c, teia: { ...c.teia, legitimacy: v } })} /><FA label="Redes de influência" v={c.teia?.influenceNetworks || ''} onChange={v => onChange('cartografia', { ...c, teia: { ...c.teia, influenceNetworks: v } })} /></details>
-    <details style={s.detail}><summary style={s.summary}>🧭 ROTA — próximos territórios</summary><FA label="Gaps" v={c.rota?.gaps || ''} onChange={v => onChange('cartografia', { ...c, rota: { ...c.rota, gaps: v } })} /><F label="Corredores estratégicos" v={joinTags(c.rota?.corredores)} onChange={v => onChange('cartografia', { ...c, rota: { ...c.rota, corredores: splitTags(v) } })} /><FA label="Plano de expansão" v={c.rota?.expansionPlan || ''} onChange={v => onChange('cartografia', { ...c, rota: { ...c.rota, expansionPlan: v } })} /></details>
+    <details style={s.detail}><summary style={s.summary}>🧭 ROTA — próximos territórios</summary><FA label="Gaps" v={c.rota?.gaps || ''} onChange={v => onChange('cartografia', { ...c, rota: { ...c.rota, gaps: v } })} /><F label="Corredores estratégicos" v={Array.isArray(c.rota?.corredores) ? c.rota.corredores.join(', ') : (c.rota?.corredores || '')} onChange={v => onChange('cartografia', { ...c, rota: { ...c.rota, corredores: v.split(',').map((x: string) => x.trim()).filter(Boolean) } })} /><FA label="Plano de expansão" v={c.rota?.expansionPlan || ''} onChange={v => onChange('cartografia', { ...c, rota: { ...c.rota, expansionPlan: v } })} /></details>
   </div>
 }
 

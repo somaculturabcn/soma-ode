@@ -1,5 +1,5 @@
 // src/components/ArtistManager.tsx
-// SOMA ODÉ — Artist Manager v2 (9 secções + Cartografia + Supabase + Mini-Cartografia de Projetos)
+// SOMA ODÉ — Artist Manager v2 (9 secções + Cartografia + Supabase + Inputs de tags corrigidos)
 
 import { useEffect, useState } from 'react'
 import type { Artist, Project, ArtistMaterials, ArtistMobility } from '../types/artist'
@@ -427,6 +427,7 @@ function Section03({ a, update, toggle }: SecPropsToggle) {
         </div>
       </Field>
 
+      {/* ─── INPUTS CORRIGIDOS: aceitam vírgulas ─── */}
       <Field label="Keywords (vírgula separa)">
         <input style={s.input}
           placeholder="afro, queer, decolonial, ritual..."
@@ -434,14 +435,16 @@ function Section03({ a, update, toggle }: SecPropsToggle) {
           onChange={e => update('keywords', e.target.value.split(',').map(x => x.trim()).filter(Boolean))} />
       </Field>
 
-      <Field label="Temas">
+      <Field label="Temas (vírgula separa)">
         <input style={s.input}
+          placeholder="identidade, corpo, memória..."
           value={(a.themes || []).join(', ')}
           onChange={e => update('themes', e.target.value.split(',').map(x => x.trim()).filter(Boolean))} />
       </Field>
 
-      <Field label="Géneros">
+      <Field label="Géneros (vírgula separa)">
         <input style={s.input}
+          placeholder="performance, música eletrônica..."
           value={(a.genres || []).join(', ')}
           onChange={e => update('genres', e.target.value.split(',').map(x => x.trim()).filter(Boolean))} />
       </Field>
