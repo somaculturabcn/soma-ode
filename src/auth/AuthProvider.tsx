@@ -1,6 +1,5 @@
 // src/auth/AuthProvider.tsx
-// SOMA ODÉ — Auth Provider com suporte a Portal do Artista
-
+// SOMA ODÉ — Auth Provider (VERSÃO SIMPLIFICADA PARA DEBUG)
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Role } from './permissions'
@@ -9,7 +8,7 @@ type AuthUser = {
   id: string
   email: string
   role: Role
-  artistId?: string  // Se role === 'artist', o ID do artista correspondente
+  artistId?: string
 }
 
 type AuthContextType = {
@@ -31,24 +30,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function handleSession(session: any) {
     if (!session?.user) {
       setUser(null)
+      setLoading(false)
       return
     }
 
     const role = (session.user.user_metadata?.role || 'viewer') as Role
     const userId = session.user.id
-
     let artistId: string | undefined
 
-    // Se for artist, buscar o ID do artista ligado
     if (role === 'artist') {
-      const { data, error } = await supabase
-        .from('artists')
-        .select('id')
-        .eq('user_id', userId)
-        .maybeSingle()
-
-      if (!error && data) {
-        artistId = data.id
+      try {
+        const { data, error } = await supabase
+          .from('artists')
+          .select('id')
+          .eq('user_id', userId)
+          .maybeSingle()
+        if (!error && data) {
+          artistId = data.id
+        }
+      } catch (err) {
+        console.error('Erro ao buscar artistId:', err)
       }
     }
 
@@ -58,13 +59,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       role,
       artistId,
     })
+    setLoading(false)
   }
 
   useEffect(() => {
     async function init() {
-      const { data } = await supabase.auth.getSession()
-      await handleSession(data.session)
-      setLoading(false)
+      try {
+        const { data } = await supabase.auth.getSession()
+        await handleSession(data.session)
+      } catch (err) {
+        console.error('Erro ao iniciar sessão:', err)
+        setLoading(false)
+      }
     }
 
     init()
