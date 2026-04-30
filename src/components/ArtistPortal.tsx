@@ -1,5 +1,5 @@
 // src/components/ArtistPortal.tsx
-// SOMA ODÉ — Portal do Artista (COMPLETO: Projectos com Mini-Cartografia)
+// SOMA ODÉ — Portal do Artista (VERSÃO CORRIGIDA: sem "A carregar..." infinito)
 import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import { loadArtistByUserId, saveArtistToSupabase } from '../data/artistsSupabaseStore'
@@ -35,7 +35,15 @@ export default function ArtistPortal() {
   const [section, setSection] = useState('01')
   const [responding, setResponding] = useState<string | null>(null)
 
-  useEffect(() => { if (user?.id) load() }, [user?.id])
+  useEffect(() => {
+    // Só tenta carregar se o user estiver realmente disponível
+    if (user?.id) {
+      load()
+    } else {
+      // Se não houver user, para o loading
+      setLoading(false)
+    }
+  }, [user?.id])
 
   async function load() {
     if (!user?.id) return
@@ -121,7 +129,6 @@ export default function ArtistPortal() {
   )
 }
 
-// ─── SECÇÕES ─────────────────────────────────────────────
 function Section01({ data, onChange }: { data: any; onChange: (f: string, v: any) => void }) {
   return <div><h2 style={s.h2}>01 · Identidade</h2><div style={s.grid2}>
     <F label="Nome artistico" v={data.name || ''} onChange={v => onChange('name', v)} />
@@ -202,7 +209,6 @@ function Section06({ data, onChange }: { data: any; onChange: (f: string, v: any
   </div>
 }
 
-// ─── SECÇÃO 07: PROJECTOS COM MINI-CARTOGRAFIA ────────────
 function Section07({ data, onChange, onSave }: { data: any; onChange: (f: string, v: any) => void; onSave: () => Promise<void> }) {
   const projects = data.projects || []
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -210,17 +216,10 @@ function Section07({ data, onChange, onSave }: { data: any; onChange: (f: string
   const add = () => {
     const newId = crypto.randomUUID()
     const newProject = {
-      id: newId,
-      name: '', format: '', duration: '', language: '',
-      summary: '', technicalNeeds: '',
-      videoLink: '', driveLink: '', dossierLink: '',
-      // Mini-Cartografia do Projeto
-      projectTargetAudience: '',
-      projectTerritories: '',
-      projectKeywords: '',
-      projectFormat: '',
-      hasCirculated: false,
-      circulationHistory: '',
+      id: newId, name: '', format: '', duration: '', language: '',
+      summary: '', technicalNeeds: '', videoLink: '', driveLink: '', dossierLink: '',
+      projectTargetAudience: '', projectTerritories: '', projectKeywords: [],
+      projectFormat: '', hasCirculated: false, circulationHistory: '',
     }
     onChange('projects', [...projects, newProject])
     setExpanded(newId)
@@ -242,21 +241,15 @@ function Section07({ data, onChange, onSave }: { data: any; onChange: (f: string
     setExpanded(null)
   }
 
-  return <div>
-    <h2 style={s.h2}>07 · Projectos</h2>
+  return <div><h2 style={s.h2}>07 · Projectos</h2>
     {projects.map((p: any, i: number) => (
       <div key={p.id} style={s.projectCard}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setExpanded(expanded === p.id ? null : p.id)}>
-          <div>
-            <strong>Projeto {i + 1}: {p.name || 'Sem nome'}</strong>
-            {p.projectKeywords && <div style={{ fontSize: 11, color: '#ffcf5c', marginTop: 4 }}>{joinTags(p.projectKeywords)}</div>}
-          </div>
+          <div><strong>Projeto {i + 1}: {p.name || 'Sem nome'}</strong>{p.projectKeywords && p.projectKeywords.length > 0 && <div style={{ fontSize: 11, color: '#ffcf5c', marginTop: 4 }}>{Array.isArray(p.projectKeywords) ? p.projectKeywords.join(', ') : p.projectKeywords}</div>}</div>
           <span style={{ color: '#60b4e8', fontSize: 18 }}>{expanded === p.id ? '▲' : '▼'}</span>
         </div>
-
         {expanded === p.id && (
           <div style={{ marginTop: 14 }}>
-            {/* Dados Básicos */}
             <h4 style={{ color: '#60b4e8', marginBottom: 8 }}>📋 Dados do Projeto</h4>
             <F label="Nome do projeto" v={p.name || ''} onChange={v => upd(p.id, 'name', v)} />
             <div style={s.grid2}>
@@ -266,28 +259,19 @@ function Section07({ data, onChange, onSave }: { data: any; onChange: (f: string
             </div>
             <FA label="Resumo do projeto" v={p.summary || ''} onChange={v => upd(p.id, 'summary', v)} />
             <FA label="Necessidades técnicas" v={p.technicalNeeds || ''} onChange={v => upd(p.id, 'technicalNeeds', v)} />
-
-            {/* Links de Materiais */}
             <h4 style={{ color: '#60b4e8', marginBottom: 8, marginTop: 18 }}>🔗 Links de Materiais</h4>
             <div style={s.grid2}>
               <F label="Link Vídeo" v={p.videoLink || ''} onChange={v => upd(p.id, 'videoLink', v)} />
               <F label="Link Drive" v={p.driveLink || ''} onChange={v => upd(p.id, 'driveLink', v)} />
               <F label="Link Dossier" v={p.dossierLink || ''} onChange={v => upd(p.id, 'dossierLink', v)} />
             </div>
-
-            {/* Mini-Cartografia do Projeto */}
             <h4 style={{ color: '#ffcf5c', marginBottom: 8, marginTop: 18 }}>🧭 Mini-Cartografia do Projeto</h4>
-            <FA label="Público-alvo do projeto" v={p.projectTargetAudience || ''} onChange={v => upd(p.id, 'projectTargetAudience', v)} helper="Quem é o público ideal para este projeto? (ex: jovem urbano, comunidade académica, festival de world music)" />
-            <FA label="Territórios onde o projeto faz sentido" v={p.projectTerritories || ''} onChange={v => upd(p.id, 'projectTerritories', v)} helper="Em que cidades, países ou regiões este projeto funcionaria melhor?" />
-            <F label="Keywords do projeto" v={joinTags(p.projectKeywords)} onChange={v => upd(p.id, 'projectKeywords', splitTags(v))} helper="Ex: ritual, experimental, spoken word, funk" />
-            <F label="Formato de apresentação" v={p.projectFormat || ''} onChange={v => upd(p.id, 'projectFormat', v)} helper="Ex: Concerto, Performance, Instalação, DJ Set, Palestra" />
-            <div style={{ marginTop: 8, marginBottom: 12 }}>
-              <C label="Já circulou / foi apresentado?" checked={p.hasCirculated === true} onChange={v => upd(p.id, 'hasCirculated', v)} />
-            </div>
-            {p.hasCirculated && (
-              <FA label="Histórico de circulação" v={p.circulationHistory || ''} onChange={v => upd(p.id, 'circulationHistory', v)} helper="Onde já foi apresentado? Em que contexto?" />
-            )}
-
+            <FA label="Público-alvo do projeto" v={p.projectTargetAudience || ''} onChange={v => upd(p.id, 'projectTargetAudience', v)} helper="Quem é o público ideal para este projeto?" />
+            <FA label="Territórios onde o projeto faz sentido" v={p.projectTerritories || ''} onChange={v => upd(p.id, 'projectTerritories', v)} helper="Em que cidades, países ou regiões?" />
+            <F label="Keywords do projeto" v={joinTags(p.projectKeywords)} onChange={v => upd(p.id, 'projectKeywords', splitTags(v))} helper="Ex: ritual, experimental, spoken word" />
+            <F label="Formato de apresentação" v={p.projectFormat || ''} onChange={v => upd(p.id, 'projectFormat', v)} helper="Ex: Concerto, Performance, Instalação, DJ Set" />
+            <div style={{ marginTop: 8, marginBottom: 12 }}><C label="Já circulou / foi apresentado?" checked={p.hasCirculated === true} onChange={v => upd(p.id, 'hasCirculated', v)} /></div>
+            {p.hasCirculated && <FA label="Histórico de circulação" v={p.circulationHistory || ''} onChange={v => upd(p.id, 'circulationHistory', v)} helper="Onde já foi apresentado? Em que contexto?" />}
             <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
               <button style={s.primaryBtn} onClick={() => saveProject(p.id)}>💾 Guardar Projeto</button>
               <button style={s.dangerBtn} onClick={() => del(p.id)}>🗑 Remover</button>
@@ -310,26 +294,16 @@ function Section09({ data, onChange }: { data: any; onChange: (f: string, v: any
   </div>
 }
 
-// ─── COMPONENTES BASE ────────────────────────────────────
 const F = ({ label, v, onChange, helper }: { label: string; v: string; onChange: (v: string) => void; helper?: string }) => (
-  <label style={s.field}>
-    <span style={s.fieldLabel}>{label}</span>
-    {helper && <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>{helper}</span>}
-    <input style={s.input} value={v} onChange={e => onChange(e.target.value)} />
-  </label>
+  <label style={s.field}><span style={s.fieldLabel}>{label}</span>{helper && <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>{helper}</span>}<input style={s.input} value={v} onChange={e => onChange(e.target.value)} /></label>
 )
 const FA = ({ label, v, onChange, helper }: { label: string; v: string; onChange: (v: string) => void; helper?: string }) => (
-  <label style={s.field}>
-    <span style={s.fieldLabel}>{label}</span>
-    {helper && <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>{helper}</span>}
-    <textarea style={s.textarea} value={v} onChange={e => onChange(e.target.value)} />
-  </label>
+  <label style={s.field}><span style={s.fieldLabel}>{label}</span>{helper && <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>{helper}</span>}<textarea style={s.textarea} value={v} onChange={e => onChange(e.target.value)} /></label>
 )
 const C = ({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) => (
   <label style={s.check}><input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} /> {label}</label>
 )
 
-// ─── ESTILOS ─────────────────────────────────────────────
 const s: Record<string, React.CSSProperties> = {
   center: { padding: 60, textAlign: 'center', color: '#fff' },
   empty: { padding: 40, textAlign: 'center', color: 'rgba(255,255,255,0.6)' },
@@ -360,7 +334,7 @@ const s: Record<string, React.CSSProperties> = {
   footer: { display: 'flex', justifyContent: 'space-between', marginTop: 18, gap: 10 },
   primaryBtn: { background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 800, cursor: 'pointer' },
   btn: { background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '9px 14px', fontSize: 13, cursor: 'pointer' },
-  dangerBtn: { background: 'rgba(255,70,70,0.12)', color: '#ff8a8a', border: '1px solid rgba(255,70,70,0.25)', borderRadius: 8, padding: '8px 12px', fontSize: 12, cursor: 'pointer' },
+  dangerBtn: { background: 'rgba(255,70,70,0.12)', color: '#ff8a8a', border: '1px solid rgba(255,70,70,0.25)', borderRadius: 8, padding: '8px 12px', fontSize: 12, cursor: 'pointer', marginTop: 8 },
   message: { background: 'rgba(96,180,232,0.12)', border: '1px solid rgba(96,180,232,0.25)', color: '#b8e2ff', borderRadius: 8, padding: 10, marginBottom: 14, fontSize: 13 },
   detail: { background: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 14, marginBottom: 12 },
   summary: { fontSize: 14, fontWeight: 600, color: '#fff', cursor: 'pointer', marginBottom: 14 },
