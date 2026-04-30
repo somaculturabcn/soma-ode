@@ -1,5 +1,5 @@
 // src/components/ArtistPortal.tsx
-// SOMA ODÉ — Portal do Artista (COMPLETO: todas as secções + CountryPicker + Drive Links)
+// SOMA ODÉ — Portal do Artista (COMPLETO: Projectos plegables + Drive Links + Sincronização)
 import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import { loadArtistByUserId, saveArtistToSupabase } from '../data/artistsSupabaseStore'
@@ -101,7 +101,7 @@ export default function ArtistPortal() {
             {section === '04' && <Section04 data={artist} onChange={update} />}
             {section === '05' && <Section05 data={artist} onChange={update} />}
             {section === '06' && <Section06 data={artist} onChange={update} />}
-            {section === '07' && <Section07 data={artist} onChange={update} />}
+            {section === '07' && <Section07 data={artist} onChange={update} onSave={saveProfile} />}
             {section === '09' && <Section09 data={artist} onChange={update} />}
           </div>
           <div style={s.footer}>
@@ -121,6 +121,7 @@ export default function ArtistPortal() {
   )
 }
 
+// ─── SECÇÕES ─────────────────────────────────────────────
 function Section01({ data, onChange }: { data: any; onChange: (f: string, v: any) => void }) {
   return <div><h2 style={s.h2}>01 · Identidade</h2><div style={s.grid2}>
     <F label="Nome artistico" v={data.name || ''} onChange={v => onChange('name', v)} />
@@ -201,14 +202,67 @@ function Section06({ data, onChange }: { data: any; onChange: (f: string, v: any
   </div>
 }
 
-function Section07({ data, onChange }: { data: any; onChange: (f: string, v: any) => void }) {
+function Section07({ data, onChange, onSave }: { data: any; onChange: (f: string, v: any) => void; onSave: () => Promise<void> }) {
   const projects = data.projects || []
-  const add = () => onChange('projects', [...projects, { id: crypto.randomUUID(), name: '', format: '', duration: '', summary: '' }])
-  const upd = (id: string, f: string, v: any) => onChange('projects', projects.map((p: any) => p.id === id ? { ...p, [f]: v } : p))
-  const del = (id: string) => onChange('projects', projects.filter((p: any) => p.id !== id))
-  return <div><h2 style={s.h2}>07 · Projectos</h2>
-    {projects.map((p: any, i: number) => <div key={p.id} style={s.projectCard}><strong>Projecto {i + 1}</strong><F label="Nome" v={p.name || ''} onChange={v => upd(p.id, 'name', v)} /><F label="Formato" v={p.format || ''} onChange={v => upd(p.id, 'format', v)} /><F label="Duração" v={p.duration || ''} onChange={v => upd(p.id, 'duration', v)} /><FA label="Resumo" v={p.summary || ''} onChange={v => upd(p.id, 'summary', v)} /><button style={s.dangerBtn} onClick={() => del(p.id)}>Remover</button></div>)}
-    <button style={s.primaryBtn} onClick={add}>+ Adicionar projecto</button>
+  const [expanded, setExpanded] = useState<string | null>(null)
+
+  const add = () => {
+    const newId = crypto.randomUUID()
+    const newProject = { id: newId, name: '', format: '', duration: '', summary: '', videoLink: '', driveLink: '', dossierLink: '' }
+    onChange('projects', [...projects, newProject])
+    setExpanded(newId)
+  }
+
+  const upd = (id: string, f: string, v: any) => {
+    onChange('projects', projects.map((p: any) => p.id === id ? { ...p, [f]: v } : p))
+  }
+
+  const del = (id: string) => {
+    if (confirm('Remover este projeto?')) {
+      onChange('projects', projects.filter((p: any) => p.id !== id))
+      if (expanded === id) setExpanded(null)
+    }
+  }
+
+  const saveProject = async (id: string) => {
+    // Guarda o artista inteiro no Supabase para sincronizar
+    await onSave()
+    setExpanded(null)
+  }
+
+  return <div>
+    <h2 style={s.h2}>07 · Projectos</h2>
+    {projects.map((p: any, i: number) => (
+      <div key={p.id} style={s.projectCard}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setExpanded(expanded === p.id ? null : p.id)}>
+          <strong>Projeto {i + 1}: {p.name || 'Sem nome'}</strong>
+          <span style={{ color: '#60b4e8' }}>{expanded === p.id ? '▲' : '▼'}</span>
+        </div>
+
+        {expanded === p.id && (
+          <div style={{ marginTop: 14 }}>
+            <F label="Nome" v={p.name || ''} onChange={v => upd(p.id, 'name', v)} />
+            <div style={s.grid2}>
+              <F label="Formato" v={p.format || ''} onChange={v => upd(p.id, 'format', v)} />
+              <F label="Duração" v={p.duration || ''} onChange={v => upd(p.id, 'duration', v)} />
+              <F label="Idioma da obra" v={p.language || ''} onChange={v => upd(p.id, 'language', v)} />
+            </div>
+            <FA label="Resumo" v={p.summary || ''} onChange={v => upd(p.id, 'summary', v)} />
+            <FA label="Necessidades técnicas" v={p.technicalNeeds || ''} onChange={v => upd(p.id, 'technicalNeeds', v)} />
+            <div style={s.grid2}>
+              <F label="Link Vídeo" v={p.videoLink || ''} onChange={v => upd(p.id, 'videoLink', v)} />
+              <F label="Link Drive" v={p.driveLink || ''} onChange={v => upd(p.id, 'driveLink', v)} />
+              <F label="Link Dossier" v={p.dossierLink || ''} onChange={v => upd(p.id, 'dossierLink', v)} />
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+              <button style={s.primaryBtn} onClick={() => saveProject(p.id)}>Guardar Projeto</button>
+              <button style={s.dangerBtn} onClick={() => del(p.id)}>Remover</button>
+            </div>
+          </div>
+        )}
+      </div>
+    ))}
+    <button style={{ ...s.primaryBtn, marginTop: 12 }} onClick={add}>+ Adicionar projeto</button>
   </div>
 }
 
@@ -222,10 +276,12 @@ function Section09({ data, onChange }: { data: any; onChange: (f: string, v: any
   </div>
 }
 
+// ─── COMPONENTES BASE ────────────────────────────────────
 const F = ({ label, v, onChange }: { label: string; v: string; onChange: (v: string) => void }) => <label style={s.field}><span style={s.fieldLabel}>{label}</span><input style={s.input} value={v} onChange={e => onChange(e.target.value)} /></label>
 const FA = ({ label, v, onChange }: { label: string; v: string; onChange: (v: string) => void }) => <label style={s.field}><span style={s.fieldLabel}>{label}</span><textarea style={s.textarea} value={v} onChange={e => onChange(e.target.value)} /></label>
 const C = ({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) => <label style={s.check}><input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} /> {label}</label>
 
+// ─── ESTILOS ─────────────────────────────────────────────
 const s: Record<string, React.CSSProperties> = {
   center: { padding: 60, textAlign: 'center', color: '#fff' },
   empty: { padding: 40, textAlign: 'center', color: 'rgba(255,255,255,0.6)' },
@@ -274,5 +330,4 @@ const s: Record<string, React.CSSProperties> = {
   linkButton: { background: 'transparent', color: '#60b4e8', border: '1px solid rgba(96,180,232,0.3)', padding: '6px 12px', borderRadius: 6, fontSize: 13, cursor: 'pointer', marginBottom: 12 },
   actions: { display: 'flex', gap: 10, marginTop: 14 },
   acceptBtn: { background: 'rgba(110,243,165,0.18)', color: '#6ef3a5', border: '1px solid rgba(110,243,165,0.35)', padding: '10px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' },
-  refuseBtn: { background: 'rgba(255,70,70,0.12)', color: '#ff8a8a', border: '1px solid rgba(255,70,70,0.25)', padding: '10px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' },
-}
+  refuseBtn
