@@ -1,227 +1,145 @@
 // src/components/CountryPicker.tsx
-// SOMA ODÉ — Selector de países com pesquisa e grupos por região
-// 180+ países · regiões colapsáveis · selecção múltipla · badge UE · seleccionar todos
+// SOMA ODÉ — CountryPicker à prova de undefined
+import React, { useState, useMemo } from 'react'
 
-import { useState, useMemo } from 'react'
-import { GEO_REGIONS, ALL_COUNTRIES, getCountry } from '../data/geoData'
-
-type Props = {
-  selected: string[]
-  onChange: (codes: string[]) => void
-  label?: string
+interface CountryPickerProps {
+  selectedCountries: string[]
+  onChange: (countries: string[]) => void
 }
 
-export default function CountryPicker({ selected, onChange, label }: Props) {
+const REGIONS: { label: string; countries: { code: string; name: string }[] }[] = [
+  { label: 'Europa Ocidental', countries: [{ code: 'ES', name: 'Espanha' }, { code: 'PT', name: 'Portugal' }, { code: 'FR', name: 'França' }, { code: 'IT', name: 'Itália' }, { code: 'DE', name: 'Alemanha' }, { code: 'NL', name: 'Países Baixos' }, { code: 'BE', name: 'Bélgica' }, { code: 'CH', name: 'Suíça' }, { code: 'AT', name: 'Áustria' }, { code: 'IE', name: 'Irlanda' }, { code: 'GB', name: 'Reino Unido' }, { code: 'LU', name: 'Luxemburgo' }] },
+  { label: 'Europa do Sul/Leste', countries: [{ code: 'GR', name: 'Grécia' }, { code: 'PL', name: 'Polónia' }, { code: 'CZ', name: 'Chéquia' }, { code: 'HU', name: 'Hungria' }, { code: 'RO', name: 'Roménia' }, { code: 'BG', name: 'Bulgária' }, { code: 'HR', name: 'Croácia' }, { code: 'SI', name: 'Eslovénia' }] },
+  { label: 'Países Nórdicos', countries: [{ code: 'SE', name: 'Suécia' }, { code: 'NO', name: 'Noruega' }, { code: 'DK', name: 'Dinamarca' }, { code: 'FI', name: 'Finlândia' }, { code: 'IS', name: 'Islândia' }] },
+  { label: 'América do Sul', countries: [{ code: 'BR', name: 'Brasil' }, { code: 'AR', name: 'Argentina' }, { code: 'CL', name: 'Chile' }, { code: 'UY', name: 'Uruguai' }, { code: 'CO', name: 'Colômbia' }, { code: 'PE', name: 'Peru' }, { code: 'EC', name: 'Equador' }, { code: 'BO', name: 'Bolívia' }, { code: 'PY', name: 'Paraguai' }, { code: 'VE', name: 'Venezuela' }] },
+  { label: 'América do Norte', countries: [{ code: 'US', name: 'EUA' }, { code: 'CA', name: 'Canadá' }, { code: 'MX', name: 'México' }] },
+  { label: 'África', countries: [{ code: 'AO', name: 'Angola' }, { code: 'MZ', name: 'Moçambique' }, { code: 'CV', name: 'Cabo Verde' }, { code: 'GW', name: 'Guiné-Bissau' }, { code: 'ST', name: 'São Tomé e Príncipe' }, { code: 'SN', name: 'Senegal' }, { code: 'NG', name: 'Nigéria' }, { code: 'GH', name: 'Gana' }, { code: 'ZA', name: 'África do Sul' }, { code: 'MA', name: 'Marrocos' }, { code: 'EG', name: 'Egito' }] },
+  { label: 'Ásia', countries: [{ code: 'JP', name: 'Japão' }, { code: 'KR', name: 'Coreia do Sul' }, { code: 'CN', name: 'China' }, { code: 'IN', name: 'Índia' }, { code: 'TH', name: 'Tailândia' }, { code: 'ID', name: 'Indonésia' }, { code: 'SG', name: 'Singapura' }, { code: 'AE', name: 'Emirados' }] },
+  { label: 'Oceânia', countries: [{ code: 'AU', name: 'Austrália' }, { code: 'NZ', name: 'Nova Zelândia' }] },
+]
+
+const CountryPicker: React.FC<CountryPickerProps> = ({ selectedCountries = [], onChange }) => {
   const [search, setSearch] = useState('')
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
 
-  const ALL_CODES = useMemo(() => ALL_COUNTRIES.map(c => c.code), [])
-  const allSelected = ALL_CODES.length > 0 && ALL_CODES.every(c => selected.includes(c))
+  // Garantir que selectedCountries é sempre um array
+  const safeSelection = Array.isArray(selectedCountries) ? selectedCountries : []
 
-  const toggle = (code: string) => {
-    onChange(selected.includes(code)
-      ? selected.filter(c => c !== code)
-      : [...selected, code]
-    )
+  function toggle(code: string) {
+    if (safeSelection.includes(code)) {
+      onChange(safeSelection.filter(c => c !== code))
+    } else {
+      onChange([...safeSelection, code])
+    }
   }
 
-  const toggleRegionAll = (codes: string[], e: React.MouseEvent) => {
-    e.stopPropagation()
-    const allSel = codes.every(c => selected.includes(c))
-    onChange(allSel
-      ? selected.filter(c => !codes.includes(c))
-      : [...selected, ...codes.filter(c => !selected.includes(c))]
-    )
+  function selectAll() {
+    const all = REGIONS.flatMap(r => r.countries.map(c => c.code))
+    if (safeSelection.length === all.length) {
+      onChange([])
+    } else {
+      onChange(all)
+    }
   }
 
-  const selectAllGlobal = () => {
-    onChange(allSelected ? [] : [...ALL_CODES])
+  function selectRegion(codes: string[]) {
+    const allSelected = codes.every(c => safeSelection.includes(c))
+    if (allSelected) {
+      onChange(safeSelection.filter(c => !codes.includes(c)))
+    } else {
+      onChange([...new Set([...safeSelection, ...codes])])
+    }
   }
 
-  const filteredRegions = useMemo(() => {
-    if (!search.trim()) return GEO_REGIONS
-    const q = search.toLowerCase()
-    return GEO_REGIONS
-      .map(r => ({
-        ...r,
-        countries: r.countries.filter(c =>
-          c.name.toLowerCase().includes(q) ||
-          c.nameEn.toLowerCase().includes(q) ||
-          c.code.toLowerCase().includes(q)
-        ),
-      }))
-      .filter(r => r.countries.length > 0)
-  }, [search])
-
-  const btnBase: React.CSSProperties = {
-    padding: '5px 12px', borderRadius: 5, fontSize: 12,
-    cursor: 'pointer', border: '0.5px solid', fontWeight: 600,
-  }
+  const filtered = search
+    ? REGIONS.flatMap(r => r.countries).filter(c =>
+        c.name.toLowerCase().includes(search.toLowerCase()) ||
+        c.code.toLowerCase().includes(search.toLowerCase())
+      )
+    : null
 
   return (
-    <div style={{ width: '100%' }}>
-      {label && (
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 8 }}>{label}</div>
-      )}
-
-      {/* Botões globais */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' as const }}>
-        <button
-          onClick={selectAllGlobal}
-          style={{
-            ...btnBase,
-            background: allSelected ? 'rgba(26,105,148,0.25)' : 'rgba(26,105,148,0.08)',
-            borderColor: allSelected ? '#1A6994' : 'rgba(26,105,148,0.3)',
-            color: allSelected ? '#60b4e8' : 'rgba(255,255,255,0.5)',
-          }}
-        >
-          {allSelected ? '✓ Todos os países seleccionados' : '+ Seleccionar todos os países (180+)'}
-        </button>
-
-        {selected.length > 0 && (
-          <button
-            onClick={() => onChange([])}
-            style={{
-              ...btnBase,
-              background: 'transparent',
-              borderColor: 'rgba(220,60,60,0.3)',
-              color: 'rgba(220,80,80,0.7)',
-              fontWeight: 400,
-            }}
-          >
-            × Limpar tudo ({selected.length})
-          </button>
-        )}
-      </div>
-
-      {/* Tags dos países seleccionados (só se não estiver tudo seleccionado) */}
-      {selected.length > 0 && !allSelected && (
-        <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: 5, marginBottom: 10 }}>
-          {selected.map(code => {
-            const c = getCountry(code)
-            return (
-              <span key={code} style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5,
-                padding: '3px 10px', borderRadius: 20, fontSize: 11,
-                background: 'rgba(26,105,148,0.2)',
-                border: '0.5px solid rgba(26,105,148,0.4)',
-                color: '#60b4e8',
-              }}>
-                {c?.eu && <span style={{ fontSize: 10 }}>🇪🇺</span>}
-                {c?.name ?? code}
-                <span
-                  style={{ cursor: 'pointer', opacity: 0.5, fontSize: 13, lineHeight: 1 }}
-                  onClick={() => toggle(code)}
-                >×</span>
-              </span>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Campo de pesquisa */}
+    <div style={styles.container}>
       <input
+        type="text"
+        placeholder="🔍 Pesquisar país..."
         value={search}
         onChange={e => setSearch(e.target.value)}
-        placeholder="🔍 Pesquisar país (PT, EN ou código ISO: ES, BR, FR…)"
-        style={{
-          width: '100%', padding: '9px 12px', marginBottom: 10,
-          background: '#0a0a0a', color: '#fff',
-          border: '0.5px solid rgba(255,255,255,0.12)',
-          borderRadius: 6, fontSize: 13, outline: 'none',
-          boxSizing: 'border-box' as const,
-        }}
+        style={styles.search}
       />
 
-      {/* Lista por região */}
-      <div style={{ maxHeight: 340, overflowY: 'auto' as const, paddingRight: 2 }}>
-        {filteredRegions.map(region => {
-          const codes = region.countries.map(c => c.code)
-          const nSel = codes.filter(c => selected.includes(c)).length
-          const isOpen = search.trim() ? true : !collapsed[region.id]
-
-          return (
-            <div key={region.id} style={{ marginBottom: 4 }}>
-              <div
-                onClick={() => setCollapsed(p => ({ ...p, [region.id]: !p[region.id] }))}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '7px 12px', borderRadius: 6, cursor: 'pointer',
-                  background: nSel > 0 ? 'rgba(26,105,148,0.12)' : 'rgba(255,255,255,0.03)',
-                  border: `0.5px solid ${nSel > 0 ? 'rgba(26,105,148,0.3)' : 'rgba(255,255,255,0.07)'}`,
-                  marginBottom: isOpen ? 4 : 0,
-                  userSelect: 'none' as const,
-                }}
-              >
-                <span style={{ fontSize: 12, fontWeight: 600, color: nSel > 0 ? '#60b4e8' : 'rgba(255,255,255,0.5)' }}>
-                  {region.emoji} {region.label}
-                  {nSel > 0 && (
-                    <span style={{ marginLeft: 7, fontWeight: 400, color: '#1A6994' }}>
-                      · {nSel}/{codes.length}
-                    </span>
-                  )}
-                </span>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <button
-                    onClick={e => toggleRegionAll(codes, e)}
-                    style={{
-                      padding: '2px 8px', borderRadius: 4, fontSize: 10, cursor: 'pointer',
-                      background: 'transparent', border: '0.5px solid rgba(255,255,255,0.12)',
-                      color: 'rgba(255,255,255,0.4)',
-                    }}
-                  >
-                    {codes.every(c => selected.includes(c)) ? '− todos' : '+ todos'}
-                  </button>
-                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)' }}>
-                    {isOpen ? '▼' : '▶'}
-                  </span>
-                </div>
-              </div>
-
-              {isOpen && (
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-                  gap: 3, paddingBottom: 6,
-                }}>
-                  {region.countries.map(country => {
-                    const sel = selected.includes(country.code)
-                    return (
-                      <button
-                        key={country.code}
-                        onClick={() => toggle(country.code)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 5,
-                          padding: '5px 8px', borderRadius: 5, fontSize: 12,
-                          textAlign: 'left' as const, cursor: 'pointer',
-                          background: sel ? 'rgba(26,105,148,0.2)' : 'transparent',
-                          border: `0.5px solid ${sel ? 'rgba(26,105,148,0.5)' : 'rgba(255,255,255,0.07)'}`,
-                          color: sel ? '#60b4e8' : 'rgba(255,255,255,0.45)',
-                          transition: 'all 0.1s',
-                        }}
-                      >
-                        {sel && <span style={{ color: '#1A6994', fontSize: 10 }}>✓</span>}
-                        {country.eu && <span title="UE" style={{ fontSize: 10 }}>🇪🇺</span>}
-                        <span>{country.name}</span>
-                        <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', marginLeft: 'auto' }}>{country.code}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )
-        })}
+      <div style={styles.toolbar}>
+        <button style={styles.btn} onClick={selectAll}>
+          {safeSelection.length > 50 ? '✕ Limpar todos' : '🌍 Seleccionar todos'}
+        </button>
+        <button style={styles.btnDanger} onClick={() => onChange([])}>
+          ✕ Limpar
+        </button>
+        <span style={styles.counter}>{safeSelection.length} países</span>
       </div>
 
-      {selected.length > 0 && (
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>
-          {allSelected
-            ? '🌍 Todos os países seleccionados'
-            : `${selected.length} país${selected.length !== 1 ? 'es' : ''} seleccionado${selected.length !== 1 ? 's' : ''}`
-          }
+      {filtered ? (
+        <div style={styles.grid}>
+          {filtered.map(c => (
+            <button
+              key={c.code}
+              onClick={() => toggle(c.code)}
+              style={{
+                ...styles.country,
+                ...(safeSelection.includes(c.code) ? styles.countryActive : {}),
+              }}
+            >
+              {c.code} · {c.name}
+            </button>
+          ))}
         </div>
+      ) : (
+        REGIONS.map(region => {
+          const codes = region.countries.map(c => c.code)
+          const allSelected = codes.every(c => safeSelection.includes(c))
+          return (
+            <div key={region.label} style={styles.region}>
+              <div style={styles.regionHeader}>
+                <span style={styles.regionTitle}>{region.label}</span>
+                <button style={styles.regionBtn} onClick={() => selectRegion(codes)}>
+                  {allSelected ? '− todos' : '+ todos'}
+                </button>
+              </div>
+              <div style={styles.grid}>
+                {region.countries.map(c => (
+                  <button
+                    key={c.code}
+                    onClick={() => toggle(c.code)}
+                    style={{
+                      ...styles.country,
+                      ...(safeSelection.includes(c.code) ? styles.countryActive : {}),
+                    }}
+                  >
+                    {c.code} · {c.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )
+        })
       )}
     </div>
   )
 }
+
+const styles: Record<string, React.CSSProperties> = {
+  container: { background: '#0a0a0a', borderRadius: '10px', padding: '16px', color: '#fff' },
+  search: { width: '100%', padding: '10px 12px', background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', borderRadius: '8px', fontSize: '13px', marginBottom: '12px', boxSizing: 'border-box', outline: 'none' },
+  toolbar: { display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap' },
+  btn: { padding: '8px 14px', background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' },
+  btnDanger: { padding: '8px 14px', background: 'rgba(255,70,70,0.12)', color: '#ff8a8a', border: '1px solid rgba(255,70,70,0.25)', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' },
+  counter: { color: 'rgba(255,255,255,0.55)', fontSize: '12px' },
+  region: { marginBottom: '14px' },
+  regionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' },
+  regionTitle: { fontSize: '14px', fontWeight: '600', color: '#1A6994' },
+  regionBtn: { padding: '4px 10px', background: 'transparent', color: '#60b4e8', border: 'none', fontSize: '11px', cursor: 'pointer' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '6px' },
+  country: { padding: '6px 10px', background: 'transparent', color: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', fontSize: '11px', cursor: 'pointer', textAlign: 'left' },
+  countryActive: { background: 'rgba(26,105,148,0.3)', color: '#fff', border: '1px solid #1A6994' },
+}
+
+export default CountryPicker
