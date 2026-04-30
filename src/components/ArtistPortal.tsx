@@ -121,7 +121,6 @@ export default function ArtistPortal() {
   )
 }
 
-// ─── SECÇÕES ─────────────────────────────────────────────
 function Section01({ data, onChange }: { data: any; onChange: (f: string, v: any) => void }) {
   return <div><h2 style={s.h2}>01 · Identidade</h2><div style={s.grid2}>
     <F label="Nome artistico" v={data.name || ''} onChange={v => onChange('name', v)} />
@@ -161,10 +160,7 @@ function Section03({ data, onChange }: { data: any; onChange: (f: string, v: any
 
 function Section04({ data, onChange }: { data: any; onChange: (f: string, v: any) => void }) {
   return <div><h2 style={s.h2}>04 · Países alvo</h2>
-    <CountryPicker
-      selectedCountries={data.targetCountries || []}
-      onChange={(codes: string[]) => onChange('targetCountries', codes)}
-    />
+    <CountryPicker selectedCountries={data.targetCountries || []} onChange={(codes: string[]) => onChange('targetCountries', codes)} />
   </div>
 }
 
@@ -226,12 +222,10 @@ function Section09({ data, onChange }: { data: any; onChange: (f: string, v: any
   </div>
 }
 
-// ─── COMPONENTES BASE ────────────────────────────────────
 const F = ({ label, v, onChange }: { label: string; v: string; onChange: (v: string) => void }) => <label style={s.field}><span style={s.fieldLabel}>{label}</span><input style={s.input} value={v} onChange={e => onChange(e.target.value)} /></label>
 const FA = ({ label, v, onChange }: { label: string; v: string; onChange: (v: string) => void }) => <label style={s.field}><span style={s.fieldLabel}>{label}</span><textarea style={s.textarea} value={v} onChange={e => onChange(e.target.value)} /></label>
 const C = ({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) => <label style={s.check}><input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} /> {label}</label>
 
-// ─── ESTILOS ─────────────────────────────────────────────
 const s: Record<string, React.CSSProperties> = {
   center: { padding: 60, textAlign: 'center', color: '#fff' },
   empty: { padding: 40, textAlign: 'center', color: 'rgba(255,255,255,0.6)' },
