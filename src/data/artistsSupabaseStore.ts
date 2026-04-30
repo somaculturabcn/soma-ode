@@ -50,7 +50,7 @@ export async function saveArtistToSupabase(artist: Artist) {
     .upsert(row, { onConflict: 'id' })
 
   if (error) {
-    console.error('🔥 ERRO REAL SUPABASE:', error)
+    console.error('ERRO REAL SUPABASE:', error)
     throw error
   }
 }
@@ -71,11 +71,6 @@ export async function deleteArtistFromSupabase(id: string) {
 
 // ─── Conversões ───────────────────────────────────
 
-/**
- * Converte um Artist do frontend para uma row do Supabase.
- * Os campos importantes vão para colunas SQL (queries rápidas).
- * O objecto inteiro vai para `payload` JSONB (backup, retrocompatibilidade).
- */
 function artistToRow(a: Artist): any {
   return {
     id: a.id,
@@ -128,24 +123,19 @@ function artistToRow(a: Artist): any {
     active: a.active !== false,
     updated_at: new Date().toISOString(),
 
-    // Backup completo (qualquer coisa que não tenha coluna fica aqui)
+    // Backup completo
     payload: a,
   }
 }
 
-/**
- * Converte uma row do Supabase para um Artist do frontend.
- * Prioriza o `payload` (objecto completo). Se não houver, reconstrói de colunas.
- */
 function rowToArtist(row: any): Artist {
-  // Se houver payload completo, usa-o como base (tem tudo)
+  // Se houver payload completo, usa-o como base
   if (row.payload && typeof row.payload === 'object') {
     return {
       ...emptyArtist(),
       ...row.payload,
       id: row.id,
       userId: row.user_id,
-      // Sobrescreve com colunas SQL (mais frescas que payload)
       name: row.artistic_name || row.payload.name || '',
       cartografia: row.cartografia || row.payload.cartografia || {},
       materials: row.materials || row.payload.materials || {},
@@ -156,7 +146,7 @@ function rowToArtist(row: any): Artist {
     }
   }
 
-  // Senão, reconstrói de colunas (caso payload esteja vazio)
+  // Senão, reconstrói de colunas
   return {
     ...emptyArtist(),
     id: row.id,

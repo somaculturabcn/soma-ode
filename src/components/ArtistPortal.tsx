@@ -1,9 +1,8 @@
 // src/components/ArtistPortal.tsx
-// SOMA ODÉ — Portal do Artista (sem tags <a> para evitar bug do paste)
-
+// SOMA ODÉ — Portal do Artista (Editável, guarda no Supabase)
 import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthProvider'
-import { loadArtistByUserId } from '../data/artistsSupabaseStore'
+import { loadArtistByUserId, saveArtistToSupabase } from '../data/artistsSupabaseStore'
 import { loadProposalsForArtist, updateProposalStatusInSupabase } from '../data/proposalsSupabaseStore'
 import type { Artist } from '../types/artist'
 import type { Proposal } from '../types/proposal'
@@ -15,13 +14,13 @@ export default function ArtistPortal() {
   const [artist, setArtist] = useState<Artist | null>(null)
   const [proposals, setProposals] = useState<Proposal[]>([])
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
   const [view, setView] = useState<'profile' | 'proposals'>('profile')
   const [responding, setResponding] = useState<string | null>(null)
 
   useEffect(() => {
-    if (user?.id) {
-      load()
-    }
+    if (user?.id) load()
   }, [user?.id])
 
   async function load() {
@@ -36,8 +35,9 @@ export default function ArtistPortal() {
       }
     } catch (err) {
       console.error('Erro a carregar portal:', err)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   async function respondProposal(proposalId: string, accept: boolean) {
@@ -48,13 +48,41 @@ export default function ArtistPortal() {
       await load()
     } catch (err) {
       console.error(err)
-      alert('Erro ao responder proposta.')
+      alert('Erro ao responder à proposta.')
+    } finally {
+      setResponding(null)
     }
-    setResponding(null)
   }
 
   function openLink(url: string) {
     window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
+  async function saveProfile() {
+    if (!artist) return
+    setSaving(true)
+    setMessage('')
+    try {
+      await saveArtistToSupabase(artist)
+      setMessage('Perfil guardado com sucesso.')
+    } catch (err) {
+      console.error('Erro ao guardar perfil:', err)
+      setMessage('Erro ao guardar perfil. Tenta de novo.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function update(field: keyof Artist, value: any) {
+    setArtist(prev => prev ? { ...prev, [field]: value } : null)
+  }
+
+  function splitTags(value: string) {
+    return value.split(',').map(x => x.trim()).filter(Boolean)
+  }
+
+  function joinTags(value?: string[]) {
+    return Array.isArray(value) ? value.join(', ') : ''
   }
 
   if (loading) {
@@ -81,7 +109,7 @@ export default function ArtistPortal() {
         <div>
           <h1 style={s.title}>{artist.name || 'Artista'}</h1>
           <p style={s.subtitle}>
-            {[artist.base, artist.origin].filter(Boolean).join(' . ') || 'Localizacao por preencher'}
+            {[artist.base, artist.origin].filter(Boolean).join(' · ') || 'Localizacao por preencher'}
           </p>
         </div>
         <div style={s.heroStats}>
@@ -110,7 +138,45 @@ export default function ArtistPortal() {
         </button>
       </nav>
 
-      {view === 'profile' && <ProfileView artist={artist} />}
+      {message && <div style={s.message}>{message}</div>}
+
+      {view === 'profile' && (
+        <section style={s.section}>
+          <h2 style={s.h2}>Meu Perfil</h2>
+          <div style={s.grid2}>
+            <Input label="Nome artistico" value={artist.name} onChange={v => update('name', v)} />
+            <Input label="Email" value={artist.email || ''} onChange={v => update('email', v)} />
+            <Input label="Pronomes" value={(artist as any).pronouns || ''} onChange={v => update('pronouns' as any, v)} />
+            <Input label="Telefone" value={(artist as any).phone || ''} onChange={v => update('phone' as any, v)} />
+            <Input label="Instagram" value={(artist as any).instagram || ''} onChange={v => update('instagram' as any, v)} />
+            <Input label="Website" value={(artist as any).website || ''} onChange={v => update('website' as any, v)} />
+            <Input label="Cidade base" value={(artist as any).base || ''} onChange={v => update('base' as any, v)} />
+            <Input label="País origem" value={(artist as any).origin || ''} onChange={v => update('origin' as any, v)} />
+          </div>
+
+          <Textarea label="Bio" value={(artist as any).bio || ''} onChange={v => update('bio' as any, v)} />
+
+          <div style={s.grid2}>
+            <Input
+              label="Disciplinas (separar por vírgula)"
+              value={joinTags(artist.disciplines)}
+              onChange={v => update('disciplines', splitTags(v))}
+            />
+            <Input
+              label="Idiomas (separar por vírgula)"
+              value={joinTags(artist.languages)}
+              onChange={v => update('languages', splitTags(v.toUpperCase()))}
+            />
+          </div>
+
+          <div style={s.footer}>
+            <button style={s.primaryBtn} onClick={saveProfile} disabled={saving}>
+              {saving ? 'A guardar...' : 'Guardar Perfil'}
+            </button>
+          </div>
+        </section>
+      )}
+
       {view === 'proposals' && (
         <ProposalsView proposals={proposals} responding={responding} onRespond={respondProposal} onOpenLink={openLink} />
       )}
@@ -118,68 +184,7 @@ export default function ArtistPortal() {
   )
 }
 
-function ProfileView({ artist }: { artist: Artist }) {
-  return (
-    <div style={s.section}>
-      <h2 style={s.h2}>Perfil</h2>
-      <div style={s.grid2}>
-        <Field label="Nome artistico" value={artist.name} />
-        <Field label="Email" value={artist.email} />
-        <Field label="Pronomes" value={artist.pronouns} />
-        <Field label="Telefone" value={artist.phone} />
-        <Field label="Instagram" value={artist.instagram} />
-        <Field label="Website" value={artist.website} />
-        <Field label="Cidade base" value={artist.base} />
-        <Field label="Pais origem" value={artist.origin} />
-      </div>
-
-      {artist.bio ? (
-        <div style={s.bioBox}>
-          <span style={s.fieldLabel}>Bio</span>
-          <p style={s.bio}>{artist.bio}</p>
-        </div>
-      ) : null}
-
-      {artist.disciplines && artist.disciplines.length > 0 ? (
-        <div style={s.tagsBox}>
-          <span style={s.fieldLabel}>Disciplinas</span>
-          <div style={s.tags}>
-            {artist.disciplines.map(d => (
-              <span key={d} style={s.tag}>{d}</span>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {artist.cartografia && artist.cartografia.raiz && artist.cartografia.raiz.vocabulario && artist.cartografia.raiz.vocabulario.length > 0 ? (
-        <div style={s.tagsBox}>
-          <span style={s.fieldLabel}>Vocabulario Cartografia</span>
-          <div style={s.tags}>
-            {artist.cartografia.raiz.vocabulario.map(v => (
-              <span key={v} style={s.tagHighlight}>{v}</span>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      <div style={s.note}>
-        Para editar o perfil ou preencher mais info, contacta a equipa SOMA.
-      </div>
-    </div>
-  )
-}
-
-function ProposalsView({
-  proposals,
-  responding,
-  onRespond,
-  onOpenLink,
-}: {
-  proposals: Proposal[]
-  responding: string | null
-  onRespond: (id: string, accept: boolean) => void
-  onOpenLink: (url: string) => void
-}) {
+function ProposalsView({ proposals, responding, onRespond, onOpenLink }: { proposals: Proposal[]; responding: string | null; onRespond: (id: string, accept: boolean) => void; onOpenLink: (url: string) => void }) {
   if (proposals.length === 0) {
     return (
       <div style={s.section}>
@@ -207,66 +212,46 @@ function ProposalsView({
                 <span style={{ ...s.statusBadge, background: (status && status.color) || '#666' }}>
                   {(status && status.label) || p.status}
                 </span>
-                {p.opportunityDeadline ? (
+                {p.opportunityDeadline && (
                   <span style={s.deadline}>
                     {new Date(p.opportunityDeadline).toLocaleDateString('pt-PT')}
                   </span>
-                ) : null}
+                )}
               </div>
-
               <h3 style={s.proposalTitle}>{p.opportunityTitle}</h3>
-
-              {p.opportunityOrganization ? (
+              {p.opportunityOrganization && (
                 <p style={s.proposalMeta}>
                   {p.opportunityOrganization}
-                  {p.opportunityCountry ? ' . ' + p.opportunityCountry : ''}
+                  {p.opportunityCountry ? ' · ' + p.opportunityCountry : ''}
                 </p>
-              ) : null}
-
-              {p.producerNotes ? (
+              )}
+              {p.producerNotes && (
                 <div style={s.notesBox}>
-                  <span style={s.notesLabel}>
-                    Mensagem da {p.producerName || 'equipa SOMA'}:
-                  </span>
+                  <span style={s.notesLabel}>Mensagem da {p.producerName || 'equipa SOMA'}:</span>
                   <p style={s.notes}>{p.producerNotes}</p>
                 </div>
-              ) : null}
-
-              {p.opportunityLink ? (
-                <button
-                  type="button"
-                  onClick={() => onOpenLink(p.opportunityLink as string)}
-                  style={s.linkButton}
-                >
+              )}
+              {p.opportunityLink && (
+                <button type="button" onClick={() => onOpenLink(p.opportunityLink as string)} style={s.linkButton}>
                   Ver oportunidade
                 </button>
-              ) : null}
-
-              {isPending ? (
+              )}
+              {isPending && (
                 <div style={s.actions}>
-                  <button
-                    style={s.acceptBtn}
-                    disabled={isResponding}
-                    onClick={() => onRespond(p.id, true)}
-                  >
+                  <button style={s.acceptBtn} disabled={isResponding} onClick={() => onRespond(p.id, true)}>
                     {isResponding ? '...' : 'Aceitar'}
                   </button>
-                  <button
-                    style={s.refuseBtn}
-                    disabled={isResponding}
-                    onClick={() => onRespond(p.id, false)}
-                  >
+                  <button style={s.refuseBtn} disabled={isResponding} onClick={() => onRespond(p.id, false)}>
                     {isResponding ? '...' : 'Recusar'}
                   </button>
                 </div>
-              ) : null}
-
-              {p.artistResponse ? (
+              )}
+              {p.artistResponse && (
                 <div style={s.responseBox}>
                   <span style={s.notesLabel}>A tua resposta:</span>
                   <p style={s.notes}>{p.artistResponse}</p>
                 </div>
-              ) : null}
+              )}
             </article>
           )
         })}
@@ -275,12 +260,21 @@ function ProposalsView({
   )
 }
 
-function Field({ label, value }: { label: string; value?: string }) {
+function Input({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
-    <div style={s.field}>
+    <label style={s.field}>
       <span style={s.fieldLabel}>{label}</span>
-      <span style={s.fieldValue}>{value || '-'}</span>
-    </div>
+      <input style={s.input} value={value} onChange={e => onChange(e.target.value)} />
+    </label>
+  )
+}
+
+function Textarea({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <label style={s.field}>
+      <span style={s.fieldLabel}>{label}</span>
+      <textarea style={s.textarea} value={value} onChange={e => onChange(e.target.value)} />
+    </label>
   )
 }
 
@@ -289,14 +283,8 @@ const s: Record<string, React.CSSProperties> = {
   empty: { padding: 40, textAlign: 'center', color: 'rgba(255,255,255,0.6)' },
   wrap: { maxWidth: 1100, margin: '0 auto', padding: '32px 22px', color: '#fff' },
   hero: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 28,
-    flexWrap: 'wrap',
-    gap: 20,
-    paddingBottom: 22,
-    borderBottom: '1px solid rgba(255,255,255,0.1)',
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28,
+    flexWrap: 'wrap', gap: 20, paddingBottom: 22, borderBottom: '1px solid rgba(255,255,255,0.1)',
   },
   title: { margin: 0, fontSize: 34, color: '#fff' },
   subtitle: { margin: '6px 0 0', color: 'rgba(255,255,255,0.55)', fontSize: 14 },
@@ -306,41 +294,33 @@ const s: Record<string, React.CSSProperties> = {
   statValue: { fontSize: 22, fontWeight: 700, color: '#60b4e8' },
   tabs: { display: 'flex', gap: 8, marginBottom: 24 },
   tab: {
-    background: 'transparent',
-    color: 'rgba(255,255,255,0.65)',
-    border: '1px solid rgba(255,255,255,0.14)',
-    padding: '10px 18px',
-    borderRadius: 10,
-    fontSize: 14,
-    fontWeight: 600,
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
+    background: 'transparent', color: 'rgba(255,255,255,0.65)', border: '1px solid rgba(255,255,255,0.14)',
+    padding: '10px 18px', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer',
+    display: 'flex', alignItems: 'center', gap: 8,
   },
   tabActive: { background: '#1A6994', color: '#fff', border: '1px solid #1A6994' },
   badge: { background: '#ffcf5c', color: '#000', fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 10 },
   section: { background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 24 },
   h2: { color: '#60b4e8', fontSize: 20, marginTop: 0, marginBottom: 18 },
   grid2: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 18 },
-  field: { display: 'flex', flexDirection: 'column', gap: 4 },
+  field: { display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 12 },
   fieldLabel: { fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', textTransform: 'uppercase' },
-  fieldValue: { color: '#fff', fontSize: 14 },
-  bioBox: { marginBottom: 18, padding: 14, background: '#000', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' },
-  bio: { margin: '6px 0 0', color: 'rgba(255,255,255,0.78)', lineHeight: 1.6 },
-  tagsBox: { marginBottom: 18 },
-  tags: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 },
-  tag: { background: 'rgba(26,105,148,0.18)', color: '#60b4e8', padding: '4px 10px', borderRadius: 20, fontSize: 12 },
-  tagHighlight: { background: 'rgba(255,207,92,0.18)', color: '#ffcf5c', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 },
-  note: {
-    marginTop: 18,
-    padding: 14,
-    background: 'rgba(26,105,148,0.08)',
-    border: '1px solid rgba(26,105,148,0.25)',
-    borderRadius: 8,
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.75)',
-    lineHeight: 1.5,
+  input: {
+    background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8,
+    padding: '10px 12px', fontSize: 13, outline: 'none',
+  },
+  textarea: {
+    background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8,
+    padding: 12, fontSize: 13, minHeight: 95, outline: 'none', resize: 'vertical', fontFamily: 'inherit',
+  },
+  footer: { display: 'flex', justifyContent: 'flex-end', marginTop: 18 },
+  primaryBtn: {
+    background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 16px',
+    fontSize: 13, fontWeight: 800, cursor: 'pointer',
+  },
+  message: {
+    background: 'rgba(96,180,232,0.12)', border: '1px solid rgba(96,180,232,0.25)', color: '#b8e2ff',
+    borderRadius: 8, padding: 10, marginBottom: 14, fontSize: 13,
   },
   proposalsList: { display: 'grid', gap: 14 },
   proposalCard: { background: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 18 },
@@ -354,34 +334,16 @@ const s: Record<string, React.CSSProperties> = {
   notes: { margin: '4px 0 0', color: 'rgba(255,255,255,0.85)', lineHeight: 1.5, fontSize: 13 },
   responseBox: { background: 'rgba(110,243,165,0.06)', border: '1px solid rgba(110,243,165,0.2)', borderRadius: 8, padding: 12, marginTop: 12 },
   linkButton: {
-    background: 'transparent',
-    color: '#60b4e8',
-    border: '1px solid rgba(96,180,232,0.3)',
-    padding: '6px 12px',
-    borderRadius: 6,
-    fontSize: 13,
-    cursor: 'pointer',
-    marginBottom: 12,
+    background: 'transparent', color: '#60b4e8', border: '1px solid rgba(96,180,232,0.3)', padding: '6px 12px',
+    borderRadius: 6, fontSize: 13, cursor: 'pointer', marginBottom: 12,
   },
   actions: { display: 'flex', gap: 10, marginTop: 14 },
   acceptBtn: {
-    background: 'rgba(110,243,165,0.18)',
-    color: '#6ef3a5',
-    border: '1px solid rgba(110,243,165,0.35)',
-    padding: '10px 18px',
-    borderRadius: 8,
-    fontSize: 13,
-    fontWeight: 700,
-    cursor: 'pointer',
+    background: 'rgba(110,243,165,0.18)', color: '#6ef3a5', border: '1px solid rgba(110,243,165,0.35)',
+    padding: '10px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer',
   },
   refuseBtn: {
-    background: 'rgba(255,70,70,0.12)',
-    color: '#ff8a8a',
-    border: '1px solid rgba(255,70,70,0.25)',
-    padding: '10px 18px',
-    borderRadius: 8,
-    fontSize: 13,
-    fontWeight: 700,
-    cursor: 'pointer',
+    background: 'rgba(255,70,70,0.12)', color: '#ff8a8a', border: '1px solid rgba(255,70,70,0.25)',
+    padding: '10px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer',
   },
 }

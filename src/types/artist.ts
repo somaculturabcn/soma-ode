@@ -194,23 +194,12 @@ export function emptyArtist(): Omit<Artist, 'id'> {
 
 export function materialsCount(materials: ArtistMaterials = {}) {
   const keys: (keyof ArtistMaterials)[] = [
-    'bioPT',
-    'bioEN',
-    'bioES',
-    'bioCA',
-    'pressPhoto',
-    'videoPresentation',
-    'technicalRider',
-    'pressKit',
-    'pressClippings',
+    'bioPT', 'bioEN', 'bioES', 'bioCA',
+    'pressPhoto', 'videoPresentation',
+    'technicalRider', 'pressKit', 'pressClippings',
   ]
-
   const done = keys.filter(k => Boolean(materials[k])).length
-
-  return {
-    done,
-    total: keys.length,
-  }
+  return { done, total: keys.length }
 }
 
 export function cartografiaCount(c: Cartografia = {}): { filled: number; total: number } {

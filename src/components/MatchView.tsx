@@ -1,10 +1,11 @@
 // src/components/MatchView.tsx
 // SOMA ODÉ — Oportunidades / MatchView
-// Gestão completa: cards + filtros + criar/editar + CSV + Scout URL + Scout proativo + associar artista
+// Gestão completa: cards + filtros + criar/editar + CSV + Scout URL + Scout proativo + associar artista + propor
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ScoutUrlExtractor from './ScoutUrlExtractor'
 import ScoutSavedSearches from './ScoutSavedSearches'
+import ProposeOpportunityButton from './ProposeOpportunityButton'
 import { mockOpportunities } from '../data/mockOpportunities'
 import { realOpportunities } from '../data/realOpportunities'
 
@@ -559,6 +560,8 @@ export default function MatchView() {
                     ver edital →
                   </a>
                 )}
+
+                <ProposeOpportunityButton opportunity={op} />
 
                 <button style={styles.secondaryBtn} onClick={() => {
                   setAssigning(op)
