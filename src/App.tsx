@@ -1,6 +1,5 @@
 // src/App.tsx — SOMA ODÉ
-// Login + Roles + Portal do Artista
-
+// Login + Roles + Portal do Artista + Logout funcional
 import { useState } from 'react'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
 import LoginScreen from './auth/LoginScreen'
@@ -43,8 +42,7 @@ function AppContent() {
     return <LoginScreen />
   }
 
-  // ─── PORTAL DO ARTISTA ───
-  // Se utilizador é artist, mostra portal próprio
+  // PORTAL DO ARTISTA
   if (user.role === 'artist') {
     return (
       <div style={styles.app}>
@@ -55,7 +53,15 @@ function AppContent() {
           </div>
           <div style={styles.userBox}>
             <span style={styles.userText}>{user.email}</span>
-            <button style={styles.logoutBtn} onClick={signOut}>Sair</button>
+            <button 
+              style={styles.logoutBtn} 
+              onClick={async () => {
+                await signOut()
+                window.location.reload()
+              }}
+            >
+              Sair
+            </button>
           </div>
         </header>
         <main style={styles.main}>
@@ -65,7 +71,7 @@ function AppContent() {
     )
   }
 
-  // ─── INTERFACE ADMIN/MANAGER/PRODUCER/VIEWER ───
+  // INTERFACE ADMIN/MANAGER/PRODUCER/VIEWER
   const visibleTabs = tabs.filter(tab =>
     hasAccess(user.role as any, tab.permission)
   )
@@ -101,7 +107,15 @@ function AppContent() {
           <span style={styles.userText}>
             {user.email} · {user.role}
           </span>
-          <button style={styles.logoutBtn} onClick={signOut}>Sair</button>
+          <button 
+            style={styles.logoutBtn} 
+            onClick={async () => {
+              await signOut()
+              window.location.reload()
+            }}
+          >
+            Sair
+          </button>
         </div>
       </header>
 
