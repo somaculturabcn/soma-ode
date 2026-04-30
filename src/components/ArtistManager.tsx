@@ -633,7 +633,7 @@ function Section06({ a, update }: SecProps) {
   )
 }
 
-ffunction Section07({ a, update }: SecProps) {
+function Section07({ a, update }: SecProps) {
   const projects = (a as any).projects || []
   const [expanded, setExpanded] = useState<string | null>(null)
 
