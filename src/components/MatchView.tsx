@@ -1,6 +1,6 @@
 // src/components/MatchView.tsx
 // SOMA ODÉ — Oportunidades / MatchView
-// Gestão completa: cards + filtros + criar/editar + CSV + Scout URL + Scout proativo + associar artista + propor
+// FIX: safeArr() protege disciplines que chegam como string do Supabase/mock
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ScoutUrlExtractor from './ScoutUrlExtractor'
@@ -8,6 +8,13 @@ import ScoutSavedSearches from './ScoutSavedSearches'
 import ProposeOpportunityButton from './ProposeOpportunityButton'
 import { mockOpportunities } from '../data/mockOpportunities'
 import { realOpportunities } from '../data/realOpportunities'
+
+// ─── Helper: garante sempre array ────────────────────────
+function safeArr(val: any): string[] {
+  if (Array.isArray(val)) return val
+  if (typeof val === 'string' && val.trim()) return val.split(',').map((s: string) => s.trim()).filter(Boolean)
+  return []
+}
 
 type Opportunity = {
   id: string
@@ -61,9 +68,7 @@ function getManualOpportunities(): Opportunity[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     return raw ? JSON.parse(raw) : []
-  } catch {
-    return []
-  }
+  } catch { return [] }
 }
 
 function saveManualOpportunities(data: Opportunity[]) {
@@ -75,9 +80,7 @@ function getArtists(): ArtistLite[] {
     const raw = localStorage.getItem(ARTISTS_KEY)
     const parsed = raw ? JSON.parse(raw) : []
     return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
+  } catch { return [] }
 }
 
 function emptyOpportunity(): Opportunity {
@@ -118,8 +121,10 @@ function splitTags(value: string) {
   return value.split(',').map(x => x.trim()).filter(Boolean)
 }
 
-function joinTags(value?: string[]) {
-  return Array.isArray(value) ? value.join(', ') : ''
+function joinTags(value?: string[] | string) {
+  if (Array.isArray(value)) return value.join(', ')
+  if (typeof value === 'string') return value
+  return ''
 }
 
 function cleanText(value?: string) {
@@ -157,10 +162,7 @@ function parseCsv(text: string): Opportunity[] {
   return lines.slice(1).map(line => {
     const values = line.split(/[;,]/).map(v => v.trim())
     const row: Record<string, string> = {}
-
-    headers.forEach((h, i) => {
-      row[h] = values[i] || ''
-    })
+    headers.forEach((h, i) => { row[h] = values[i] || '' })
 
     const get = (...keys: string[]) => {
       for (const key of keys) {
@@ -231,10 +233,11 @@ export default function MatchView() {
       type: op.type || 'Edital',
       country: op.country || op.countryCode || '',
       countryName: op.countryName || op.country || '',
-      disciplines: op.disciplines || [],
-      languages: op.languages || [],
-      keywords: op.keywords || op.themes || [],
-      requirements: op.requirements || [],
+      // ✅ FIX: safeArr garante que disciplines é sempre array
+      disciplines: safeArr(op.disciplines),
+      languages: safeArr(op.languages),
+      keywords: safeArr(op.keywords || op.themes),
+      requirements: safeArr(op.requirements),
       status: op.status || 'open',
     }))
 
@@ -264,22 +267,13 @@ export default function MatchView() {
         if (countryFilter !== 'todos' && (op.countryName || op.country) !== countryFilter) return false
         if (artistFilter !== 'todos' && op.assignedArtistId !== artistFilter) return false
         if (onlyCosts && !op.coversCosts) return false
-
         if (!q) return true
 
         return cleanText([
-          op.title,
-          op.organization,
-          op.type,
-          op.country,
-          op.countryName,
-          op.city,
-          op.summary,
-          op.description,
-          op.notes,
-          op.assignedArtistName,
-          ...(op.disciplines || []),
-          ...(op.keywords || []),
+          op.title, op.organization, op.type, op.country, op.countryName,
+          op.city, op.summary, op.description, op.notes, op.assignedArtistName,
+          ...safeArr(op.disciplines),
+          ...safeArr(op.keywords),
         ].join(' ')).includes(q)
       })
       .sort((a, b) => {
@@ -295,22 +289,10 @@ export default function MatchView() {
   }
 
   function saveOpportunity(op: Opportunity) {
-    if (!op.title.trim()) {
-      alert('A oportunidade precisa de título.')
-      return
-    }
-
-    const updated = {
-      ...op,
-      updatedAt: new Date().toISOString(),
-    }
-
+    if (!op.title.trim()) { alert('A oportunidade precisa de título.'); return }
+    const updated = { ...op, updatedAt: new Date().toISOString() }
     const exists = manual.some(o => o.id === updated.id)
-
-    const next = exists
-      ? manual.map(o => o.id === updated.id ? updated : o)
-      : [updated, ...manual]
-
+    const next = exists ? manual.map(o => o.id === updated.id ? updated : o) : [updated, ...manual]
     persist(next)
     setEditing(null)
   }
@@ -338,15 +320,9 @@ export default function MatchView() {
 
   function assignArtistToOpportunity() {
     if (!assigning) return
-
     const artist = artists.find(a => a.id === selectedArtistId)
-    if (!artist) {
-      alert('Seleciona um artista.')
-      return
-    }
-
+    if (!artist) { alert('Seleciona um artista.'); return }
     const artistName = artist.artisticName || artist.name || artist.legalName || 'Artista'
-
     const updated: Opportunity = {
       ...assigning,
       assignedArtistId: artist.id,
@@ -354,28 +330,17 @@ export default function MatchView() {
       source: manual.some(o => o.id === assigning.id) ? assigning.source || 'manual' : 'associada',
       updatedAt: new Date().toISOString(),
     }
-
     const exists = manual.some(o => o.id === updated.id)
-    const next = exists
-      ? manual.map(o => o.id === updated.id ? updated : o)
-      : [updated, ...manual]
-
+    const next = exists ? manual.map(o => o.id === updated.id ? updated : o) : [updated, ...manual]
     persist(next)
     setAssigning(null)
     setSelectedArtistId('')
   }
 
   function unassignArtist(op: Opportunity) {
-    const updated = {
-      ...op,
-      assignedArtistId: '',
-      assignedArtistName: '',
-      updatedAt: new Date().toISOString(),
-    }
-
+    const updated = { ...op, assignedArtistId: '', assignedArtistName: '', updatedAt: new Date().toISOString() }
     const exists = manual.some(o => o.id === updated.id)
     if (!exists) return
-
     persist(manual.map(o => o.id === updated.id ? updated : o))
   }
 
@@ -389,45 +354,16 @@ export default function MatchView() {
 
   function exportCsv() {
     const headers = [
-      'title',
-      'organization',
-      'type',
-      'country',
-      'countryCode',
-      'city',
-      'deadline',
-      'disciplines',
-      'languages',
-      'keywords',
-      'requirements',
-      'coversCosts',
-      'assignedArtistName',
-      'summary',
-      'link',
-      'notes',
-      'source',
+      'title', 'organization', 'type', 'country', 'countryCode', 'city',
+      'deadline', 'disciplines', 'languages', 'keywords', 'requirements',
+      'coversCosts', 'assignedArtistName', 'summary', 'link', 'notes', 'source',
     ]
-
     const rows = filtered.map(op => [
-      op.title,
-      op.organization,
-      op.type,
-      op.countryName || op.country,
-      op.countryCode,
-      op.city,
-      op.deadline,
-      op.disciplines,
-      op.languages,
-      op.keywords,
-      op.requirements,
-      op.coversCosts ? 'true' : 'false',
-      op.assignedArtistName,
-      op.summary || op.description,
-      op.link,
-      op.notes,
-      op.source,
+      op.title, op.organization, op.type, op.countryName || op.country,
+      op.countryCode, op.city, op.deadline, op.disciplines, op.languages,
+      op.keywords, op.requirements, op.coversCosts ? 'true' : 'false',
+      op.assignedArtistName, op.summary || op.description, op.link, op.notes, op.source,
     ].map(escapeCsv).join(','))
-
     const csv = [headers.join(','), ...rows].join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
@@ -447,30 +383,12 @@ export default function MatchView() {
             {filtered.length} de {allOpportunities.length} oportunidades · edição, CSV, Scout e associação a artista
           </p>
         </div>
-
         <div style={styles.headerActions}>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".csv,text/csv"
-            style={{ display: 'none' }}
-            onChange={e => {
-              const file = e.target.files?.[0]
-              if (file) handleCsv(file)
-            }}
-          />
-
-          <button style={styles.secondaryBtn} onClick={() => fileRef.current?.click()}>
-            📥 Importar CSV
-          </button>
-
-          <button style={styles.secondaryBtn} onClick={exportCsv}>
-            📤 Exportar CSV
-          </button>
-
-          <button style={styles.primaryBtn} onClick={() => setEditing(emptyOpportunity())}>
-            + Nova oportunidade
-          </button>
+          <input ref={fileRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }}
+            onChange={e => { const file = e.target.files?.[0]; if (file) handleCsv(file) }} />
+          <button style={styles.secondaryBtn} onClick={() => fileRef.current?.click()}>📥 Importar CSV</button>
+          <button style={styles.secondaryBtn} onClick={exportCsv}>📤 Exportar CSV</button>
+          <button style={styles.primaryBtn} onClick={() => setEditing(emptyOpportunity())}>+ Nova oportunidade</button>
         </div>
       </header>
 
@@ -478,23 +396,17 @@ export default function MatchView() {
       <ScoutSavedSearches onSave={handleScoutSave} />
 
       <section style={styles.toolbar}>
-        <input
-          style={styles.input}
+        <input style={styles.input}
           placeholder="Pesquisar por título, país, disciplina, artista, keyword..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-
+          value={search} onChange={e => setSearch(e.target.value)} />
         <select style={styles.select} value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
           <option value="todos">Todos os tipos</option>
           {types.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
-
         <select style={styles.select} value={countryFilter} onChange={e => setCountryFilter(e.target.value)}>
           <option value="todos">Todos os países</option>
           {countries.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-
         <select style={styles.select} value={artistFilter} onChange={e => setArtistFilter(e.target.value)}>
           <option value="todos">Todos os artistas</option>
           {artists.map(a => {
@@ -502,7 +414,6 @@ export default function MatchView() {
             return <option key={a.id} value={a.id}>{name}</option>
           })}
         </select>
-
         <label style={styles.check}>
           <input type="checkbox" checked={onlyCosts} onChange={e => setOnlyCosts(e.target.checked)} />
           Só custos cobertos
@@ -514,6 +425,8 @@ export default function MatchView() {
           const isManual = manual.some(m => m.id === op.id)
           const d = daysLeft(op.deadline)
           const urgent = d !== null && d >= 0 && d <= 30
+          // ✅ FIX: safeArr garante array antes de .slice().map()
+          const disciplines = safeArr(op.disciplines)
 
           return (
             <article key={op.id} style={{
@@ -522,10 +435,7 @@ export default function MatchView() {
             }}>
               <div style={styles.cardTop}>
                 <span style={styles.badge}>{op.type || 'Edital'}</span>
-                <span style={{
-                  ...styles.deadline,
-                  color: urgent ? '#ffcf5c' : 'rgba(255,255,255,0.45)'
-                }}>
+                <span style={{ ...styles.deadline, color: urgent ? '#ffcf5c' : 'rgba(255,255,255,0.45)' }}>
                   {deadlineLabel(op.deadline)}
                 </span>
               </div>
@@ -537,17 +447,13 @@ export default function MatchView() {
               </p>
 
               {op.assignedArtistName && (
-                <div style={styles.artistTag}>
-                  Artista associado: {op.assignedArtistName}
-                </div>
+                <div style={styles.artistTag}>Artista associado: {op.assignedArtistName}</div>
               )}
 
-              <p style={styles.summary}>
-                {op.summary || op.description || 'Sem resumo ainda.'}
-              </p>
+              <p style={styles.summary}>{op.summary || op.description || 'Sem resumo ainda.'}</p>
 
               <div style={styles.tags}>
-                {(op.disciplines || []).slice(0, 5).map(d => (
+                {disciplines.slice(0, 5).map(d => (
                   <span key={d} style={styles.tag}>{d}</span>
                 ))}
                 {op.coversCosts && <span style={styles.costTag}>custos cobertos</span>}
@@ -556,34 +462,20 @@ export default function MatchView() {
 
               <div style={styles.cardActions}>
                 {op.link && (
-                  <a href={op.link} target="_blank" rel="noopener noreferrer" style={styles.link}>
-                    ver edital →
-                  </a>
+                  <a href={op.link} target="_blank" rel="noopener noreferrer" style={styles.link}>ver edital →</a>
                 )}
-
                 <ProposeOpportunityButton opportunity={op} />
-
-                <button style={styles.secondaryBtn} onClick={() => {
-                  setAssigning(op)
-                  setSelectedArtistId(op.assignedArtistId || '')
-                }}>
+                <button style={styles.secondaryBtn} onClick={() => { setAssigning(op); setSelectedArtistId(op.assignedArtistId || '') }}>
                   Associar artista
                 </button>
-
                 {isManual && op.assignedArtistId && (
-                  <button style={styles.secondaryBtn} onClick={() => unassignArtist(op)}>
-                    Remover artista
-                  </button>
+                  <button style={styles.secondaryBtn} onClick={() => unassignArtist(op)}>Remover artista</button>
                 )}
-
                 <button style={styles.secondaryBtn} onClick={() => duplicateToEdit(op)}>
                   {isManual ? 'Editar' : 'Duplicar/editar'}
                 </button>
-
                 {isManual && (
-                  <button style={styles.dangerBtn} onClick={() => deleteOpportunity(op.id)}>
-                    Apagar
-                  </button>
+                  <button style={styles.dangerBtn} onClick={() => deleteOpportunity(op.id)}>Apagar</button>
                 )}
               </div>
             </article>
@@ -599,16 +491,10 @@ export default function MatchView() {
                 <h2 style={styles.modalTitle}>Associar oportunidade a artista</h2>
                 <p style={styles.modalSubtitle}>{assigning.title}</p>
               </div>
-
               <button style={styles.secondaryBtn} onClick={() => setAssigning(null)}>Fechar</button>
             </div>
-
             <label style={styles.label}>Artista
-              <select
-                style={styles.input}
-                value={selectedArtistId}
-                onChange={e => setSelectedArtistId(e.target.value)}
-              >
+              <select style={styles.input} value={selectedArtistId} onChange={e => setSelectedArtistId(e.target.value)}>
                 <option value="">Selecionar artista</option>
                 {artists.map(a => {
                   const name = a.artisticName || a.name || a.legalName || 'Artista'
@@ -616,7 +502,6 @@ export default function MatchView() {
                 })}
               </select>
             </label>
-
             <div style={styles.modalFooter}>
               <button style={styles.secondaryBtn} onClick={() => setAssigning(null)}>Cancelar</button>
               <button style={styles.primaryBtn} onClick={assignArtistToOpportunity}>Guardar associação</button>
@@ -635,7 +520,6 @@ export default function MatchView() {
                 </h2>
                 <p style={styles.modalSubtitle}>Rever e guardar na base manual da SOMA</p>
               </div>
-
               <button style={styles.secondaryBtn} onClick={() => setEditing(null)}>Fechar</button>
             </div>
 
@@ -643,61 +527,46 @@ export default function MatchView() {
               <label style={styles.label}>Título
                 <input style={styles.input} value={editing.title} onChange={e => setEditing({ ...editing, title: e.target.value })} />
               </label>
-
               <label style={styles.label}>Organização
                 <input style={styles.input} value={editing.organization || ''} onChange={e => setEditing({ ...editing, organization: e.target.value })} />
               </label>
-
               <label style={styles.label}>Tipo
                 <input style={styles.input} value={editing.type || ''} onChange={e => setEditing({ ...editing, type: e.target.value })} />
               </label>
-
               <label style={styles.label}>Deadline
                 <input style={styles.input} type="date" value={editing.deadline || ''} onChange={e => setEditing({ ...editing, deadline: e.target.value })} />
               </label>
-
               <label style={styles.label}>País
                 <input style={styles.input} value={editing.countryName || editing.country || ''} onChange={e => setEditing({ ...editing, countryName: e.target.value, country: e.target.value })} />
               </label>
-
               <label style={styles.label}>Código país
                 <input style={styles.input} value={editing.countryCode || ''} onChange={e => setEditing({ ...editing, countryCode: e.target.value.toUpperCase() })} />
               </label>
-
               <label style={styles.label}>Cidade
                 <input style={styles.input} value={editing.city || ''} onChange={e => setEditing({ ...editing, city: e.target.value })} />
               </label>
-
               <label style={styles.label}>Região
                 <input style={styles.input} value={editing.regionId || ''} onChange={e => setEditing({ ...editing, regionId: e.target.value, regionLabel: e.target.value })} />
               </label>
-
               <label style={styles.label}>Disciplinas
                 <input style={styles.input} value={joinTags(editing.disciplines)} onChange={e => setEditing({ ...editing, disciplines: splitTags(e.target.value) })} />
               </label>
-
               <label style={styles.label}>Idiomas
                 <input style={styles.input} value={joinTags(editing.languages)} onChange={e => setEditing({ ...editing, languages: splitTags(e.target.value) })} />
               </label>
-
               <label style={styles.label}>Keywords
                 <input style={styles.input} value={joinTags(editing.keywords)} onChange={e => setEditing({ ...editing, keywords: splitTags(e.target.value), themes: splitTags(e.target.value) })} />
               </label>
-
               <label style={styles.label}>Requisitos
                 <input style={styles.input} value={joinTags(editing.requirements)} onChange={e => setEditing({ ...editing, requirements: splitTags(e.target.value) })} />
               </label>
-
               <label style={styles.label}>Artista associado
-                <select
-                  style={styles.input}
-                  value={editing.assignedArtistId || ''}
+                <select style={styles.input} value={editing.assignedArtistId || ''}
                   onChange={e => {
                     const artist = artists.find(a => a.id === e.target.value)
                     const name = artist ? artist.artisticName || artist.name || artist.legalName || '' : ''
                     setEditing({ ...editing, assignedArtistId: e.target.value, assignedArtistName: name })
-                  }}
-                >
+                  }}>
                   <option value="">Nenhum artista</option>
                   {artists.map(a => {
                     const name = a.artisticName || a.name || a.legalName || 'Artista'
@@ -705,7 +574,6 @@ export default function MatchView() {
                   })}
                 </select>
               </label>
-
               <label style={styles.label}>Link
                 <input style={styles.input} value={editing.link || ''} onChange={e => setEditing({ ...editing, link: e.target.value })} />
               </label>
@@ -715,25 +583,19 @@ export default function MatchView() {
               <input type="checkbox" checked={Boolean(editing.coversCosts)} onChange={e => setEditing({ ...editing, coversCosts: e.target.checked })} />
               Cobre custos
             </label>
-
             <label style={styles.label}>Resumo
               <textarea style={styles.textarea} value={editing.summary || ''} onChange={e => setEditing({ ...editing, summary: e.target.value, description: e.target.value })} />
             </label>
-
             <label style={styles.label}>Notas internas
               <textarea style={styles.textarea} value={editing.notes || ''} onChange={e => setEditing({ ...editing, notes: e.target.value })} />
             </label>
 
             <div style={styles.modalFooter}>
               <button style={styles.secondaryBtn} onClick={() => setEditing(null)}>Cancelar</button>
-
               {manual.some(o => o.id === editing.id) && (
                 <button style={styles.dangerBtn} onClick={() => deleteOpportunity(editing.id)}>Apagar</button>
               )}
-
-              <button style={styles.primaryBtn} onClick={() => saveOpportunity(editing)}>
-                Guardar oportunidade
-              </button>
+              <button style={styles.primaryBtn} onClick={() => saveOpportunity(editing)}>Guardar oportunidade</button>
             </div>
           </div>
         </div>
