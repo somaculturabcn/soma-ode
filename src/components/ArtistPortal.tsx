@@ -336,80 +336,59 @@ function Section07({ data, onChange, onSave }: { data: any; onChange: (f: string
     <button style={{ ...s.primaryBtn, marginTop: 12 }} onClick={add}>+ Adicionar projeto</button>
   </div>
 }
-
-// ─── SECÇÃO 09: CARTOGRAFIA ─────────────────────────────
+// ─── SECÇÃO 09: CARTOGRAFIA SOMA (v2 · Angela Davis) ─────
 function Section09({ data, onChange }: { data: any; onChange: (f: string, v: any) => void }) {
-  const c = data.cartografia || {}
-  return <div><h2 style={s.h2}>09 · Cartografia SOMA</h2>
-    <details style={s.detail} open><summary style={s.summary}>🌱 RAIZ — origens, tensões, vocabulário</summary><FA label="Origens" v={c.raiz?.origins || ''} onChange={v => onChange('cartografia', { ...c, raiz: { ...c.raiz, origins: v } })} /><FA label="Tensões fundamentais" v={c.raiz?.tensions || ''} onChange={v => onChange('cartografia', { ...c, raiz: { ...c.raiz, tensions: v } })} /><F label="Vocabulário" v={Array.isArray(c.raiz?.vocabulario) ? c.raiz.vocabulario.join(', ') : (c.raiz?.vocabulario || '')} onChange={v => onChange('cartografia', { ...c, raiz: { ...c.raiz, vocabulario: v.split(',').map((x: string) => x.trim()).filter(Boolean) } })} /></details>
-    <details style={s.detail}><summary style={s.summary}>🎯 CAMPO — quem recebe e por quê</summary><FA label="Perfis de audiência" v={c.campo?.audienceProfiles || ''} onChange={v => onChange('cartografia', { ...c, campo: { ...c.campo, audienceProfiles: v } })} /><FA label="Motivação de adesão" v={c.campo?.motivation || ''} onChange={v => onChange('cartografia', { ...c, campo: { ...c.campo, motivation: v } })} /><F label="Territórios da audiência" v={Array.isArray(c.campo?.audienceTerritories) ? c.campo.audienceTerritories.join(', ') : (c.campo?.audienceTerritories || '')} onChange={v => onChange('cartografia', { ...c, campo: { ...c.campo, audienceTerritories: v.split(',').map((x: string) => x.trim()).filter(Boolean) } })} /></details>
-    <details style={s.detail}><summary style={s.summary}>🕸️ TEIA — estrutura do circuito</summary><FA label="Pares" v={c.teia?.pares || ''} onChange={v => onChange('cartografia', { ...c, teia: { ...c.teia, pares: v } })} /><FA label="Quem legitima" v={c.teia?.legitimacy || ''} onChange={v => onChange('cartografia', { ...c, teia: { ...c.teia, legitimacy: v } })} /><FA label="Redes de influência" v={c.teia?.influenceNetworks || ''} onChange={v => onChange('cartografia', { ...c, teia: { ...c.teia, influenceNetworks: v } })} /></details>
-    <details style={s.detail}><summary style={s.summary}>🧭 ROTA — próximos territórios</summary><FA label="Gaps" v={c.rota?.gaps || ''} onChange={v => onChange('cartografia', { ...c, rota: { ...c.rota, gaps: v } })} /><F label="Corredores estratégicos" v={Array.isArray(c.rota?.corredores) ? c.rota.corredores.join(', ') : (c.rota?.corredores || '')} onChange={v => onChange('cartografia', { ...c, rota: { ...c.rota, corredores: v.split(',').map((x: string) => x.trim()).filter(Boolean) } })} /><FA label="Plano de expansão" v={c.rota?.expansionPlan || ''} onChange={v => onChange('cartografia', { ...c, rota: { ...c.rota, expansionPlan: v } })} /></details>
-  </div>
-}
-
-// ─── COMPONENTES BASE ────────────────────────────────────
-const F = ({ label, v, onChange, helper }: { label: string; v: string; onChange: (v: string) => void; helper?: string }) => (
-  <label style={s.field}><span style={s.fieldLabel}>{label}</span>{helper && <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>{helper}</span>}<input style={s.input} value={v} onChange={e => onChange(e.target.value)} /></label>
-)
-const FA = ({ label, v, onChange, helper }: { label: string; v: string; onChange: (v: string) => void; helper?: string }) => (
-  <label style={s.field}><span style={s.fieldLabel}>{label}</span>{helper && <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>{helper}</span>}<textarea style={s.textarea} value={v} onChange={e => onChange(e.target.value)} /></label>
-)
-const C = ({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) => (
-  <label style={s.check}><input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} /> {label}</label>
-)
-
-// ─── ESTILOS ─────────────────────────────────────────────
-const s: Record<string, React.CSSProperties> = {
-  center: { padding: 60, textAlign: 'center', color: '#fff' },
-  empty: { padding: 40, textAlign: 'center', color: 'rgba(255,255,255,0.6)' },
-  wrap: { maxWidth: 1100, margin: '0 auto', padding: '32px 22px', color: '#fff' },
-  hero: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28, flexWrap: 'wrap', gap: 20, paddingBottom: 22, borderBottom: '1px solid rgba(255,255,255,0.1)' },
-  title: { margin: 0, fontSize: 34, color: '#fff' },
-  subtitle: { margin: '6px 0 0', color: 'rgba(255,255,255,0.55)', fontSize: 14 },
-  heroStats: { display: 'flex', gap: 24 },
-  stat: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 },
-  statLabel: { fontSize: 11, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.1em', textTransform: 'uppercase' },
-  statValue: { fontSize: 22, fontWeight: 700, color: '#60b4e8' },
-  tabs: { display: 'flex', gap: 8, marginBottom: 24 },
-  tab: { background: 'transparent', color: 'rgba(255,255,255,0.65)', border: '1px solid rgba(255,255,255,0.14)', padding: '10px 18px', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 },
-  tabActive: { background: '#1A6994', color: '#fff', border: '1px solid #1A6994' },
-  badge: { background: '#ffcf5c', color: '#000', fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 10 },
-  sectionTabs: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18, paddingBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.08)' },
-  sectionTab: { padding: '8px 14px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.6)', borderRadius: 8, fontSize: 12, cursor: 'pointer' },
-  sectionTabActive: { background: '#1A6994', color: '#fff', border: '1px solid #1A6994' },
-  section: { background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 24 },
-  h2: { color: '#60b4e8', fontSize: 18, marginTop: 0, marginBottom: 18 },
-  grid2: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 18 },
-  field: { display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 12 },
-  fieldLabel: { fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', textTransform: 'uppercase' },
-  input: { background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none' },
-  textarea: { background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8, padding: 12, fontSize: 13, minHeight: 95, outline: 'none', resize: 'vertical', fontFamily: 'inherit' },
-  checkRow: { display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 14 },
-  check: { display: 'flex', gap: 8, alignItems: 'center', color: 'rgba(255,255,255,0.7)', fontSize: 13, cursor: 'pointer' },
-  chipGrid: { display: 'flex', gap: 8, flexWrap: 'wrap' },
-  chip: { padding: '8px 14px', background: 'transparent', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 24, fontSize: 13, cursor: 'pointer' },
-  chipActive: { background: 'rgba(26,105,148,0.3)', color: '#fff', border: '1px solid #1A6994' },
-  footer: { display: 'flex', justifyContent: 'space-between', marginTop: 18, gap: 10 },
-  primaryBtn: { background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 800, cursor: 'pointer' },
-  btn: { background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '9px 14px', fontSize: 13, cursor: 'pointer' },
-  dangerBtn: { background: 'rgba(255,70,70,0.12)', color: '#ff8a8a', border: '1px solid rgba(255,70,70,0.25)', borderRadius: 8, padding: '8px 12px', fontSize: 12, cursor: 'pointer', marginTop: 8 },
-  message: { background: 'rgba(96,180,232,0.12)', border: '1px solid rgba(96,180,232,0.25)', color: '#b8e2ff', borderRadius: 8, padding: 10, marginBottom: 14, fontSize: 13 },
-  detail: { background: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 14, marginBottom: 12 },
-  summary: { fontSize: 14, fontWeight: 600, color: '#fff', cursor: 'pointer', marginBottom: 14 },
-  projectCard: { background: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 16, marginBottom: 14 },
-  proposalsList: { display: 'grid', gap: 14 },
-  proposalCard: { background: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 18 },
-  proposalHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: 10, alignItems: 'center' },
-  statusBadge: { color: '#000', padding: '3px 10px', borderRadius: 14, fontSize: 11, fontWeight: 700 },
-  deadline: { color: '#ffcf5c', fontSize: 12, fontWeight: 600 },
-  proposalTitle: { margin: '0 0 6px', fontSize: 18, color: '#fff' },
-  proposalMeta: { margin: '0 0 12px', color: 'rgba(255,255,255,0.55)', fontSize: 13 },
-  notesBox: { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: 12, marginBottom: 12 },
-  notesLabel: { fontSize: 11, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.05em' },
-  notes: { margin: '4px 0 0', color: 'rgba(255,255,255,0.85)', lineHeight: 1.5, fontSize: 13 },
-  linkButton: { background: 'transparent', color: '#60b4e8', border: '1px solid rgba(96,180,232,0.3)', padding: '6px 12px', borderRadius: 6, fontSize: 13, cursor: 'pointer', marginBottom: 12 },
-  actions: { display: 'flex', gap: 10, marginTop: 14 },
-  acceptBtn: { background: 'rgba(110,243,165,0.18)', color: '#6ef3a5', border: '1px solid rgba(110,243,165,0.35)', padding: '10px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' },
-  refuseBtn: { background: 'rgba(255,70,70,0.12)', color: '#ff8a8a', border: '1px solid rgba(255,70,70,0.25)', padding: '10px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' },
-}
+    const c = data.cartografia || {}
+    return <div><h2 style={s.h2}>09 · Cartografia SOMA</h2>
+      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 18, lineHeight: 1.5 }}>
+        Metodologia de inteligência curatorial baseada em Angela Davis, Paul Gilroy, Pierre Bourdieu e bell hooks.
+        Mapeia a tua posição no campo cultural para cruzar com oportunidades reais.
+      </p>
+  
+      <details style={s.detail} open>
+        <summary style={s.summary}>🌱 RAIZ — origens, tensões, vocabulário e legado de resistência</summary>
+        <FA label="Origens (texto livre)" v={c.raiz?.origins || ''} onChange={v => onChange('cartografia', { ...c, raiz: { ...c.raiz, origins: v } })}
+          helper="Que histórias, territórios, culturas ou experiências atravessam o teu trabalho?" />
+        <FA label="Tensões fundamentais" v={c.raiz?.tensions || ''} onChange={v => onChange('cartografia', { ...c, raiz: { ...c.raiz, tensions: v } })}
+          helper="Que conflitos ou contradições movem a tua criação? (Ex: deslocamento, língua, raça, género, memória, pertença)" />
+        <F label="⭐ Vocabulário (5-8 palavras únicas, vírgula separa)" v={Array.isArray(c.raiz?.vocabulario) ? c.raiz.vocabulario.join(', ') : (c.raiz?.vocabulario || '')} onChange={v => onChange('cartografia', { ...c, raiz: { ...c.raiz, vocabulario: v.split(',').map((x: string) => x.trim()).filter(Boolean) } })}
+          helper="Estas palavras alimentam o motor de matching automaticamente. Escolhe com intenção." />
+        <FA label="✊🏿 Legado de Resistência" v={c.raiz?.legacyOfResistance || ''} onChange={v => onChange('cartografia', { ...c, raiz: { ...c.raiz, legacyOfResistance: v } })}
+          helper="Como o teu trabalho dialoga com a memória histórica de resistência? Que legados de luta, perseverança e insurgência estética o teu trabalho honra? (Angela Davis: 'o legado da escravidão como modelos para uma nova feminidade')" />
+        <FA label="🤲 Práticas de Cuidado Comunitário" v={c.raiz?.carePractices || ''} onChange={v => onChange('cartografia', { ...c, raiz: { ...c.raiz, carePractices: v } })}
+          helper="Que práticas de cuidado coletivo sustentam o teu processo criativo? Como a tua comunidade se organiza para resistir à desumanização cotidiana?" />
+      </details>
+  
+      <details style={s.detail}>
+        <summary style={s.summary}>🎯 CAMPO — quem recebe e por quê</summary>
+        <FA label="Perfis de audiência" v={c.campo?.audienceProfiles || ''} onChange={v => onChange('cartografia', { ...c, campo: { ...c.campo, audienceProfiles: v } })}
+          helper="Quem costuma se conectar com o teu trabalho? (Públicos, comunidades, cenas, gerações)" />
+        <FA label="Motivação de adesão" v={c.campo?.motivation || ''} onChange={v => onChange('cartografia', { ...c, campo: { ...c.campo, motivation: v } })}
+          helper="Por que as pessoas se conectam? (Identificação, festa, cura, política, espiritualidade, comunidade)" />
+        <F label="Territórios da audiência (vírgula separa)" v={Array.isArray(c.campo?.audienceTerritories) ? c.campo.audienceTerritories.join(', ') : (c.campo?.audienceTerritories || '')} onChange={v => onChange('cartografia', { ...c, campo: { ...c.campo, audienceTerritories: v.split(',').map((x: string) => x.trim()).filter(Boolean) } })}
+          helper="Em que cidades, países ou comunidades o teu trabalho faz sentido?" />
+      </details>
+  
+      <details style={s.detail}>
+        <summary style={s.summary}>🕸️ TEIA — estrutura do circuito e alianças éticas</summary>
+        <FA label="Pares (artistas similares)" v={c.teia?.pares || ''} onChange={v => onChange('cartografia', { ...c, teia: { ...c.teia, pares: v } })}
+          helper="Que artistas, cenas ou movimentos dialogam com o teu trabalho?" />
+        <FA label="Quem legitima" v={c.teia?.legitimacy || ''} onChange={v => onChange('cartografia', { ...c, teia: { ...c.teia, legitimacy: v } })}
+          helper="Onde já apresentaste, foste reconhecida ou validada? (Festivais, espaços, prêmios, imprensa, residências)" />
+        <FA label="Redes de influência" v={c.teia?.influenceNetworks || ''} onChange={v => onChange('cartografia', { ...c, teia: { ...c.teia, influenceNetworks: v } })}
+          helper="Que redes, festivais, instituições ou espaços poderiam fortalecer a tua circulação?" />
+        <FA label="🤝 Alianças Éticas" v={c.teia?.ethicalAlliances || ''} onChange={v => onChange('cartografia', { ...c, teia: { ...c.teia, ethicalAlliances: v } })}
+          helper="Que instituições ou programadores demonstram uma prática antirracista e antisexista REAL? Quais evitam a 'diversidade cosmética'? (Davis: crítica à exclusão das mulheres negras por 'conveniência' política)" />
+      </details>
+  
+      <details style={s.detail}>
+        <summary style={s.summary}>🧭 ROTA — próximos territórios e estratégia de liberdade</summary>
+        <FA label="Gaps (territórios em falta)" v={c.rota?.gaps || ''} onChange={v => onChange('cartografia', { ...c, rota: { ...c.rota, gaps: v } })}
+          helper="O que falta hoje para aplicares melhor a editais? (Materiais, contactos, recursos, tempo)" />
+        <F label="Corredores estratégicos (vírgula separa)" v={Array.isArray(c.rota?.corredores) ? c.rota.corredores.join(', ') : (c.rota?.corredores || '')} onChange={v => onChange('cartografia', { ...c, rota: { ...c.rota, corredores: v.split(',').map((x: string) => x.trim()).filter(Boolean) } })}
+          helper="Quais seriam os caminhos naturais de circulação? (Ex: Barcelona → Lisboa → Berlim → São Paulo)" />
+        <FA label="Plano de expansão" v={c.rota?.expansionPlan || ''} onChange={v => onChange('cartografia', { ...c, rota: { ...c.rota, expansionPlan: v } })}
+          helper="Onde gostarias de estar nos próximos 12–24 meses? Fala de países, formatos, colaborações e ambições reais." />
+      </details>
+    </div>
+  }

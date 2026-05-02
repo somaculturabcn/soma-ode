@@ -1,5 +1,5 @@
 // src/components/ArtistManager.tsx
-// SOMA ODÉ — Artist Manager v2 (9 secções + Cartografia + Supabase + Inputs de tags corrigidos)
+// SOMA ODÉ — Artist Manager v2 (9 secções + Cartografia Davis v2 + Supabase + Inputs de tags corrigidos)
 
 import { useEffect, useState } from 'react'
 import type { Artist, Project, ArtistMaterials, ArtistMobility } from '../types/artist'
@@ -775,6 +775,7 @@ function Section08({ a, update }: SecProps) {
   )
 }
 
+// ─── SECÇÃO 09: CARTOGRAFIA SOMA (v2 · Angela Davis) ─────
 function Section09({ a, update }: SecProps) {
   const c = a.cartografia || {}
 
@@ -795,24 +796,38 @@ function Section09({ a, update }: SecProps) {
     <div>
       <h2 style={s.h2}>09 · Cartografia SOMA</h2>
       <p style={s.subtitle}>
-        Conclusões da entrevista curatorial. ⭐ Vocabulário alimenta o matching automaticamente.
+        Metodologia de inteligência curatorial baseada em Angela Davis, Paul Gilroy, Pierre Bourdieu e bell hooks.
+        ⭐ Vocabulário alimenta o matching automaticamente.
       </p>
 
       <details style={s.detail} open>
-        <summary style={s.summary}>🌱 RAIZ — origens, tensões, vocabulário</summary>
+        <summary style={s.summary}>🌱 RAIZ — origens, tensões, vocabulário e legado de resistência</summary>
         <Field label="Origens (texto livre)">
           <textarea style={s.textarea} rows={3} value={c.raiz?.origins || ''}
-            onChange={e => updRaiz('origins', e.target.value)} />
+            onChange={e => updRaiz('origins', e.target.value)}
+            placeholder="Que histórias, territórios, culturas ou experiências atravessam o trabalho?" />
         </Field>
         <Field label="Tensões fundamentais">
           <textarea style={s.textarea} rows={3} value={c.raiz?.tensions || ''}
-            onChange={e => updRaiz('tensions', e.target.value)} />
+            onChange={e => updRaiz('tensions', e.target.value)}
+            placeholder="Que conflitos ou contradições movem a criação?" />
         </Field>
         <Field label="⭐ Vocabulário (5-8 palavras únicas, vírgula separa)">
           <input style={s.input}
             placeholder="diáspora, ritual, terreiro, fronteira..."
             value={(c.raiz?.vocabulario || []).join(', ')}
-            onChange={e => updRaiz('vocabulario', e.target.value.split(',').map(x => x.trim()).filter(Boolean))} />
+            onChange={e => updRaiz('vocabulario', e.target.value.split(',').map((x: string) => x.trim()).filter(Boolean))} />
+        </Field>
+        {/* NOVOS CAMPOS — Angela Davis */}
+        <Field label="✊🏿 Legado de Resistência (Angela Davis)">
+          <textarea style={s.textarea} rows={3} value={c.raiz?.legacyOfResistance || ''}
+            onChange={e => updRaiz('legacyOfResistance', e.target.value)}
+            placeholder="Como o trabalho dialoga com a memória histórica de resistência? Que legados de luta, perseverança e insurgência estética o trabalho honra?" />
+        </Field>
+        <Field label="🤲 Práticas de Cuidado Comunitário">
+          <textarea style={s.textarea} rows={3} value={c.raiz?.carePractices || ''}
+            onChange={e => updRaiz('carePractices', e.target.value)}
+            placeholder="Que práticas de cuidado coletivo sustentam o processo criativo? Como a comunidade se organiza para resistir à desumanização cotidiana?" />
         </Field>
       </details>
 
@@ -829,12 +844,12 @@ function Section09({ a, update }: SecProps) {
         <Field label="Territórios da audiência (vírgula separa)">
           <input style={s.input}
             value={(c.campo?.audienceTerritories || []).join(', ')}
-            onChange={e => updCampo('audienceTerritories', e.target.value.split(',').map(x => x.trim()).filter(Boolean))} />
+            onChange={e => updCampo('audienceTerritories', e.target.value.split(',').map((x: string) => x.trim()).filter(Boolean))} />
         </Field>
       </details>
 
       <details style={s.detail}>
-        <summary style={s.summary}>🕸 TEIA — estrutura do circuito</summary>
+        <summary style={s.summary}>🕸 TEIA — estrutura do circuito e alianças éticas</summary>
         <Field label="Pares (artistas similares)">
           <textarea style={s.textarea} rows={3} value={c.teia?.pares || ''}
             onChange={e => updTeia('pares', e.target.value)} />
@@ -847,6 +862,12 @@ function Section09({ a, update }: SecProps) {
           <textarea style={s.textarea} rows={3} value={c.teia?.influenceNetworks || ''}
             onChange={e => updTeia('influenceNetworks', e.target.value)} />
         </Field>
+        {/* NOVO CAMPO — Angela Davis */}
+        <Field label="🤝 Alianças Éticas (Angela Davis)">
+          <textarea style={s.textarea} rows={3} value={c.teia?.ethicalAlliances || ''}
+            onChange={e => updTeia('ethicalAlliances', e.target.value)}
+            placeholder="Que instituições ou programadores demonstram uma prática antirracista e antisexista REAL? Quais evitam a 'diversidade cosmética'?" />
+        </Field>
       </details>
 
       <details style={s.detail}>
@@ -858,7 +879,7 @@ function Section09({ a, update }: SecProps) {
         <Field label="Corredores estratégicos (vírgula separa)">
           <input style={s.input}
             value={(c.rota?.corredores || []).join(', ')}
-            onChange={e => updRota('corredores', e.target.value.split(',').map(x => x.trim()).filter(Boolean))} />
+            onChange={e => updRota('corredores', e.target.value.split(',').map((x: string) => x.trim()).filter(Boolean))} />
         </Field>
         <Field label="Plano de expansão">
           <textarea style={s.textarea} rows={3} value={c.rota?.expansionPlan || ''}

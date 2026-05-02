@@ -1,5 +1,6 @@
 // src/types/artist.ts
 // SOMA ODÉ — Artist type completo com Google Drive + Cartografia + Portal do Artista
+// v2: Inclui legacyOfResistance, carePractices, ethicalAlliances, invisibleWorkNotes (Angela Davis)
 
 // ─── Sub-tipos ─────────────────────────────────────────────
 
@@ -12,6 +13,18 @@ export type Project = {
   videoLink?: string
   summary?: string
   technicalNeeds?: string
+  // Mini-Cartografia do Projeto
+  projectTargetAudience?: string
+  projectTerritories?: string
+  projectKeywords?: string[]
+  projectFormat?: string
+  hasCirculated?: boolean
+  circulationHistory?: string
+  // Davis: Visibilização do Trabalho Invisível
+  invisibleWorkNotes?: string
+  driveLink?: string
+  dossierLink?: string
+  language?: string
 }
 
 export type ArtistMaterials = {
@@ -29,6 +42,11 @@ export type ArtistMaterials = {
   soundcloudLink?: string
   youtubeLink?: string
   tiktokHandle?: string
+  driveBioPT?: string
+  driveBioEN?: string
+  drivePhotos?: string
+  driveRider?: string
+  drivePressKit?: string
 }
 
 export type ArtistMobility = {
@@ -60,6 +78,9 @@ export type CartografiaRaiz = {
   origins?: string
   tensions?: string
   vocabulario?: string[]
+  // Davis: Legado de Resistência
+  legacyOfResistance?: string
+  carePractices?: string
 }
 
 export type CartografiaCampo = {
@@ -74,6 +95,8 @@ export type CartografiaTeia = {
   pares?: string
   legitimacy?: string
   influenceNetworks?: string
+  // Davis: Auditoria de Alianças Éticas
+  ethicalAlliances?: string
 }
 
 export type CartografiaRota = {
@@ -95,7 +118,7 @@ export type Cartografia = {
 
 export type Artist = {
   id: string
-  userId?: string  // Liga artista a auth.users (Portal do Artista)
+  userId?: string
 
   name: string
   artisticName?: string
@@ -181,9 +204,14 @@ export function emptyArtist(): Omit<Artist, 'id'> {
     active: true,
 
     cartografia: {
-      raiz: { state: 'empty', vocabulario: [] },
+      raiz: {
+        state: 'empty',
+        vocabulario: [],
+        legacyOfResistance: '',
+        carePractices: '',
+      },
       campo: { state: 'empty', audienceTerritories: [] },
-      teia: { state: 'empty' },
+      teia: { state: 'empty', ethicalAlliances: '' },
       rota: { state: 'empty', corredores: [] },
     },
     internal: {},
@@ -204,11 +232,13 @@ export function materialsCount(materials: ArtistMaterials = {}) {
 
 export function cartografiaCount(c: Cartografia = {}): { filled: number; total: number } {
   let filled = 0
-  const total = 13
+  const total = 17
 
   if (c.raiz?.origins) filled++
   if (c.raiz?.tensions) filled++
   if (c.raiz?.vocabulario && c.raiz.vocabulario.length > 0) filled++
+  if (c.raiz?.legacyOfResistance) filled++
+  if (c.raiz?.carePractices) filled++
 
   if (c.campo?.audienceProfiles) filled++
   if (c.campo?.motivation) filled++
@@ -217,6 +247,7 @@ export function cartografiaCount(c: Cartografia = {}): { filled: number; total: 
   if (c.teia?.pares) filled++
   if (c.teia?.legitimacy) filled++
   if (c.teia?.influenceNetworks) filled++
+  if (c.teia?.ethicalAlliances) filled++
 
   if (c.rota?.gaps) filled++
   if (c.rota?.corredores && c.rota.corredores.length > 0) filled++
