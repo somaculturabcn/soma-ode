@@ -1,6 +1,8 @@
 // src/components/MatchView.tsx
-// SOMA ODÉ — Oportunidades / MatchView
-// FIX: safeArr() protege disciplines que chegam como string do Supabase/mock
+// SOMA ODÉ — Oportunidades com busca dupla: base registada + Gemini web
+// Quando "Executar" é clicado:
+//   1. IMEDIATO: filtra e ordena oportunidades registadas por relevância
+//   2. PARALELO: Gemini busca na web e devolve novas oportunidades
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ScoutUrlExtractor from './ScoutUrlExtractor'
@@ -15,6 +17,8 @@ function safeArr(val: any): string[] {
   if (typeof val === 'string' && val.trim()) return val.split(',').map((s: string) => s.trim()).filter(Boolean)
   return []
 }
+
+// ─── Tipos ────────────────────────────────────────────────
 
 type Opportunity = {
   id: string
@@ -39,19 +43,17 @@ type Opportunity = {
   requirements?: string[]
   assignedArtistId?: string
   assignedArtistName?: string
-  coverage?: {
-    travel?: boolean
-    accommodation?: boolean
-    meals?: boolean
-    production?: boolean
-    fee?: boolean
-  }
+  coverage?: { travel?: boolean; accommodation?: boolean; meals?: boolean; production?: boolean; fee?: boolean }
   coversCosts?: boolean
   status?: string
   source?: string
   notes?: string
   createdAt?: string
   updatedAt?: string
+  // Campos de resultado de busca
+  _matchScore?: number
+  _matchReasons?: string[]
+  _fromWeb?: boolean
 }
 
 type ArtistLite = {
@@ -61,14 +63,29 @@ type ArtistLite = {
   legalName?: string
 }
 
+type SavedSearch = {
+  id: string
+  name: string
+  query: string
+  countries: string
+  disciplines: string
+  languages: string
+  maxResults: number
+  artistId?: string
+  artistName?: string
+  projectId?: string
+  projectName?: string
+}
+
+// ─── Constantes ───────────────────────────────────────────
+
 const STORAGE_KEY = 'soma-manual-opportunities-v1'
 const ARTISTS_KEY = 'soma-artists-v2'
 
+// ─── Utilitários ──────────────────────────────────────────
+
 function getManualOpportunities(): Opportunity[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch { return [] }
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') } catch { return [] }
 }
 
 function saveManualOpportunities(data: Opportunity[]) {
@@ -77,43 +94,20 @@ function saveManualOpportunities(data: Opportunity[]) {
 
 function getArtists(): ArtistLite[] {
   try {
-    const raw = localStorage.getItem(ARTISTS_KEY)
-    const parsed = raw ? JSON.parse(raw) : []
+    const parsed = JSON.parse(localStorage.getItem(ARTISTS_KEY) || '[]')
     return Array.isArray(parsed) ? parsed : []
   } catch { return [] }
 }
 
 function emptyOpportunity(): Opportunity {
   return {
-    id: crypto.randomUUID(),
-    title: '',
-    organization: '',
-    type: 'Edital',
-    country: '',
-    countryName: '',
-    countryCode: '',
-    city: '',
-    regionId: '',
-    regionLabel: '',
-    disciplines: [],
-    languages: [],
-    deadline: '',
-    summary: '',
-    description: '',
-    link: '',
-    keywords: [],
-    themes: [],
-    genres: [],
-    requirements: [],
-    assignedArtistId: '',
-    assignedArtistName: '',
-    coverage: {},
-    coversCosts: false,
-    status: 'open',
-    source: 'manual',
-    notes: '',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    id: crypto.randomUUID(), title: '', organization: '', type: 'Edital',
+    country: '', countryName: '', countryCode: '', city: '',
+    regionId: '', regionLabel: '', disciplines: [], languages: [], deadline: '',
+    summary: '', description: '', link: '', keywords: [], themes: [], genres: [],
+    requirements: [], assignedArtistId: '', assignedArtistName: '', coverage: {},
+    coversCosts: false, status: 'open', source: 'manual', notes: '',
+    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
   }
 }
 
@@ -150,57 +144,237 @@ function deadlineLabel(deadline?: string) {
   if (days === 0) return 'hoje'
   if (days <= 7) return `${days} dias`
   if (days <= 30) return `${days} dias`
-  return deadline
+  return deadline ?? ''
+}
+
+// ─── Scoring de relevância (busca na base) ────────────────
+
+function scoreOpportunity(op: Opportunity, search: SavedSearch): { score: number; reasons: string[] } {
+  const reasons: string[] = []
+  let score = 0
+
+  const queryWords = cleanText(search.query).split(/\s+/).filter(w => w.length > 3)
+  const opText = cleanText([
+    op.title, op.organization, op.summary, op.description,
+    ...safeArr(op.disciplines), ...safeArr(op.keywords), ...safeArr(op.themes),
+  ].join(' '))
+
+  // Match de palavras da query
+  const queryMatches = queryWords.filter(w => opText.includes(w))
+  if (queryMatches.length > 0) {
+    score += Math.min(40, queryMatches.length * 8)
+    reasons.push(`${queryMatches.length} palavras-chave encontradas`)
+  }
+
+  // Match de países
+  if (search.countries) {
+    const searchCountries = search.countries.toLowerCase().split(',').map(s => s.trim())
+    const opCountry = cleanText(op.countryName || op.country || '')
+    const countryMatch = searchCountries.some(c => opCountry.includes(cleanText(c)) || cleanText(c).includes(opCountry))
+    if (countryMatch) {
+      score += 20
+      reasons.push(`País corresponde (${op.countryName || op.country})`)
+    }
+  }
+
+  // Match de disciplinas
+  if (search.disciplines) {
+    const searchDisc = search.disciplines.toLowerCase().split(',').map(s => s.trim())
+    const opDisc = safeArr(op.disciplines).map(d => d.toLowerCase())
+    const discMatch = searchDisc.filter(d => opDisc.some(od => od.includes(d) || d.includes(od)))
+    if (discMatch.length > 0) {
+      score += 20
+      reasons.push(`Disciplina alinhada: ${discMatch.join(', ')}`)
+    }
+  }
+
+  // Match de idiomas
+  if (search.languages) {
+    const searchLangs = search.languages.toLowerCase().split(',').map(s => s.trim())
+    const opLangs = safeArr(op.languages).map(l => l.toLowerCase())
+    if (!opLangs.length || searchLangs.some(l => opLangs.includes(l))) {
+      score += 10
+      reasons.push('Idioma compatível')
+    }
+  }
+
+  // Custos cobertos
+  if (op.coversCosts) {
+    score += 10
+    reasons.push('Cobre custos')
+  }
+
+  return { score, reasons }
+}
+
+// ─── Busca Gemini na web ──────────────────────────────────
+
+async function searchWebWithGemini(search: SavedSearch): Promise<Opportunity[]> {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY
+  if (!apiKey) throw new Error('VITE_GEMINI_API_KEY não configurada')
+
+  const currentYear = new Date().getFullYear()
+  const systemPrompt = `És um especialista em oportunidades culturais internacionais para artistas da diáspora afro-lusófona.
+Pesquisas editais, residências artísticas, festivais, open calls e programas de mobilidade que correspondem ao perfil descrito.
+Respondes SEMPRE em JSON válido, sem markdown, sem comentários.`
+
+  const userPrompt = `Pesquisa na web oportunidades culturais actuais (${currentYear}-${currentYear + 1}) para este perfil:
+
+ARTISTA/PROJECTO: ${search.artistName || 'Artista da diáspora afro-lusófona'}
+PROJECTO: ${search.projectName || 'Não especificado'}
+QUERY: ${search.query}
+PAÍSES PRIORITÁRIOS: ${search.countries || 'Europa, Brasil, América Latina'}
+DISCIPLINAS: ${search.disciplines || 'Música, Artes Visuais, Performance'}
+IDIOMAS: ${search.languages || 'PT, EN, ES'}
+
+Encontra ${search.maxResults || 8} oportunidades REAIS e ACTUAIS (com links verificáveis) que correspondam a este perfil.
+
+Para cada oportunidade, devolve:
+- title: nome da oportunidade
+- organization: organização que oferece
+- country: país (nome em português)
+- countryCode: código ISO (ex: DE, FR, PT)
+- city: cidade
+- type: Edital | Residência | Festival | Open Call | Prémio | Mobilidade
+- deadline: data limite (formato YYYY-MM-DD, null se não encontrada)
+- coversCosts: true se cobre viagem/alojamento
+- summary: resumo em 2-3 frases em português
+- link: URL directo do edital ou página oficial
+- disciplines: array de disciplinas aceites
+- keywords: array de 3-5 palavras-chave relevantes
+
+Responde APENAS com este JSON:
+{
+  "opportunities": [
+    {
+      "title": "...",
+      "organization": "...",
+      "country": "...",
+      "countryCode": "...",
+      "city": "...",
+      "type": "...",
+      "deadline": "...",
+      "coversCosts": true,
+      "summary": "...",
+      "link": "...",
+      "disciplines": [],
+      "keywords": []
+    }
+  ],
+  "totalFound": número,
+  "searchNote": "nota sobre a busca"
+}`
+
+  const model = 'gemini-2.0-flash'
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\n---\n\n${userPrompt}` }] }],
+      generationConfig: { temperature: 0.3, maxOutputTokens: 4096 },
+      tools: [{ googleSearch: {} }],
+    }),
+  })
+
+  if (!res.ok) {
+    const err = await res.json()
+    // Fallback sem googleSearch se não tiver permissão
+    const res2 = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\n---\n\n${userPrompt}` }] }],
+        generationConfig: { temperature: 0.4, maxOutputTokens: 4096 },
+      }),
+    })
+    if (!res2.ok) throw new Error(`Gemini error: ${JSON.stringify(err)}`)
+    const data2 = await res2.json()
+    return parseGeminiOpportunities(data2, search)
+  }
+
+  const data = await res.json()
+  return parseGeminiOpportunities(data, search)
+}
+
+function parseGeminiOpportunities(data: any, search: SavedSearch): Opportunity[] {
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+
+  try {
+    const clean = text.replace(/```json/gi, '').replace(/```/g, '').trim()
+    const jsonMatch = clean.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) return []
+
+    const parsed = JSON.parse(jsonMatch[0])
+    const opps = parsed.opportunities || []
+
+    return opps.map((op: any) => ({
+      id: crypto.randomUUID(),
+      title: op.title || 'Oportunidade sem título',
+      organization: op.organization || '',
+      type: op.type || 'Edital',
+      country: op.countryCode || op.country || '',
+      countryName: op.country || '',
+      countryCode: op.countryCode || '',
+      city: op.city || '',
+      disciplines: safeArr(op.disciplines),
+      languages: safeArr(op.languages),
+      keywords: safeArr(op.keywords),
+      deadline: op.deadline || '',
+      summary: op.summary || '',
+      description: op.summary || '',
+      link: op.link || '',
+      coversCosts: Boolean(op.coversCosts),
+      status: 'open',
+      source: 'gemini_web',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      _fromWeb: true,
+    }))
+  } catch (err) {
+    console.error('[MatchView] Erro ao parsear resposta Gemini:', err)
+    return []
+  }
 }
 
 function parseCsv(text: string): Opportunity[] {
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
   if (lines.length < 2) return []
-
   const headers = lines[0].split(/[;,]/).map(h => cleanText(h).replace(/\s+/g, '_'))
-
   return lines.slice(1).map(line => {
     const values = line.split(/[;,]/).map(v => v.trim())
     const row: Record<string, string> = {}
     headers.forEach((h, i) => { row[h] = values[i] || '' })
-
     const get = (...keys: string[]) => {
-      for (const key of keys) {
-        const k = cleanText(key).replace(/\s+/g, '_')
-        if (row[k]) return row[k]
-      }
+      for (const key of keys) { const k = cleanText(key).replace(/\s+/g, '_'); if (row[k]) return row[k] }
       return ''
     }
-
     return {
       id: crypto.randomUUID(),
       title: get('title', 'titulo', 'título', 'nome', 'name') || 'Oportunidade sem título',
-      organization: get('organization', 'organizacao', 'organização', 'entidade', 'empresa'),
+      organization: get('organization', 'organizacao', 'organização'),
       type: get('type', 'tipo') || 'Edital',
       country: get('country', 'pais', 'país'),
       countryName: get('country', 'pais', 'país'),
-      countryCode: get('countryCode', 'codigo_pais', 'código país'),
+      countryCode: get('countryCode', 'codigo_pais'),
       city: get('city', 'cidade', 'ciudad'),
-      regionId: get('region', 'regionId', 'regiao', 'região'),
-      regionLabel: get('region', 'regiao', 'região'),
-      disciplines: splitTags(get('disciplines', 'disciplinas', 'area', 'área')),
-      languages: splitTags(get('languages', 'idiomas', 'linguas', 'línguas')),
-      deadline: get('deadline', 'prazo', 'fecha limite', 'fecha límite'),
-      summary: get('summary', 'resumo', 'descripcion', 'descrição'),
-      description: get('description', 'descricao', 'descrição'),
-      link: get('link', 'url', 'website', 'site'),
-      keywords: splitTags(get('keywords', 'tags', 'palavras chave')),
+      disciplines: splitTags(get('disciplines', 'disciplinas')),
+      languages: splitTags(get('languages', 'idiomas')),
+      deadline: get('deadline', 'prazo'),
+      summary: get('summary', 'resumo'),
+      description: get('description', 'descricao'),
+      link: get('link', 'url', 'website'),
+      keywords: splitTags(get('keywords', 'tags')),
       requirements: splitTags(get('requirements', 'requisitos')),
-      assignedArtistName: get('artist', 'artista', 'assigned_artist', 'artista_associado'),
-      coversCosts: ['sim', 'yes', 'true', '1'].includes(cleanText(get('coversCosts', 'custos', 'costs'))),
-      status: 'open',
-      source: 'csv',
-      notes: get('notes', 'notas', 'observaciones'),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      coversCosts: ['sim', 'yes', 'true', '1'].includes(cleanText(get('coversCosts', 'custos'))),
+      status: 'open', source: 'csv', notes: get('notes', 'notas'),
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     }
   })
 }
+
+// ─── Componente principal ─────────────────────────────────
 
 export default function MatchView() {
   const fileRef = useRef<HTMLInputElement | null>(null)
@@ -210,11 +384,20 @@ export default function MatchView() {
   const [editing, setEditing] = useState<Opportunity | null>(null)
   const [assigning, setAssigning] = useState<Opportunity | null>(null)
   const [selectedArtistId, setSelectedArtistId] = useState('')
+
+  // Filtros normais
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('todos')
   const [countryFilter, setCountryFilter] = useState('todos')
   const [artistFilter, setArtistFilter] = useState('todos')
   const [onlyCosts, setOnlyCosts] = useState(false)
+
+  // Scout executado
+  const [activeScout, setActiveScout] = useState<SavedSearch | null>(null)
+  const [webResults, setWebResults] = useState<Opportunity[]>([])
+  const [webLoading, setWebLoading] = useState(false)
+  const [webError, setWebError] = useState('')
+  const [webNote, setWebNote] = useState('')
 
   useEffect(() => {
     setManual(getManualOpportunities())
@@ -224,7 +407,6 @@ export default function MatchView() {
   const allOpportunities: Opportunity[] = useMemo(() => {
     const real = Array.isArray(realOpportunities) ? realOpportunities : []
     const mock = Array.isArray(mockOpportunities) ? mockOpportunities : []
-
     const normalized = [...manual, ...real, ...mock].map((op: any) => ({
       ...op,
       id: op.id || crypto.randomUUID(),
@@ -233,14 +415,12 @@ export default function MatchView() {
       type: op.type || 'Edital',
       country: op.country || op.countryCode || '',
       countryName: op.countryName || op.country || '',
-      // ✅ FIX: safeArr garante que disciplines é sempre array
       disciplines: safeArr(op.disciplines),
       languages: safeArr(op.languages),
       keywords: safeArr(op.keywords || op.themes),
       requirements: safeArr(op.requirements),
       status: op.status || 'open',
     }))
-
     const seen = new Set<string>()
     return normalized.filter(op => {
       const key = cleanText(`${op.title}-${op.organization}-${op.deadline}`)
@@ -250,15 +430,72 @@ export default function MatchView() {
     })
   }, [manual])
 
-  const types = useMemo(() => {
-    return Array.from(new Set(allOpportunities.map(o => o.type || 'Edital'))).sort()
-  }, [allOpportunities])
+  // ─── Quando Scout é executado ──────────────────────────
 
-  const countries = useMemo(() => {
-    return Array.from(new Set(allOpportunities.map(o => o.countryName || o.country).filter(Boolean))).sort()
-  }, [allOpportunities])
+  async function handleScoutExecute(savedSearch: SavedSearch) {
+    // 1. Activar o scout e preencher a barra de pesquisa imediatamente
+    setActiveScout(savedSearch)
+    setSearch(savedSearch.query)
+    setWebResults([])
+    setWebError('')
+    setWebNote('')
 
-  const filtered = useMemo(() => {
+    // Aplicar filtros de país e disciplina se existirem
+    if (savedSearch.countries) {
+      const firstCountry = savedSearch.countries.split(',')[0].trim()
+      // Não forçar o filtro de país — a query já vai filtrar
+    }
+
+    // 2. Em paralelo: buscar na web com Gemini
+    setWebLoading(true)
+    try {
+      const results = await searchWebWithGemini(savedSearch)
+      setWebResults(results)
+      setWebNote(`${results.length} oportunidades encontradas na web pelo Gemini`)
+    } catch (err: any) {
+      console.error('[MatchView] Erro na busca web:', err)
+      setWebError(err.message || 'Erro ao buscar na web. Verifica a API key do Gemini.')
+    } finally {
+      setWebLoading(false)
+    }
+  }
+
+  function handleScoutSave(op: Opportunity) {
+    const next = [op, ...getManualOpportunities()]
+    persist(next)
+  }
+
+  function handleScoutCallback(data: any) {
+    // Distinguir entre salvar oportunidade URL e executar busca salva
+    if (data && data.query !== undefined && data.name !== undefined) {
+      // É uma SavedSearch a ser executada
+      handleScoutExecute(data as SavedSearch)
+    } else {
+      // É uma Opportunity a ser guardada (do URL extractor)
+      handleScoutSave(data as Opportunity)
+    }
+  }
+
+  function clearScout() {
+    setActiveScout(null)
+    setSearch('')
+    setWebResults([])
+    setWebError('')
+    setWebNote('')
+  }
+
+  function saveWebOpportunity(op: Opportunity) {
+    const toSave = { ...op, source: 'web_scout', _fromWeb: undefined, _matchScore: undefined, _matchReasons: undefined }
+    const next = [toSave, ...getManualOpportunities()]
+    persist(next)
+    // Remover dos resultados web (já está guardada)
+    setWebResults(prev => prev.filter(w => w.id !== op.id))
+    alert('Oportunidade guardada na base.')
+  }
+
+  // ─── Filtro e scoring das oportunidades da base ─────────
+
+  const filteredBase: Opportunity[] = useMemo(() => {
     const q = cleanText(search)
 
     return allOpportunities
@@ -268,54 +505,57 @@ export default function MatchView() {
         if (artistFilter !== 'todos' && op.assignedArtistId !== artistFilter) return false
         if (onlyCosts && !op.coversCosts) return false
         if (!q) return true
-
         return cleanText([
           op.title, op.organization, op.type, op.country, op.countryName,
           op.city, op.summary, op.description, op.notes, op.assignedArtistName,
-          ...safeArr(op.disciplines),
-          ...safeArr(op.keywords),
+          ...safeArr(op.disciplines), ...safeArr(op.keywords),
         ].join(' ')).includes(q)
       })
+      .map(op => {
+        if (activeScout) {
+          const { score, reasons } = scoreOpportunity(op, activeScout)
+          return { ...op, _matchScore: score, _matchReasons: reasons }
+        }
+        return op
+      })
       .sort((a, b) => {
+        // Se há scout activo, ordenar por score
+        if (activeScout) {
+          return (b._matchScore || 0) - (a._matchScore || 0)
+        }
+        // Senão, ordenar por deadline
         const da = daysLeft(a.deadline)
         const db = daysLeft(b.deadline)
         return (da ?? 9999) - (db ?? 9999)
       })
-  }, [allOpportunities, search, typeFilter, countryFilter, artistFilter, onlyCosts])
+  }, [allOpportunities, search, typeFilter, countryFilter, artistFilter, onlyCosts, activeScout])
 
-  function persist(next: Opportunity[]) {
-    setManual(next)
-    saveManualOpportunities(next)
-  }
+  const types = useMemo(() => Array.from(new Set(allOpportunities.map(o => o.type || 'Edital'))).sort(), [allOpportunities])
+  const countries = useMemo(() => Array.from(new Set(allOpportunities.map(o => o.countryName || o.country).filter(Boolean))).sort(), [allOpportunities])
+
+  function persist(next: Opportunity[]) { setManual(next); saveManualOpportunities(next) }
 
   function saveOpportunity(op: Opportunity) {
     if (!op.title.trim()) { alert('A oportunidade precisa de título.'); return }
     const updated = { ...op, updatedAt: new Date().toISOString() }
     const exists = manual.some(o => o.id === updated.id)
     const next = exists ? manual.map(o => o.id === updated.id ? updated : o) : [updated, ...manual]
-    persist(next)
-    setEditing(null)
+    persist(next); setEditing(null)
   }
 
   function deleteOpportunity(id: string) {
-    if (!confirm('Apagar esta oportunidade manual/CSV?')) return
-    persist(manual.filter(o => o.id !== id))
-    setEditing(null)
+    if (!confirm('Apagar esta oportunidade?')) return
+    persist(manual.filter(o => o.id !== id)); setEditing(null)
   }
 
   function duplicateToEdit(op: Opportunity) {
     setEditing({
-      ...emptyOpportunity(),
-      ...op,
+      ...emptyOpportunity(), ...op,
       id: manual.some(o => o.id === op.id) ? op.id : crypto.randomUUID(),
       source: manual.some(o => o.id === op.id) ? op.source || 'manual' : 'duplicado/editado',
+      _fromWeb: undefined, _matchScore: undefined, _matchReasons: undefined,
       updatedAt: new Date().toISOString(),
     })
-  }
-
-  function handleScoutSave(op: Opportunity) {
-    const next = [op, ...getManualOpportunities()]
-    persist(next)
   }
 
   function assignArtistToOpportunity() {
@@ -323,24 +563,15 @@ export default function MatchView() {
     const artist = artists.find(a => a.id === selectedArtistId)
     if (!artist) { alert('Seleciona um artista.'); return }
     const artistName = artist.artisticName || artist.name || artist.legalName || 'Artista'
-    const updated: Opportunity = {
-      ...assigning,
-      assignedArtistId: artist.id,
-      assignedArtistName: artistName,
-      source: manual.some(o => o.id === assigning.id) ? assigning.source || 'manual' : 'associada',
-      updatedAt: new Date().toISOString(),
-    }
+    const updated: Opportunity = { ...assigning, assignedArtistId: artist.id, assignedArtistName: artistName, updatedAt: new Date().toISOString() }
     const exists = manual.some(o => o.id === updated.id)
     const next = exists ? manual.map(o => o.id === updated.id ? updated : o) : [updated, ...manual]
-    persist(next)
-    setAssigning(null)
-    setSelectedArtistId('')
+    persist(next); setAssigning(null); setSelectedArtistId('')
   }
 
   function unassignArtist(op: Opportunity) {
     const updated = { ...op, assignedArtistId: '', assignedArtistName: '', updatedAt: new Date().toISOString() }
-    const exists = manual.some(o => o.id === updated.id)
-    if (!exists) return
+    if (!manual.some(o => o.id === updated.id)) return
     persist(manual.map(o => o.id === updated.id ? updated : o))
   }
 
@@ -353,249 +584,283 @@ export default function MatchView() {
   }
 
   function exportCsv() {
-    const headers = [
-      'title', 'organization', 'type', 'country', 'countryCode', 'city',
-      'deadline', 'disciplines', 'languages', 'keywords', 'requirements',
-      'coversCosts', 'assignedArtistName', 'summary', 'link', 'notes', 'source',
-    ]
-    const rows = filtered.map(op => [
-      op.title, op.organization, op.type, op.countryName || op.country,
-      op.countryCode, op.city, op.deadline, op.disciplines, op.languages,
-      op.keywords, op.requirements, op.coversCosts ? 'true' : 'false',
-      op.assignedArtistName, op.summary || op.description, op.link, op.notes, op.source,
-    ].map(escapeCsv).join(','))
+    const headers = ['title', 'organization', 'type', 'country', 'countryCode', 'city', 'deadline', 'disciplines', 'languages', 'keywords', 'requirements', 'coversCosts', 'assignedArtistName', 'summary', 'link', 'notes', 'source']
+    const rows = filteredBase.map(op => [op.title, op.organization, op.type, op.countryName || op.country, op.countryCode, op.city, op.deadline, op.disciplines, op.languages, op.keywords, op.requirements, op.coversCosts ? 'true' : 'false', op.assignedArtistName, op.summary || op.description, op.link, op.notes, op.source].map(escapeCsv).join(','))
     const csv = [headers.join(','), ...rows].join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `soma-oportunidades-${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    const a = document.createElement('a'); a.href = url; a.download = `soma-oportunidades-${new Date().toISOString().slice(0, 10)}.csv`; a.click(); URL.revokeObjectURL(url)
   }
 
+  // ─── RENDER ──────────────────────────────────────────────
+
   return (
-    <div style={styles.wrap}>
-      <header style={styles.header}>
+    <div style={st.wrap}>
+
+      {/* HEADER */}
+      <header style={st.header}>
         <div>
-          <h1 style={styles.title}>Oportunidades</h1>
-          <p style={styles.subtitle}>
-            {filtered.length} de {allOpportunities.length} oportunidades · edição, CSV, Scout e associação a artista
+          <h1 style={st.title}>Oportunidades</h1>
+          <p style={st.subtitle}>
+            {filteredBase.length} de {allOpportunities.length} na base
+            {webResults.length > 0 && ` · ${webResults.length} novas da web`}
+            {activeScout && ` · Scout: ${activeScout.name}`}
           </p>
         </div>
-        <div style={styles.headerActions}>
+        <div style={st.headerActions}>
           <input ref={fileRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }}
             onChange={e => { const file = e.target.files?.[0]; if (file) handleCsv(file) }} />
-          <button style={styles.secondaryBtn} onClick={() => fileRef.current?.click()}>📥 Importar CSV</button>
-          <button style={styles.secondaryBtn} onClick={exportCsv}>📤 Exportar CSV</button>
-          <button style={styles.primaryBtn} onClick={() => setEditing(emptyOpportunity())}>+ Nova oportunidade</button>
+          <button style={st.secondaryBtn} onClick={() => fileRef.current?.click()}>📥 CSV</button>
+          <button style={st.secondaryBtn} onClick={exportCsv}>📤 Exportar</button>
+          <button style={st.primaryBtn} onClick={() => setEditing(emptyOpportunity())}>+ Nova</button>
         </div>
       </header>
 
+      {/* SCOUT URL + SCOUT SALVO */}
       <ScoutUrlExtractor onSave={handleScoutSave} />
-      <ScoutSavedSearches onSave={handleScoutSave} />
+      <ScoutSavedSearches onSave={handleScoutCallback} />
 
-      <section style={styles.toolbar}>
-        <input style={styles.input}
+      {/* SCOUT ACTIVO — banner */}
+      {activeScout && (
+        <div style={st.scoutBanner}>
+          <div>
+            <span style={st.scoutBannerLabel}>🔍 Scout activo:</span>
+            <strong> {activeScout.name}</strong>
+            {activeScout.artistName && <span style={{ color: '#60b4e8' }}> · {activeScout.artistName}</span>}
+            {activeScout.projectName && <span style={{ color: '#ffcf5c' }}> · {activeScout.projectName}</span>}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {webLoading && <span style={st.loadingDot}>⟳ Gemini a pesquisar na web...</span>}
+            {webNote && !webLoading && <span style={{ color: '#6ef3a5', fontSize: 12 }}>✓ {webNote}</span>}
+            {webError && <span style={{ color: '#ff8a8a', fontSize: 12 }}>⚠ {webError}</span>}
+            <button style={st.clearScoutBtn} onClick={clearScout}>× Limpar scout</button>
+          </div>
+        </div>
+      )}
+
+      {/* FILTROS */}
+      <section style={st.toolbar}>
+        <input style={st.input}
           placeholder="Pesquisar por título, país, disciplina, artista, keyword..."
-          value={search} onChange={e => setSearch(e.target.value)} />
-        <select style={styles.select} value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
+          value={search} onChange={e => { setSearch(e.target.value); setActiveScout(null) }} />
+        <select style={st.select} value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
           <option value="todos">Todos os tipos</option>
           {types.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
-        <select style={styles.select} value={countryFilter} onChange={e => setCountryFilter(e.target.value)}>
+        <select style={st.select} value={countryFilter} onChange={e => setCountryFilter(e.target.value)}>
           <option value="todos">Todos os países</option>
           {countries.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-        <select style={styles.select} value={artistFilter} onChange={e => setArtistFilter(e.target.value)}>
+        <select style={st.select} value={artistFilter} onChange={e => setArtistFilter(e.target.value)}>
           <option value="todos">Todos os artistas</option>
-          {artists.map(a => {
-            const name = a.artisticName || a.name || a.legalName || 'Artista'
-            return <option key={a.id} value={a.id}>{name}</option>
-          })}
+          {artists.map(a => <option key={a.id} value={a.id}>{a.artisticName || a.name || 'Artista'}</option>)}
         </select>
-        <label style={styles.check}>
+        <label style={st.check}>
           <input type="checkbox" checked={onlyCosts} onChange={e => setOnlyCosts(e.target.checked)} />
           Só custos cobertos
         </label>
       </section>
 
-      <section style={styles.grid}>
-        {filtered.map(op => {
-          const isManual = manual.some(m => m.id === op.id)
-          const d = daysLeft(op.deadline)
-          const urgent = d !== null && d >= 0 && d <= 30
-          // ✅ FIX: safeArr garante array antes de .slice().map()
-          const disciplines = safeArr(op.disciplines)
+      {/* RESULTADOS WEB DO GEMINI */}
+      {webResults.length > 0 && (
+        <section style={{ marginBottom: 28 }}>
+          <div style={st.sectionHeader}>
+            <h2 style={st.sectionTitle}>🌐 Novas da web — Gemini encontrou {webResults.length} oportunidades</h2>
+          </div>
+          <div style={st.grid}>
+            {webResults.map(op => (
+              <article key={op.id} style={{ ...st.card, borderColor: 'rgba(96,180,232,0.35)', background: 'rgba(26,105,148,0.06)' }}>
+                <div style={st.cardTop}>
+                  <span style={{ ...st.badge, background: 'rgba(96,180,232,0.2)', color: '#60b4e8' }}>
+                    🌐 {op.type || 'Edital'}
+                  </span>
+                  <span style={{ ...st.deadlineTag, color: daysLeft(op.deadline) !== null && daysLeft(op.deadline)! <= 30 ? '#ffcf5c' : 'rgba(255,255,255,0.45)' }}>
+                    {deadlineLabel(op.deadline)}
+                  </span>
+                </div>
+                <h3 style={st.cardTitle}>{op.title}</h3>
+                <p style={st.meta}>{[op.organization, op.city, op.countryName || op.country].filter(Boolean).join(' · ')}</p>
+                <p style={st.summary}>{op.summary || 'Sem resumo.'}</p>
+                <div style={st.tags}>
+                  {safeArr(op.disciplines).slice(0, 3).map(d => <span key={d} style={st.tag}>{d}</span>)}
+                  {op.coversCosts && <span style={st.costTag}>custos cobertos</span>}
+                  <span style={{ ...st.sourceTag, color: '#60b4e8' }}>web</span>
+                </div>
+                <div style={st.cardActions}>
+                  {op.link && <a href={op.link} target="_blank" rel="noopener noreferrer" style={st.link}>ver edital →</a>}
+                  <button style={st.primaryBtn} onClick={() => saveWebOpportunity(op)}>💾 Guardar</button>
+                  <button style={st.secondaryBtn} onClick={() => duplicateToEdit(op)}>Editar/guardar</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
-          return (
-            <article key={op.id} style={{
-              ...styles.card,
-              borderColor: urgent ? 'rgba(255,207,92,0.35)' : 'rgba(255,255,255,0.09)'
-            }}>
-              <div style={styles.cardTop}>
-                <span style={styles.badge}>{op.type || 'Edital'}</span>
-                <span style={{ ...styles.deadline, color: urgent ? '#ffcf5c' : 'rgba(255,255,255,0.45)' }}>
-                  {deadlineLabel(op.deadline)}
-                </span>
-              </div>
+      {/* RESULTADOS DA BASE */}
+      <section>
+        {activeScout && filteredBase.length > 0 && (
+          <div style={st.sectionHeader}>
+            <h2 style={st.sectionTitle}>
+              📁 Base registada — {filteredBase.length} resultado{filteredBase.length !== 1 ? 's' : ''}
+              {activeScout && ' ordenados por relevância'}
+            </h2>
+          </div>
+        )}
 
-              <h3 style={styles.cardTitle}>{op.title}</h3>
+        {filteredBase.length === 0 && !webLoading && (
+          <div style={st.empty}>
+            <p>Nenhuma oportunidade encontrada na base.</p>
+            <p style={{ opacity: 0.6, fontSize: 12 }}>
+              Importa CSV, usa o Scout por URL, ou adiciona manualmente.
+            </p>
+          </div>
+        )}
 
-              <p style={styles.meta}>
-                {[op.organization, op.city, op.countryName || op.country].filter(Boolean).join(' · ') || 'Sem entidade/local'}
-              </p>
+        <div style={st.grid}>
+          {filteredBase.map(op => {
+            const isManual = manual.some(m => m.id === op.id)
+            const d = daysLeft(op.deadline)
+            const urgent = d !== null && d >= 0 && d <= 30
+            const disciplines = safeArr(op.disciplines)
+            const hasScore = activeScout && op._matchScore !== undefined
 
-              {op.assignedArtistName && (
-                <div style={styles.artistTag}>Artista associado: {op.assignedArtistName}</div>
-              )}
+            return (
+              <article key={op.id} style={{
+                ...st.card,
+                borderColor: hasScore && op._matchScore! >= 50
+                  ? 'rgba(110,243,165,0.3)'
+                  : urgent ? 'rgba(255,207,92,0.35)' : 'rgba(255,255,255,0.09)'
+              }}>
+                <div style={st.cardTop}>
+                  <span style={st.badge}>{op.type || 'Edital'}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {hasScore && (
+                      <span style={{
+                        ...st.scoreBadge,
+                        background: op._matchScore! >= 60 ? 'rgba(110,243,165,0.15)' : op._matchScore! >= 30 ? 'rgba(255,207,92,0.15)' : 'rgba(255,255,255,0.06)',
+                        color: op._matchScore! >= 60 ? '#6ef3a5' : op._matchScore! >= 30 ? '#ffcf5c' : 'rgba(255,255,255,0.4)',
+                      }}>
+                        {op._matchScore}% match
+                      </span>
+                    )}
+                    <span style={{ ...st.deadlineTag, color: urgent ? '#ffcf5c' : 'rgba(255,255,255,0.45)' }}>
+                      {deadlineLabel(op.deadline)}
+                    </span>
+                  </div>
+                </div>
 
-              <p style={styles.summary}>{op.summary || op.description || 'Sem resumo ainda.'}</p>
+                <h3 style={st.cardTitle}>{op.title}</h3>
+                <p style={st.meta}>{[op.organization, op.city, op.countryName || op.country].filter(Boolean).join(' · ') || 'Sem entidade/local'}</p>
 
-              <div style={styles.tags}>
-                {disciplines.slice(0, 5).map(d => (
-                  <span key={d} style={styles.tag}>{d}</span>
-                ))}
-                {op.coversCosts && <span style={styles.costTag}>custos cobertos</span>}
-                <span style={styles.sourceTag}>{isManual ? op.source || 'manual' : 'base'}</span>
-              </div>
-
-              <div style={styles.cardActions}>
-                {op.link && (
-                  <a href={op.link} target="_blank" rel="noopener noreferrer" style={styles.link}>ver edital →</a>
+                {op.assignedArtistName && (
+                  <div style={st.artistTag}>Artista: {op.assignedArtistName}</div>
                 )}
-                <ProposeOpportunityButton opportunity={op} />
-                <button style={styles.secondaryBtn} onClick={() => { setAssigning(op); setSelectedArtistId(op.assignedArtistId || '') }}>
-                  Associar artista
-                </button>
-                {isManual && op.assignedArtistId && (
-                  <button style={styles.secondaryBtn} onClick={() => unassignArtist(op)}>Remover artista</button>
+
+                {/* Razões do match */}
+                {hasScore && op._matchReasons && op._matchReasons.length > 0 && (
+                  <div style={st.matchReasons}>
+                    {op._matchReasons.slice(0, 3).map((r, i) => <span key={i}>✓ {r}</span>)}
+                  </div>
                 )}
-                <button style={styles.secondaryBtn} onClick={() => duplicateToEdit(op)}>
-                  {isManual ? 'Editar' : 'Duplicar/editar'}
-                </button>
-                {isManual && (
-                  <button style={styles.dangerBtn} onClick={() => deleteOpportunity(op.id)}>Apagar</button>
-                )}
-              </div>
-            </article>
-          )
-        })}
+
+                <p style={st.summary}>{op.summary || op.description || 'Sem resumo ainda.'}</p>
+
+                <div style={st.tags}>
+                  {disciplines.slice(0, 5).map(d => <span key={d} style={st.tag}>{d}</span>)}
+                  {op.coversCosts && <span style={st.costTag}>custos cobertos</span>}
+                  <span style={st.sourceTag}>{isManual ? op.source || 'manual' : 'base'}</span>
+                </div>
+
+                <div style={st.cardActions}>
+                  {op.link && <a href={op.link} target="_blank" rel="noopener noreferrer" style={st.link}>ver edital →</a>}
+                  <ProposeOpportunityButton opportunity={op} />
+                  <button style={st.secondaryBtn} onClick={() => { setAssigning(op); setSelectedArtistId(op.assignedArtistId || '') }}>Associar artista</button>
+                  {isManual && op.assignedArtistId && <button style={st.secondaryBtn} onClick={() => unassignArtist(op)}>Remover artista</button>}
+                  <button style={st.secondaryBtn} onClick={() => duplicateToEdit(op)}>{isManual ? 'Editar' : 'Duplicar/editar'}</button>
+                  {isManual && <button style={st.dangerBtn} onClick={() => deleteOpportunity(op.id)}>Apagar</button>}
+                </div>
+              </article>
+            )
+          })}
+        </div>
       </section>
 
+      {/* MODAL: ASSOCIAR ARTISTA */}
       {assigning && (
-        <div style={styles.overlay}>
-          <div style={styles.smallModal}>
-            <div style={styles.modalHeader}>
+        <div style={st.overlay}>
+          <div style={st.smallModal}>
+            <div style={st.modalHeader}>
               <div>
-                <h2 style={styles.modalTitle}>Associar oportunidade a artista</h2>
-                <p style={styles.modalSubtitle}>{assigning.title}</p>
+                <h2 style={st.modalTitle}>Associar a artista</h2>
+                <p style={st.modalSubtitle}>{assigning.title}</p>
               </div>
-              <button style={styles.secondaryBtn} onClick={() => setAssigning(null)}>Fechar</button>
+              <button style={st.secondaryBtn} onClick={() => setAssigning(null)}>Fechar</button>
             </div>
-            <label style={styles.label}>Artista
-              <select style={styles.input} value={selectedArtistId} onChange={e => setSelectedArtistId(e.target.value)}>
+            <label style={st.label}>Artista
+              <select style={st.input} value={selectedArtistId} onChange={e => setSelectedArtistId(e.target.value)}>
                 <option value="">Selecionar artista</option>
-                {artists.map(a => {
-                  const name = a.artisticName || a.name || a.legalName || 'Artista'
-                  return <option key={a.id} value={a.id}>{name}</option>
-                })}
+                {artists.map(a => <option key={a.id} value={a.id}>{a.artisticName || a.name || 'Artista'}</option>)}
               </select>
             </label>
-            <div style={styles.modalFooter}>
-              <button style={styles.secondaryBtn} onClick={() => setAssigning(null)}>Cancelar</button>
-              <button style={styles.primaryBtn} onClick={assignArtistToOpportunity}>Guardar associação</button>
+            <div style={st.modalFooter}>
+              <button style={st.secondaryBtn} onClick={() => setAssigning(null)}>Cancelar</button>
+              <button style={st.primaryBtn} onClick={assignArtistToOpportunity}>Guardar</button>
             </div>
           </div>
         </div>
       )}
 
+      {/* MODAL: EDITAR OPORTUNIDADE */}
       {editing && (
-        <div style={styles.overlay}>
-          <div style={styles.modal}>
-            <div style={styles.modalHeader}>
+        <div style={st.overlay}>
+          <div style={st.modal}>
+            <div style={st.modalHeader}>
               <div>
-                <h2 style={styles.modalTitle}>
-                  {manual.some(o => o.id === editing.id) ? 'Editar oportunidade' : 'Nova oportunidade'}
-                </h2>
-                <p style={styles.modalSubtitle}>Rever e guardar na base manual da SOMA</p>
+                <h2 style={st.modalTitle}>{manual.some(o => o.id === editing.id) ? 'Editar' : 'Nova'} oportunidade</h2>
+                <p style={st.modalSubtitle}>Guardar na base manual da SOMA</p>
               </div>
-              <button style={styles.secondaryBtn} onClick={() => setEditing(null)}>Fechar</button>
+              <button style={st.secondaryBtn} onClick={() => setEditing(null)}>Fechar</button>
             </div>
-
-            <div style={styles.formGrid}>
-              <label style={styles.label}>Título
-                <input style={styles.input} value={editing.title} onChange={e => setEditing({ ...editing, title: e.target.value })} />
+            <div style={st.formGrid}>
+              {[
+                ['Título', 'title'], ['Organização', 'organization'], ['Tipo', 'type'],
+                ['País', 'countryName'], ['Código país', 'countryCode'], ['Cidade', 'city'], ['Link', 'link'],
+              ].map(([label, field]) => (
+                <label key={field} style={st.label}>{label}
+                  <input style={st.input} value={(editing as any)[field] || ''}
+                    onChange={e => setEditing({ ...editing, [field]: e.target.value })} />
+                </label>
+              ))}
+              <label style={st.label}>Deadline
+                <input style={st.input} type="date" value={editing.deadline || ''}
+                  onChange={e => setEditing({ ...editing, deadline: e.target.value })} />
               </label>
-              <label style={styles.label}>Organização
-                <input style={styles.input} value={editing.organization || ''} onChange={e => setEditing({ ...editing, organization: e.target.value })} />
+              <label style={st.label}>Disciplinas
+                <input style={st.input} value={joinTags(editing.disciplines)}
+                  onChange={e => setEditing({ ...editing, disciplines: splitTags(e.target.value) })} />
               </label>
-              <label style={styles.label}>Tipo
-                <input style={styles.input} value={editing.type || ''} onChange={e => setEditing({ ...editing, type: e.target.value })} />
-              </label>
-              <label style={styles.label}>Deadline
-                <input style={styles.input} type="date" value={editing.deadline || ''} onChange={e => setEditing({ ...editing, deadline: e.target.value })} />
-              </label>
-              <label style={styles.label}>País
-                <input style={styles.input} value={editing.countryName || editing.country || ''} onChange={e => setEditing({ ...editing, countryName: e.target.value, country: e.target.value })} />
-              </label>
-              <label style={styles.label}>Código país
-                <input style={styles.input} value={editing.countryCode || ''} onChange={e => setEditing({ ...editing, countryCode: e.target.value.toUpperCase() })} />
-              </label>
-              <label style={styles.label}>Cidade
-                <input style={styles.input} value={editing.city || ''} onChange={e => setEditing({ ...editing, city: e.target.value })} />
-              </label>
-              <label style={styles.label}>Região
-                <input style={styles.input} value={editing.regionId || ''} onChange={e => setEditing({ ...editing, regionId: e.target.value, regionLabel: e.target.value })} />
-              </label>
-              <label style={styles.label}>Disciplinas
-                <input style={styles.input} value={joinTags(editing.disciplines)} onChange={e => setEditing({ ...editing, disciplines: splitTags(e.target.value) })} />
-              </label>
-              <label style={styles.label}>Idiomas
-                <input style={styles.input} value={joinTags(editing.languages)} onChange={e => setEditing({ ...editing, languages: splitTags(e.target.value) })} />
-              </label>
-              <label style={styles.label}>Keywords
-                <input style={styles.input} value={joinTags(editing.keywords)} onChange={e => setEditing({ ...editing, keywords: splitTags(e.target.value), themes: splitTags(e.target.value) })} />
-              </label>
-              <label style={styles.label}>Requisitos
-                <input style={styles.input} value={joinTags(editing.requirements)} onChange={e => setEditing({ ...editing, requirements: splitTags(e.target.value) })} />
-              </label>
-              <label style={styles.label}>Artista associado
-                <select style={styles.input} value={editing.assignedArtistId || ''}
-                  onChange={e => {
-                    const artist = artists.find(a => a.id === e.target.value)
-                    const name = artist ? artist.artisticName || artist.name || artist.legalName || '' : ''
-                    setEditing({ ...editing, assignedArtistId: e.target.value, assignedArtistName: name })
-                  }}>
-                  <option value="">Nenhum artista</option>
-                  {artists.map(a => {
-                    const name = a.artisticName || a.name || a.legalName || 'Artista'
-                    return <option key={a.id} value={a.id}>{name}</option>
-                  })}
-                </select>
-              </label>
-              <label style={styles.label}>Link
-                <input style={styles.input} value={editing.link || ''} onChange={e => setEditing({ ...editing, link: e.target.value })} />
+              <label style={st.label}>Keywords
+                <input style={st.input} value={joinTags(editing.keywords)}
+                  onChange={e => setEditing({ ...editing, keywords: splitTags(e.target.value), themes: splitTags(e.target.value) })} />
               </label>
             </div>
-
-            <label style={styles.check}>
+            <label style={st.check}>
               <input type="checkbox" checked={Boolean(editing.coversCosts)} onChange={e => setEditing({ ...editing, coversCosts: e.target.checked })} />
               Cobre custos
             </label>
-            <label style={styles.label}>Resumo
-              <textarea style={styles.textarea} value={editing.summary || ''} onChange={e => setEditing({ ...editing, summary: e.target.value, description: e.target.value })} />
+            <label style={st.label}>Resumo
+              <textarea style={st.textarea} value={editing.summary || ''}
+                onChange={e => setEditing({ ...editing, summary: e.target.value, description: e.target.value })} />
             </label>
-            <label style={styles.label}>Notas internas
-              <textarea style={styles.textarea} value={editing.notes || ''} onChange={e => setEditing({ ...editing, notes: e.target.value })} />
+            <label style={st.label}>Notas
+              <textarea style={st.textarea} value={editing.notes || ''}
+                onChange={e => setEditing({ ...editing, notes: e.target.value })} />
             </label>
-
-            <div style={styles.modalFooter}>
-              <button style={styles.secondaryBtn} onClick={() => setEditing(null)}>Cancelar</button>
-              {manual.some(o => o.id === editing.id) && (
-                <button style={styles.dangerBtn} onClick={() => deleteOpportunity(editing.id)}>Apagar</button>
-              )}
-              <button style={styles.primaryBtn} onClick={() => saveOpportunity(editing)}>Guardar oportunidade</button>
+            <div style={st.modalFooter}>
+              <button style={st.secondaryBtn} onClick={() => setEditing(null)}>Cancelar</button>
+              {manual.some(o => o.id === editing.id) && <button style={st.dangerBtn} onClick={() => deleteOpportunity(editing.id)}>Apagar</button>}
+              <button style={st.primaryBtn} onClick={() => saveOpportunity(editing)}>Guardar oportunidade</button>
             </div>
           </div>
         </div>
@@ -604,31 +869,56 @@ export default function MatchView() {
   )
 }
 
-const styles: Record<string, React.CSSProperties> = {
+// ─── Styles ───────────────────────────────────────────────
+
+const st: Record<string, React.CSSProperties> = {
   wrap: { maxWidth: 1180, margin: '0 auto', padding: '28px 22px', color: '#fff' },
   header: { display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', marginBottom: 20 },
   headerActions: { display: 'flex', gap: 10, flexWrap: 'wrap' },
   title: { margin: 0, fontSize: 30, color: '#60b4e8' },
   subtitle: { margin: '5px 0 0', color: 'rgba(255,255,255,0.48)', fontSize: 13 },
+
+  scoutBanner: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10,
+    background: 'rgba(26,105,148,0.12)', border: '1px solid rgba(26,105,148,0.3)',
+    borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 13,
+  },
+  scoutBannerLabel: { color: 'rgba(255,255,255,0.6)', marginRight: 6 },
+  loadingDot: { color: '#60b4e8', fontSize: 12, animation: 'pulse 1s infinite' },
+  clearScoutBtn: {
+    background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)',
+    border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6,
+    padding: '5px 10px', fontSize: 11, cursor: 'pointer',
+  },
+
+  sectionHeader: { marginBottom: 12 },
+  sectionTitle: { margin: 0, fontSize: 14, color: 'rgba(255,255,255,0.7)', fontWeight: 600 },
+
   toolbar: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 22 },
   input: { width: '100%', background: '#0a0a0a', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8, padding: '10px 12px', fontSize: 13, boxSizing: 'border-box', outline: 'none' },
   select: { background: '#0a0a0a', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8, padding: '10px 12px', fontSize: 13, minWidth: 160 },
   check: { display: 'flex', alignItems: 'center', gap: 8, color: 'rgba(255,255,255,0.68)', fontSize: 13 },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 },
+
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14, marginBottom: 28 },
   card: { background: '#111', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 12, padding: 16 },
-  cardTop: { display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 10 },
+  cardTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 10 },
   badge: { background: 'rgba(26,105,148,0.24)', color: '#60b4e8', borderRadius: 20, padding: '3px 9px', fontSize: 11, fontWeight: 800 },
-  deadline: { fontSize: 12, fontWeight: 700 },
-  cardTitle: { margin: 0, fontSize: 17 },
-  meta: { color: 'rgba(255,255,255,0.45)', fontSize: 12, minHeight: 18 },
-  artistTag: { marginTop: 8, color: '#6ef3a5', fontSize: 12, background: 'rgba(110,243,165,0.10)', border: '1px solid rgba(110,243,165,0.18)', borderRadius: 8, padding: '6px 8px' },
-  summary: { color: 'rgba(255,255,255,0.62)', fontSize: 13, lineHeight: 1.45, minHeight: 62 },
+  deadlineTag: { fontSize: 12, fontWeight: 700 },
+  scoreBadge: { fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10 },
+  cardTitle: { margin: '0 0 4px', fontSize: 17 },
+  meta: { color: 'rgba(255,255,255,0.45)', fontSize: 12, minHeight: 18, margin: '0 0 6px' },
+  artistTag: { color: '#6ef3a5', fontSize: 12, background: 'rgba(110,243,165,0.10)', border: '1px solid rgba(110,243,165,0.18)', borderRadius: 8, padding: '6px 8px', marginBottom: 6 },
+  matchReasons: { display: 'flex', flexDirection: 'column', gap: 2, color: '#6ef3a5', fontSize: 11, marginBottom: 8 },
+  summary: { color: 'rgba(255,255,255,0.62)', fontSize: 13, lineHeight: 1.45, minHeight: 50, margin: '6px 0' },
   tags: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 },
   tag: { fontSize: 11, background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.65)', padding: '2px 8px', borderRadius: 20 },
   costTag: { fontSize: 11, background: 'rgba(110,243,165,0.12)', color: '#6ef3a5', padding: '2px 8px', borderRadius: 20 },
   sourceTag: { fontSize: 11, background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.35)', padding: '2px 8px', borderRadius: 20 },
   cardActions: { display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', marginTop: 14 },
   link: { color: '#60b4e8', textDecoration: 'none', fontSize: 13, alignSelf: 'center' },
+
+  empty: { textAlign: 'center', color: 'rgba(255,255,255,0.45)', padding: 40, border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 12, marginBottom: 24 },
+
   primaryBtn: { background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 14px', fontSize: 13, fontWeight: 800, cursor: 'pointer' },
   secondaryBtn: { background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '9px 12px', fontSize: 12, cursor: 'pointer' },
   dangerBtn: { background: 'rgba(255,70,70,0.12)', color: '#ff8a8a', border: '1px solid rgba(255,70,70,0.25)', borderRadius: 8, padding: '9px 12px', fontSize: 12, cursor: 'pointer' },
