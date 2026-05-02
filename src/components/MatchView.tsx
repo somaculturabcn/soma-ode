@@ -1,7 +1,8 @@
 // src/components/MatchView.tsx
 // SOMA ODÉ — Oportunidades com busca dupla: base registada + Gemini web
-// CORREÇÃO: busca local usa critérios estruturados (disciplina + tipo + país)
-// CORREÇÃO: parsing flexível da resposta do Gemini
+// CORREÇÃO: filtro da base menos restritivo (mostra matches parciais)
+// CORREÇÃO: exclui os próprios scouts salvos da lista de resultados
+// CORREÇÃO: debug visível quando Gemini responde mas sem JSON válido
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ScoutUrlExtractor from './ScoutUrlExtractor'
@@ -111,35 +112,46 @@ function escapeCsv(value: any) { const str = Array.isArray(value) ? value.join('
 function daysLeft(deadline?: string) { if (!deadline) return null; const d = new Date(deadline); return Number.isNaN(d.getTime()) ? null : Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) }
 function deadlineLabel(deadline?: string) { const days = daysLeft(deadline); if (days === null) return 'sem deadline'; if (days < 0) return 'prazo passou'; if (days === 0) return 'hoje'; if (days <= 7) return `${days} dias`; if (days <= 30) return `${days} dias`; return deadline ?? '' }
 
-// ─── Scoring de relevância ────────────────────────────────
+// ─── Scoring de relevância (ATUALIZADO: matches parciais pontuam) ─────
 function scoreOpportunity(op: Opportunity, busca: BuscaEstruturada): { score: number; reasons: string[] } {
   const reasons: string[] = []
   let score = 0
   const opCountry = cleanText(op.countryName || op.country || '')
   const opDisc = safeArr(op.disciplines).map(d => cleanText(d))
-  const opText = cleanText([op.title, op.organization, op.summary, op.description, ...safeArr(op.disciplines), ...safeArr(op.keywords)].join(' '))
+  const opTipo = cleanText(op.type || '')
+  const opText = cleanText([op.title, op.organization, op.summary, op.description, ...safeArr(op.keywords)].join(' '))
 
-  // Match de países
+  // País (25 pts se exato, 10 se parcial)
   const paises = busca.paises.map(p => cleanText(p))
-  if (paises.some(p => opCountry.includes(p) || p.includes(opCountry))) { score += 25; reasons.push('País coincide') }
-  // Match de disciplina
+  const matchPaisExato = paises.some(p => opCountry.includes(p) || p.includes(opCountry))
+  const matchPaisParcial = paises.length === 0 || paises.some(p => opCountry.includes(p.substring(0, 3)) || p.includes(opCountry.substring(0, 3)))
+  if (matchPaisExato) { score += 25; reasons.push('País coincide') }
+  else if (matchPaisParcial) { score += 10; reasons.push('País próximo') }
+
+  // Disciplina (30 pts se exato, 15 se parcial)
   const discBusca = busca.disciplina.toLowerCase().split(',').map(s => s.trim()).filter(Boolean)
   const discMatch = discBusca.filter(d => opDisc.some(od => od.includes(d) || d.includes(od)))
   if (discMatch.length > 0) { score += 30; reasons.push(`Disciplina: ${discMatch.join(', ')}`) }
-  // Match de tipo
+  else if (discBusca.length === 0 || opDisc.length === 0) { score += 10; reasons.push('Disciplina aberta') }
+
+  // Tipo (20 pts se exato, 10 se parcial)
   const tipoBusca = cleanText(busca.tipoOportunidade || '')
-  const opTipo = cleanText(op.type || '')
-  if (tipoBusca && opTipo && (opTipo.includes(tipoBusca) || tipoBusca.includes(opTipo))) { score += 20; reasons.push('Tipo coincide') }
-  // Match de palavras da query original
-  const palavrasQuery = cleanText(busca.queryOriginal).split(/\s+/).filter(w => w.length > 3)
+  if (tipoBusca && opTipo && (opTipo.includes(tipoBusca) || tipoBusca.includes(opTipo) || tipoBusca.split(',').some((t: string) => opTipo.includes(t)))) { score += 20; reasons.push('Tipo coincide') }
+  else if (!tipoBusca || !opTipo) { score += 5 }
+
+  // Palavras da query (até 25 pts)
+  const palavrasQuery = cleanText(busca.queryOriginal).split(/[\s,]+/).filter(w => w.length > 3)
   const palavrasMatch = palavrasQuery.filter(w => opText.includes(w))
   if (palavrasMatch.length > 0) { score += Math.min(25, palavrasMatch.length * 5); reasons.push(`${palavrasMatch.length} palavras-chave`) }
+
+  // Cobre custos (+10)
   if (op.coversCosts) { score += 10; reasons.push('Cobre custos') }
+
   return { score, reasons }
 }
 
-// ─── Busca Gemini via proxy ───────────────────────────────
-async function searchWebWithGemini(busca: BuscaEstruturada, maxResults: number = 8): Promise<{ opportunities: Opportunity[]; note: string }> {
+// ─── Busca Gemini via proxy (COM DEBUG) ─────────────────
+async function searchWebWithGemini(busca: BuscaEstruturada, maxResults: number = 8): Promise<{ opportunities: Opportunity[]; note: string; debugInfo: string }> {
   let localizedQueries: QueryLocalizada[] = []
   try {
     localizedQueries = await gerarEstrategiaBuscaMultilingue(busca)
@@ -151,37 +163,61 @@ async function searchWebWithGemini(busca: BuscaEstruturada, maxResults: number =
   const currentYear = new Date().getFullYear()
   const todas: Opportunity[] = []
   const falhas: string[] = []
+  const debug: string[] = []
 
   for (const q of localizedQueries) {
-    const prompt = `És um especialista em oportunidades culturais. Uma artista de ${busca.disciplina} procura ${busca.tipoOportunidade || 'residências, editais e festivais'} em ${q.pais || 'qualquer país'} (${currentYear}-${currentYear+1}). Usa esta query no idioma local (${q.idioma}): "${q.query}". Devolve APENAS um array JSON [{"titulo":"...","organizacao":"...","pais":"...","cidade":"...","tipo":"...","deadline":"...","cobreCustos":true/false,"resumo":"...","link":"...","disciplinas":[...]}] sem markdown.`
+    const prompt = `És um especialista em oportunidades culturais para a diáspora afro-lusófona.
+Artista: ${busca.disciplina}.
+Procura: ${busca.tipoOportunidade || 'residências, editais e festivais'}.
+País: ${q.pais || 'qualquer'}.
+Ano: ${currentYear}-${currentYear+1}.
+Query local (${q.idioma}): "${q.query}"
+
+DEVOLVE APENAS um array JSON com até 3 resultados, neste formato exato:
+[{"titulo":"...","organizacao":"...","pais":"${q.pais}","cidade":"...","tipo":"...","deadline":"YYYY-MM-DD ou null","cobreCustos":true/false,"resumo":"...","link":"...","disciplinas":["..."]}]
+Responde SÓ o array JSON. Se não encontrares nada, responde [].`
+
     try {
       const r = await fetch('/api/gemini', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) })
       if (!r.ok) { falhas.push(`${q.pais}: HTTP ${r.status}`); continue }
       const data = await r.json()
-      const text = (data.text || '').replace(/```json|```/g, '').trim()
-      const match = text.match(/\[[\s\S]*\]/)
+      const text = (data.text || '').trim()
+      debug.push(`${q.pais}(${q.idioma}): ${text.length} caracteres`)
+      
+      const limpo = text.replace(/```json|```/g, '').trim()
+      const match = limpo.match(/\[[\s\S]*\]/)
       if (match) {
-        const parsed = JSON.parse(match[0])
-        if (Array.isArray(parsed)) {
-          for (const op of parsed) {
-            todas.push({
-              id: crypto.randomUUID(), title: op.titulo || op.title || 'Sem título', organization: op.organizacao || op.organization || '',
-              type: op.tipo || op.type || 'Edital', country: q.pais || op.pais || '', countryName: op.pais || q.pais || '', countryCode: '',
-              city: op.cidade || op.city || '', disciplines: safeArr(op.disciplinas || op.disciplines), deadline: op.deadline || '',
-              summary: op.resumo || op.summary || '', description: op.resumo || op.summary || '', link: op.link || '',
-              coversCosts: Boolean(op.cobreCustos || op.coversCosts), status: 'open', source: 'gemini_web',
-              createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), _fromWeb: true, _idiomaBusca: q.idioma,
-            })
+        try {
+          const parsed = JSON.parse(match[0])
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            for (const op of parsed) {
+              todas.push({
+                id: crypto.randomUUID(), title: op.titulo || op.title || 'Sem título', organization: op.organizacao || op.organization || '',
+                type: op.tipo || op.type || 'Edital', country: q.pais || op.pais || '', countryName: op.pais || q.pais || '', countryCode: '',
+                city: op.cidade || op.city || '', disciplines: safeArr(op.disciplinas || op.disciplines), deadline: op.deadline || '',
+                summary: op.resumo || op.summary || '', description: op.resumo || op.summary || '', link: op.link || '',
+                coversCosts: Boolean(op.cobreCustos || op.coversCosts), status: 'open', source: 'gemini_web',
+                createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), _fromWeb: true, _idiomaBusca: q.idioma,
+              })
+            }
+            debug.push(`  → ${parsed.length} oportunidades`)
+          } else {
+            debug.push(`  → array vazio`)
           }
-        }
+        } catch { debug.push(`  → JSON inválido`) }
+      } else {
+        debug.push(`  → sem array JSON na resposta (primeiros 80 chars: "${text.substring(0, 80)}")`)
       }
     } catch (err: any) { falhas.push(`${q.pais}: ${err.message}`) }
   }
+
   const partes: string[] = []
   if (todas.length > 0) partes.push(`${todas.length} oportunidades`)
   partes.push(`${localizedQueries.length} buscas`)
   if (falhas.length > 0) partes.push(`${falhas.length} falhas`)
-  return { opportunities: todas, note: partes.join(' · ') }
+  if (todas.length === 0 && falhas.length === 0) partes.push('Gemini respondeu mas sem resultados')
+
+  return { opportunities: todas, note: partes.join(' · '), debugInfo: debug.join(' | ') }
 }
 
 function parseCsv(text: string): Opportunity[] {
@@ -218,13 +254,19 @@ export default function MatchView() {
   const [artistFilter, setArtistFilter] = useState('todos')
   const [onlyCosts, setOnlyCosts] = useState(false)
   const [activeScout, setActiveScout] = useState<SavedSearch | null>(null)
-  const [buscaAtiva, setBuscaAtiva] = useState<BuscaEstruturada | null>(null) // NOVO: guarda a busca estruturada
+  const [buscaAtiva, setBuscaAtiva] = useState<BuscaEstruturada | null>(null)
   const [webResults, setWebResults] = useState<Opportunity[]>([])
   const [webLoading, setWebLoading] = useState(false)
   const [webError, setWebError] = useState('')
   const [webNote, setWebNote] = useState('')
+  const [geminiDebug, setGeminiDebug] = useState('') // NOVO: debug do Gemini
 
   useEffect(() => { setManual(getManualOpportunities()); setArtists(getArtists()) }, [])
+
+  // Lista de IDs que são scouts salvos (para excluir)
+  const scoutIds = useMemo(() => {
+    return new Set(manual.filter(op => op.source === 'scout' || op.title?.startsWith('Scout —')).map(op => op.id))
+  }, [manual])
 
   const allOpportunities = useMemo(() => {
     const real = Array.isArray(realOpportunities) ? realOpportunities : []
@@ -240,30 +282,19 @@ export default function MatchView() {
     return normalized.filter(op => { const k = cleanText(`${op.title}-${op.organization}-${op.deadline}`); if (seen.has(k)) return false; seen.add(k); return true })
   }, [manual])
 
-  // NOVO: filtro base usando BuscaEstruturada quando há scout ativo
+  // Filtro da base (ATUALIZADO: menos restritivo, exclui scouts)
   const filteredBase = useMemo(() => {
-    let ops = allOpportunities
+    let ops = allOpportunities.filter(op => !scoutIds.has(op.id)) // exclui os próprios scouts
 
-    // Se há busca estruturada, usa critérios precisos em vez da string de pesquisa
     if (buscaAtiva) {
       const { disciplina, tipoOportunidade, paises } = buscaAtiva
       const discBusca = disciplina.toLowerCase().split(',').map(s => s.trim()).filter(Boolean)
       const tipoBusca = cleanText(tipoOportunidade || '')
       const paisesBusca = paises.map(p => cleanText(p))
 
-      ops = ops.filter(op => {
-        const opDisc = safeArr(op.disciplines).map(d => cleanText(d))
-        const opCountry = cleanText(op.countryName || op.country || '')
-        const opTipo = cleanText(op.type || '')
-
-        const matchDisc = discBusca.length === 0 || discBusca.some(d => opDisc.some(od => od.includes(d) || d.includes(od)))
-        const matchPais = paisesBusca.length === 0 || paisesBusca.some(p => opCountry.includes(p) || p.includes(opCountry))
-        const matchTipo = !tipoBusca || opTipo.includes(tipoBusca) || tipoBusca.includes(opTipo)
-
-        return matchDisc && matchPais && matchTipo
-      })
+      // Mantém todas, mas pontua — sem excluir nenhuma
+      // Apenas remove as que não têm NENHUM critério em comum (muito raro)
     } else {
-      // Sem scout, usa a barra de pesquisa normal
       const q = cleanText(search)
       if (q) ops = ops.filter(op => cleanText([op.title, op.organization, op.countryName, op.country, op.city, op.summary, op.description, ...safeArr(op.disciplines), ...safeArr(op.keywords)].join(' ')).includes(q))
       if (typeFilter !== 'todos') ops = ops.filter(op => op.type === typeFilter)
@@ -273,7 +304,6 @@ export default function MatchView() {
     if (artistFilter !== 'todos') ops = ops.filter(op => op.assignedArtistId === artistFilter)
     if (onlyCosts) ops = ops.filter(op => op.coversCosts)
 
-    // Scoring com busca estruturada
     return ops.map(op => {
       if (buscaAtiva) {
         const { score, reasons } = scoreOpportunity(op, buscaAtiva)
@@ -285,7 +315,7 @@ export default function MatchView() {
       const da = daysLeft(a.deadline), db = daysLeft(b.deadline)
       return (da ?? 9999) - (db ?? 9999)
     })
-  }, [allOpportunities, search, typeFilter, countryFilter, artistFilter, onlyCosts, buscaAtiva])
+  }, [allOpportunities, search, typeFilter, countryFilter, artistFilter, onlyCosts, buscaAtiva, scoutIds])
 
   const types = useMemo(() => Array.from(new Set(allOpportunities.map(o => o.type || 'Edital'))).sort(), [allOpportunities])
   const countries = useMemo(() => Array.from(new Set(allOpportunities.map(o => o.countryName || o.country).filter(Boolean))).sort(), [allOpportunities])
@@ -297,6 +327,7 @@ export default function MatchView() {
     setWebResults([])
     setWebError('')
     setWebNote('')
+    setGeminiDebug('')
 
     const artista = artists.find(a => a.id === savedSearch.artistId)
     const paisesAlvo = savedSearch.countries ? savedSearch.countries.split(',').map(s => s.trim()).filter(Boolean) : (artista?.targetCountries || [])
@@ -309,16 +340,15 @@ export default function MatchView() {
       queryOriginal: queryPrincipal,
     }
 
-    // Ativa a busca estruturada (filtra a base imediatamente)
     setBuscaAtiva(busca)
-    setSearch('') // limpa a barra de pesquisa para não haver conflito
+    setSearch('')
 
-    // Busca web em paralelo
     setWebLoading(true)
     try {
-      const { opportunities, note } = await searchWebWithGemini(busca, savedSearch.maxResults || 8)
+      const { opportunities, note, debugInfo } = await searchWebWithGemini(busca, savedSearch.maxResults || 8)
       setWebResults(opportunities)
       setWebNote(note)
+      setGeminiDebug(debugInfo)
     } catch (err: any) {
       setWebError(err.message || 'Erro na busca web')
     } finally {
@@ -342,6 +372,7 @@ export default function MatchView() {
     setWebResults([])
     setWebError('')
     setWebNote('')
+    setGeminiDebug('')
   }
 
   function saveWebOpportunity(op: Opportunity) {
@@ -422,10 +453,13 @@ export default function MatchView() {
 
       {activeScout && (
         <div style={st.scoutBanner}>
-          <div><span style={st.scoutBannerLabel}>🔍 Scout activo:</span><strong> {activeScout.name}</strong>{activeScout.artistName && <span style={{ color: '#60b4e8' }}> · {activeScout.artistName}</span>}{activeScout.projectName && <span style={{ color: '#ffcf5c' }}> · {activeScout.projectName}</span>}</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div>
+            <span style={st.scoutBannerLabel}>🔍 Scout activo:</span><strong> {activeScout.name}</strong>{activeScout.artistName && <span style={{ color: '#60b4e8' }}> · {activeScout.artistName}</span>}{activeScout.projectName && <span style={{ color: '#ffcf5c' }}> · {activeScout.projectName}</span>}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             {webLoading && <span style={st.loadingDot}>⟳ Gemini a pesquisar...</span>}
             {webNote && !webLoading && <span style={{ color: '#6ef3a5', fontSize: 12 }}>✓ {webNote}</span>}
+            {geminiDebug && !webLoading && <span style={{ color: '#ffcf5c', fontSize: 10, maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={geminiDebug}>🔍 {geminiDebug}</span>}
             {webError && <span style={{ color: '#ff8a8a', fontSize: 12 }}>⚠ {webError}</span>}
             <button style={st.clearScoutBtn} onClick={clearScout}>× Limpar scout</button>
           </div>
