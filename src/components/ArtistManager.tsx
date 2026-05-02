@@ -1,6 +1,7 @@
 // src/components/ArtistManager.tsx
 // SOMA ODÉ — Artist Manager v2 (9 secções + Cartografia Davis v2 + Supabase)
-// BUG FIX: findIndex(sec => sec.id) — evita colisão com objecto de estilos `s`
+// BUG FIX 1: findIndex(sec => sec.id) — evita colisão com objecto de estilos `s`
+// BUG FIX 2: Array.isArray(a.disciplines) — disciplines pode vir como string do Supabase
 
 import { useEffect, useState } from 'react'
 import type { Artist, ArtistMaterials, ArtistMobility } from '../types/artist'
@@ -10,6 +11,15 @@ import {
   saveArtistToSupabase,
   deleteArtistFromSupabase,
 } from '../data/artistsSupabaseStore'
+
+// ─── Helper: garante sempre array ────────────────────────
+// Corrige o erro quando campos vêm como string do Supabase
+
+function safeArr(val: any): string[] {
+  if (Array.isArray(val)) return val
+  if (typeof val === 'string' && val.trim()) return val.split(',').map((s: string) => s.trim()).filter(Boolean)
+  return []
+}
 
 // ─── Constantes UI ────────────────────────────────────────
 
@@ -175,12 +185,10 @@ export default function ArtistManager() {
 
   function toggleArrayItem(field: keyof Artist, item: string) {
     if (!editing) return
-    const current = (editing[field] as string[]) || []
+    const current = safeArr((editing as any)[field])
     const next = current.includes(item) ? current.filter(x => x !== item) : [...current, item]
     update(field, next as any)
   }
-
-  // ─── LOADING ─────────────────────────────────────────
 
   if (loading) return <div style={s.loading}>⏳ A carregar artistas...</div>
 
@@ -208,13 +216,15 @@ export default function ArtistManager() {
           {artists.map(a => {
             const m = materialsCount(a.materials || {})
             const c = cartografiaCount(a.cartografia || {})
+            // ✅ FIX: safeArr garante que disciplines é sempre array
+            const disciplines = safeArr(a.disciplines)
             return (
               <article key={a.id} style={s.card}>
                 <h3 style={s.cardTitle}>{a.name || '—'}</h3>
                 <p style={s.cardMeta}>{[a.base, a.origin].filter(Boolean).join(' · ') || 'Sem localização'}</p>
-                {a.disciplines && a.disciplines.length > 0 && (
+                {disciplines.length > 0 && (
                   <div style={s.tags}>
-                    {a.disciplines.slice(0, 3).map(d => <span key={d} style={s.tag}>{d}</span>)}
+                    {disciplines.slice(0, 3).map(d => <span key={d} style={s.tag}>{d}</span>)}
                   </div>
                 )}
                 <div style={s.progress}>
@@ -249,11 +259,8 @@ export default function ArtistManager() {
 
       <nav style={s.tabs}>
         {SECTIONS.map(sec => (
-          <button
-            key={sec.id}
-            onClick={() => setSection(sec.id)}
-            style={{ ...s.tab, ...(section === sec.id ? s.tabActive : {}) }}
-          >
+          <button key={sec.id} onClick={() => setSection(sec.id)}
+            style={{ ...s.tab, ...(section === sec.id ? s.tabActive : {}) }}>
             {sec.id} · {sec.label}
           </button>
         ))}
@@ -271,7 +278,7 @@ export default function ArtistManager() {
         {section === '09' && <Section09 a={editing} update={update} />}
       </div>
 
-      {/* ✅ BUG FIX: parâmetro renomeado para `sec` para evitar colisão com o objecto `s` de estilos */}
+      {/* ✅ BUG FIX: parâmetro `sec` evita colisão com objecto de estilos `s` */}
       <footer style={s.formFooter}>
         <button style={s.secondary} onClick={() => {
           const idx = SECTIONS.findIndex(sec => sec.id === section)
@@ -366,19 +373,26 @@ function Section02({ a, update }: SecProps) {
 // ─── SECÇÃO 03: PERFIL ────────────────────────────────────
 
 function Section03({ a, update, toggle }: SecPropsToggle) {
+  const disciplines = safeArr(a.disciplines)
+  const specialties = safeArr(a.specialties)
+  const languages = safeArr(a.languages)
+
   return (
     <div>
       <h2 style={s.h2}>03 · Perfil artístico</h2>
 
       <Field label="Disciplinas (clica para seleccionar)">
         <div style={s.chipGrid}>
-          {DISCIPLINES.map(d => (
-            <button key={d} type="button"
-              onClick={() => toggle('disciplines', d.replace(/^[^\s]+ /, '').toLowerCase())}
-              style={{ ...s.chip, ...(a.disciplines?.includes(d.replace(/^[^\s]+ /, '').toLowerCase()) ? s.chipActive : {}) }}>
-              {d}
-            </button>
-          ))}
+          {DISCIPLINES.map(d => {
+            const key = d.replace(/^[^\s]+ /, '').toLowerCase()
+            return (
+              <button key={d} type="button"
+                onClick={() => toggle('disciplines', key)}
+                style={{ ...s.chip, ...(disciplines.includes(key) ? s.chipActive : {}) }}>
+                {d}
+              </button>
+            )
+          })}
         </div>
       </Field>
 
@@ -387,7 +401,7 @@ function Section03({ a, update, toggle }: SecPropsToggle) {
           {SPECIALTIES.map(sp => (
             <button key={sp} type="button"
               onClick={() => toggle('specialties', sp)}
-              style={{ ...s.chip, ...(a.specialties?.includes(sp) ? s.chipActive : {}) }}>
+              style={{ ...s.chip, ...(specialties.includes(sp) ? s.chipActive : {}) }}>
               {sp}
             </button>
           ))}
@@ -399,7 +413,7 @@ function Section03({ a, update, toggle }: SecPropsToggle) {
           {LANGUAGES.map(l => (
             <button key={l} type="button"
               onClick={() => toggle('languages', l)}
-              style={{ ...s.chip, ...(a.languages?.includes(l) ? s.chipActive : {}) }}>
+              style={{ ...s.chip, ...(languages.includes(l) ? s.chipActive : {}) }}>
               {l}
             </button>
           ))}
@@ -409,21 +423,21 @@ function Section03({ a, update, toggle }: SecPropsToggle) {
       <Field label="Keywords (vírgula separa)">
         <input style={s.input}
           placeholder="afro, queer, decolonial, ritual..."
-          value={(a.keywords || []).join(', ')}
+          value={safeArr(a.keywords).join(', ')}
           onChange={e => update('keywords', e.target.value.split(',').map(x => x.trim()).filter(Boolean))} />
       </Field>
 
       <Field label="Temas (vírgula separa)">
         <input style={s.input}
           placeholder="identidade, corpo, memória..."
-          value={(a.themes || []).join(', ')}
+          value={safeArr(a.themes).join(', ')}
           onChange={e => update('themes', e.target.value.split(',').map(x => x.trim()).filter(Boolean))} />
       </Field>
 
       <Field label="Géneros (vírgula separa)">
         <input style={s.input}
           placeholder="performance, música eletrônica..."
-          value={(a.genres || []).join(', ')}
+          value={safeArr(a.genres).join(', ')}
           onChange={e => update('genres', e.target.value.split(',').map(x => x.trim()).filter(Boolean))} />
       </Field>
 
@@ -438,7 +452,7 @@ function Section03({ a, update, toggle }: SecPropsToggle) {
 // ─── SECÇÃO 04: PAÍSES ────────────────────────────────────
 
 function Section04({ a, update }: SecProps) {
-  const selected = a.targetCountries || []
+  const selected = safeArr(a.targetCountries)
 
   function toggleCountry(code: string) {
     update('targetCountries', selected.includes(code)
@@ -461,7 +475,6 @@ function Section04({ a, update }: SecProps) {
   return (
     <div>
       <h2 style={s.h2}>04 · Países alvo</h2>
-
       <div style={s.toolbarRow}>
         <button style={s.secondary} onClick={selectAll}>
           {selected.length > 50 ? '× Limpar todos' : '🌍 Seleccionar todos'}
@@ -469,7 +482,6 @@ function Section04({ a, update }: SecProps) {
         <button style={s.danger} onClick={() => update('targetCountries', [])}>× Limpar</button>
         <span style={s.counter}>{selected.length} países seleccionados</span>
       </div>
-
       {REGIONS.map(region => {
         const codes = region.countries.map(c => c.code)
         const allSelected = codes.every(c => selected.includes(c))
@@ -503,11 +515,9 @@ function Section05({ a, update }: SecProps) {
   function updMobility(field: keyof ArtistMobility, value: any) {
     update('mobility', { ...(a.mobility || {}), [field]: value })
   }
-
   return (
     <div>
       <h2 style={s.h2}>05 · Mobilidade e disponibilidade</h2>
-
       <div style={s.checkRow}>
         <label style={s.check}>
           <input type="checkbox" checked={a.mobility?.canTravel !== false}
@@ -530,7 +540,6 @@ function Section05({ a, update }: SecProps) {
           Conta bancária BR
         </label>
       </div>
-
       <div style={s.grid2}>
         <Field label="País do passaporte">
           <input style={s.input} value={a.mobility?.passportCountry || ''}
@@ -559,7 +568,6 @@ function Section06({ a, update }: SecProps) {
   function updMaterials(field: keyof ArtistMaterials, value: any) {
     update('materials', { ...(a.materials || {}), [field]: value })
   }
-
   const checkboxes: { key: keyof ArtistMaterials; label: string }[] = [
     { key: 'bioPT', label: '📝 Bio PT' },
     { key: 'bioEN', label: '📝 Bio EN' },
@@ -571,7 +579,6 @@ function Section06({ a, update }: SecProps) {
     { key: 'pressKit', label: '📰 Press kit' },
     { key: 'pressClippings', label: '📑 Press clippings' },
   ]
-
   const links: { key: keyof ArtistMaterials; label: string }[] = [
     { key: 'spotifyLink', label: 'Spotify' },
     { key: 'bandcampLink', label: 'Bandcamp' },
@@ -579,11 +586,9 @@ function Section06({ a, update }: SecProps) {
     { key: 'youtubeLink', label: 'YouTube' },
     { key: 'tiktokHandle', label: 'TikTok @' },
   ]
-
   return (
     <div>
       <h2 style={s.h2}>06 · Materiais</h2>
-
       <Field label="Checklist">
         <div style={s.checkRow}>
           {checkboxes.map(c => (
@@ -595,7 +600,6 @@ function Section06({ a, update }: SecProps) {
           ))}
         </div>
       </Field>
-
       <Field label="Links de streaming/social">
         <div style={s.grid2}>
           {links.map(l => (
@@ -644,22 +648,20 @@ function Section07({ a, update }: SecProps) {
   return (
     <div>
       <h2 style={s.h2}>07 · Projectos</h2>
-
       {projects.map((p: any, i: number) => (
         <div key={p.id} style={s.projectCard}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
             onClick={() => setExpanded(expanded === p.id ? null : p.id)}>
             <div>
               <strong>Projeto {i + 1}: {p.name || 'Sem nome'}</strong>
-              {p.projectKeywords && p.projectKeywords.length > 0 && (
+              {safeArr(p.projectKeywords).length > 0 && (
                 <div style={{ fontSize: 11, color: '#ffcf5c', marginTop: 4 }}>
-                  {Array.isArray(p.projectKeywords) ? p.projectKeywords.join(', ') : p.projectKeywords}
+                  {safeArr(p.projectKeywords).join(', ')}
                 </div>
               )}
             </div>
             <span style={{ color: '#60b4e8', fontSize: 18 }}>{expanded === p.id ? '▲' : '▼'}</span>
           </div>
-
           {expanded === p.id && (
             <div style={{ marginTop: 14 }}>
               <h4 style={{ color: '#60b4e8', marginBottom: 8 }}>📋 Dados do Projeto</h4>
@@ -683,8 +685,7 @@ function Section07({ a, update }: SecProps) {
               <Field label="Necessidades técnicas">
                 <textarea style={s.textarea} value={p.technicalNeeds || ''} onChange={e => updateProject(p.id, 'technicalNeeds', e.target.value)} />
               </Field>
-
-              <h4 style={{ color: '#60b4e8', marginBottom: 8, marginTop: 18 }}>🔗 Links de Materiais</h4>
+              <h4 style={{ color: '#60b4e8', marginBottom: 8, marginTop: 18 }}>🔗 Links</h4>
               <div style={s.grid2}>
                 <Field label="Link Vídeo">
                   <input style={s.input} value={p.videoLink || ''} onChange={e => updateProject(p.id, 'videoLink', e.target.value)} />
@@ -696,21 +697,20 @@ function Section07({ a, update }: SecProps) {
                   <input style={s.input} value={p.dossierLink || ''} onChange={e => updateProject(p.id, 'dossierLink', e.target.value)} />
                 </Field>
               </div>
-
               <h4 style={{ color: '#ffcf5c', marginBottom: 8, marginTop: 18 }}>🧭 Mini-Cartografia do Projeto</h4>
-              <Field label="Público-alvo do projeto">
+              <Field label="Público-alvo">
                 <textarea style={s.textarea} value={p.projectTargetAudience || ''}
                   onChange={e => updateProject(p.id, 'projectTargetAudience', e.target.value)}
                   placeholder="Quem é o público ideal para este projeto?" />
               </Field>
-              <Field label="Territórios onde o projeto faz sentido">
+              <Field label="Territórios">
                 <textarea style={s.textarea} value={p.projectTerritories || ''}
                   onChange={e => updateProject(p.id, 'projectTerritories', e.target.value)}
                   placeholder="Em que cidades, países ou regiões?" />
               </Field>
-              <Field label="Keywords do projeto (vírgula separa)">
+              <Field label="Keywords (vírgula separa)">
                 <input style={s.input}
-                  value={Array.isArray(p.projectKeywords) ? p.projectKeywords.join(', ') : (p.projectKeywords || '')}
+                  value={safeArr(p.projectKeywords).join(', ')}
                   onChange={e => updateProject(p.id, 'projectKeywords', e.target.value.split(',').map((x: string) => x.trim()).filter(Boolean))}
                   placeholder="Ex: ritual, experimental, spoken word" />
               </Field>
@@ -740,7 +740,6 @@ function Section07({ a, update }: SecProps) {
           )}
         </div>
       ))}
-
       <button style={s.primary} onClick={addProject}>+ Adicionar projeto</button>
     </div>
   )
@@ -753,11 +752,9 @@ function Section08({ a, update }: SecProps) {
     update('internal', { ...(a.internal || {}), [field]: value })
   }
   const intl = a.internal || {}
-
   return (
     <div>
       <h2 style={s.h2}>08 · CRM Interno</h2>
-
       <div style={s.grid2}>
         <Field label="Status do contrato">
           <select style={s.input} value={intl.contractStatus || 'no_contract'}
@@ -790,7 +787,6 @@ function Section08({ a, update }: SecProps) {
             onChange={e => updInternal('somaFeePercent', Number(e.target.value))} />
         </Field>
       </div>
-
       <Field label="Notas internas (privadas)">
         <textarea style={s.textarea} rows={5} value={intl.internalNotes || ''}
           onChange={e => updInternal('internalNotes', e.target.value)} />
@@ -799,7 +795,7 @@ function Section08({ a, update }: SecProps) {
   )
 }
 
-// ─── SECÇÃO 09: CARTOGRAFIA SOMA (v2 · Angela Davis) ──────
+// ─── SECÇÃO 09: CARTOGRAFIA SOMA ──────────────────────────
 
 function Section09({ a, update }: SecProps) {
   const c = a.cartografia || {}
@@ -840,16 +836,16 @@ function Section09({ a, update }: SecProps) {
         <Field label="⭐ Vocabulário (5-8 palavras únicas, vírgula separa)">
           <input style={s.input}
             placeholder="diáspora, ritual, terreiro, fronteira..."
-            value={(c.raiz?.vocabulario || []).join(', ')}
+            value={safeArr(c.raiz?.vocabulario).join(', ')}
             onChange={e => updRaiz('vocabulario', e.target.value.split(',').map((x: string) => x.trim()).filter(Boolean))} />
         </Field>
         <Field label="✊🏿 Legado de Resistência (Angela Davis)">
-          <textarea style={s.textarea} rows={3} value={c.raiz?.legacyOfResistance || ''}
+          <textarea style={s.textarea} rows={3} value={(c.raiz as any)?.legacyOfResistance || ''}
             onChange={e => updRaiz('legacyOfResistance', e.target.value)}
             placeholder="Como o trabalho dialoga com a memória histórica de resistência?" />
         </Field>
         <Field label="🤲 Práticas de Cuidado Comunitário">
-          <textarea style={s.textarea} rows={3} value={c.raiz?.carePractices || ''}
+          <textarea style={s.textarea} rows={3} value={(c.raiz as any)?.carePractices || ''}
             onChange={e => updRaiz('carePractices', e.target.value)}
             placeholder="Que práticas de cuidado coletivo sustentam o processo criativo?" />
         </Field>
@@ -867,7 +863,7 @@ function Section09({ a, update }: SecProps) {
         </Field>
         <Field label="Territórios da audiência (vírgula separa)">
           <input style={s.input}
-            value={(c.campo?.audienceTerritories || []).join(', ')}
+            value={safeArr(c.campo?.audienceTerritories).join(', ')}
             onChange={e => updCampo('audienceTerritories', e.target.value.split(',').map((x: string) => x.trim()).filter(Boolean))} />
         </Field>
       </details>
@@ -887,9 +883,9 @@ function Section09({ a, update }: SecProps) {
             onChange={e => updTeia('influenceNetworks', e.target.value)} />
         </Field>
         <Field label="🤝 Alianças Éticas (Angela Davis)">
-          <textarea style={s.textarea} rows={3} value={c.teia?.ethicalAlliances || ''}
+          <textarea style={s.textarea} rows={3} value={(c.teia as any)?.ethicalAlliances || ''}
             onChange={e => updTeia('ethicalAlliances', e.target.value)}
-            placeholder="Que instituições demonstram prática antirracista REAL? Quais evitam a 'diversidade cosmética'?" />
+            placeholder="Que instituições demonstram prática antirracista REAL?" />
         </Field>
       </details>
 
@@ -901,7 +897,7 @@ function Section09({ a, update }: SecProps) {
         </Field>
         <Field label="Corredores estratégicos (vírgula separa)">
           <input style={s.input}
-            value={(c.rota?.corredores || []).join(', ')}
+            value={safeArr(c.rota?.corredores).join(', ')}
             onChange={e => updRota('corredores', e.target.value.split(',').map((x: string) => x.trim()).filter(Boolean))} />
         </Field>
         <Field label="Plano de expansão">
@@ -941,17 +937,13 @@ const s: Record<string, React.CSSProperties> = {
   title: { margin: 0, fontSize: 28, color: '#fff' },
   subtitle: { margin: '4px 0 0', color: 'rgba(255,255,255,0.55)', fontSize: 13 },
   empty: { padding: 40, textAlign: 'center', color: 'rgba(255,255,255,0.5)', background: '#0a0a0a', borderRadius: 12, border: '1px dashed rgba(255,255,255,0.1)' },
-
   tabs: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18, paddingBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.08)' },
   tab: { padding: '8px 14px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.6)', borderRadius: 8, fontSize: 12, cursor: 'pointer' },
   tabActive: { background: '#1A6994', color: '#fff', border: '1px solid #1A6994' },
-
   section: { background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 22 },
   h2: { color: '#60b4e8', textAlign: 'center', fontSize: 14, letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: 0, marginBottom: 22 },
-
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 },
   grid2: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 },
-
   card: { background: '#111', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 16 },
   cardTitle: { margin: '0 0 4px', fontSize: 17 },
   cardMeta: { margin: '0 0 10px', color: 'rgba(255,255,255,0.5)', fontSize: 12 },
@@ -959,23 +951,18 @@ const s: Record<string, React.CSSProperties> = {
   tag: { background: 'rgba(26,105,148,0.18)', color: '#60b4e8', padding: '2px 8px', borderRadius: 20, fontSize: 11 },
   progress: { display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'rgba(255,255,255,0.45)', marginBottom: 12 },
   cardActions: { display: 'flex', gap: 8, justifyContent: 'flex-end' },
-
   field: { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 },
   label: { fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)' },
   input: { background: '#000', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none', boxSizing: 'border-box', width: '100%' },
   textarea: { background: '#000', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8, padding: 12, fontSize: 13, outline: 'none', resize: 'vertical', boxSizing: 'border-box', width: '100%' },
   textareaBig: { background: '#000', color: '#fff', border: '1px solid #1A6994', borderRadius: 8, padding: 12, fontSize: 13, outline: 'none', resize: 'vertical', boxSizing: 'border-box', width: '100%' },
-
   chipGrid: { display: 'flex', gap: 8, flexWrap: 'wrap' },
   chip: { padding: '8px 14px', background: 'transparent', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 24, fontSize: 13, cursor: 'pointer' },
   chipActive: { background: 'rgba(26,105,148,0.3)', color: '#fff', border: '1px solid #1A6994' },
-
   checkRow: { display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 14 },
   check: { display: 'flex', gap: 8, alignItems: 'center', color: 'rgba(255,255,255,0.7)', fontSize: 13, cursor: 'pointer' },
-
   toolbarRow: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 18, flexWrap: 'wrap' },
   counter: { color: 'rgba(255,255,255,0.55)', fontSize: 13 },
-
   regionBlock: { marginBottom: 18 },
   regionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   regionTitle: { color: '#fff', fontSize: 14, fontWeight: 600 },
@@ -983,12 +970,9 @@ const s: Record<string, React.CSSProperties> = {
   countryGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 6 },
   country: { padding: '6px 10px', background: 'transparent', color: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 11, cursor: 'pointer', textAlign: 'left' },
   countryActive: { background: 'rgba(26,105,148,0.3)', color: '#fff', border: '1px solid #1A6994' },
-
   detail: { background: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 14, marginBottom: 12 },
   summary: { fontSize: 14, fontWeight: 600, color: '#fff', cursor: 'pointer', marginBottom: 14 },
-
   projectCard: { background: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 16, marginTop: 14 },
-
   primary: { background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
   secondary: { background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '9px 14px', fontSize: 13, cursor: 'pointer' },
   danger: { background: 'rgba(255,70,70,0.12)', color: '#ff8a8a', border: '1px solid rgba(255,70,70,0.25)', borderRadius: 8, padding: '8px 12px', fontSize: 12, cursor: 'pointer' },
