@@ -1,8 +1,9 @@
 // src/components/ArtistManager.tsx
-// SOMA ODÉ — Artist Manager v2 (9 secções + Cartografia Davis v2 + Supabase + Inputs de tags corrigidos)
+// SOMA ODÉ — Artist Manager v2 (9 secções + Cartografia Davis v2 + Supabase)
+// BUG FIX: findIndex(sec => sec.id) — evita colisão com objecto de estilos `s`
 
 import { useEffect, useState } from 'react'
-import type { Artist, Project, ArtistMaterials, ArtistMobility } from '../types/artist'
+import type { Artist, ArtistMaterials, ArtistMobility } from '../types/artist'
 import { emptyArtist, materialsCount, cartografiaCount } from '../types/artist'
 import {
   loadArtistsFromSupabase,
@@ -113,7 +114,7 @@ const REGIONS: { label: string; emoji: string; countries: { code: string; name: 
   ]},
 ]
 
-// ─── Componente ──────────────────────────────────────────
+// ─── Componente principal ─────────────────────────────────
 
 export default function ArtistManager() {
   const [artists, setArtists] = useState<Artist[]>([])
@@ -143,18 +144,10 @@ export default function ArtistManager() {
 
   async function save() {
     if (!editing) return
-    if (!editing.name?.trim()) {
-      alert('Nome artístico obrigatório')
-      return
-    }
-
+    if (!editing.name?.trim()) { alert('Nome artístico obrigatório'); return }
     setSaving(true)
     try {
-      const updated: Artist = {
-        ...editing,
-        updatedAt: new Date().toISOString(),
-      }
-      await saveArtistToSupabase(updated)
+      await saveArtistToSupabase({ ...editing, updatedAt: new Date().toISOString() })
       await load()
       setEditing(null)
     } catch (err) {
@@ -183,17 +176,13 @@ export default function ArtistManager() {
   function toggleArrayItem(field: keyof Artist, item: string) {
     if (!editing) return
     const current = (editing[field] as string[]) || []
-    const next = current.includes(item)
-      ? current.filter(x => x !== item)
-      : [...current, item]
+    const next = current.includes(item) ? current.filter(x => x !== item) : [...current, item]
     update(field, next as any)
   }
 
   // ─── LOADING ─────────────────────────────────────────
 
-  if (loading) {
-    return <div style={s.loading}>⏳ A carregar artistas...</div>
-  }
+  if (loading) return <div style={s.loading}>⏳ A carregar artistas...</div>
 
   // ─── LISTA ───────────────────────────────────────────
 
@@ -222,14 +211,10 @@ export default function ArtistManager() {
             return (
               <article key={a.id} style={s.card}>
                 <h3 style={s.cardTitle}>{a.name || '—'}</h3>
-                <p style={s.cardMeta}>
-                  {[a.base, a.origin].filter(Boolean).join(' · ') || 'Sem localização'}
-                </p>
+                <p style={s.cardMeta}>{[a.base, a.origin].filter(Boolean).join(' · ') || 'Sem localização'}</p>
                 {a.disciplines && a.disciplines.length > 0 && (
                   <div style={s.tags}>
-                    {a.disciplines.slice(0, 3).map(d => (
-                      <span key={d} style={s.tag}>{d}</span>
-                    ))}
+                    {a.disciplines.slice(0, 3).map(d => <span key={d} style={s.tag}>{d}</span>)}
                   </div>
                 )}
                 <div style={s.progress}>
@@ -237,12 +222,8 @@ export default function ArtistManager() {
                   <span>Cartografia {c.filled}/{c.total}</span>
                 </div>
                 <div style={s.cardActions}>
-                  <button style={s.secondary} onClick={() => { setEditing(a); setSection('01') }}>
-                    Editar
-                  </button>
-                  <button style={s.danger} onClick={() => remove(a.id)}>
-                    Apagar
-                  </button>
+                  <button style={s.secondary} onClick={() => { setEditing(a); setSection('01') }}>Editar</button>
+                  <button style={s.danger} onClick={() => remove(a.id)}>Apagar</button>
                 </div>
               </article>
             )
@@ -290,9 +271,10 @@ export default function ArtistManager() {
         {section === '09' && <Section09 a={editing} update={update} />}
       </div>
 
+      {/* ✅ BUG FIX: parâmetro renomeado para `sec` para evitar colisão com o objecto `s` de estilos */}
       <footer style={s.formFooter}>
         <button style={s.secondary} onClick={() => {
-          const idx = SECTIONS.findIndex(s => s.id === section)
+          const idx = SECTIONS.findIndex(sec => sec.id === section)
           if (idx > 0) setSection(SECTIONS[idx - 1].id)
         }}>← Anterior</button>
 
@@ -301,7 +283,7 @@ export default function ArtistManager() {
         </button>
 
         <button style={s.secondary} onClick={() => {
-          const idx = SECTIONS.findIndex(s => s.id === section)
+          const idx = SECTIONS.findIndex(sec => sec.id === section)
           if (idx < SECTIONS.length - 1) setSection(SECTIONS[idx + 1].id)
         }}>Seguinte →</button>
       </footer>
@@ -309,7 +291,7 @@ export default function ArtistManager() {
   )
 }
 
-// ─── Secções ─────────────────────────────────────────────
+// ─── Tipos das secções ────────────────────────────────────
 
 type SecProps = {
   a: Artist
@@ -317,6 +299,8 @@ type SecProps = {
 }
 
 type SecPropsToggle = SecProps & { toggle: (field: keyof Artist, item: string) => void }
+
+// ─── SECÇÃO 01: IDENTIDADE ────────────────────────────────
 
 function Section01({ a, update }: SecProps) {
   return (
@@ -355,6 +339,8 @@ function Section01({ a, update }: SecProps) {
   )
 }
 
+// ─── SECÇÃO 02: LOCALIZAÇÃO ───────────────────────────────
+
 function Section02({ a, update }: SecProps) {
   return (
     <div>
@@ -377,6 +363,8 @@ function Section02({ a, update }: SecProps) {
   )
 }
 
+// ─── SECÇÃO 03: PERFIL ────────────────────────────────────
+
 function Section03({ a, update, toggle }: SecPropsToggle) {
   return (
     <div>
@@ -387,10 +375,7 @@ function Section03({ a, update, toggle }: SecPropsToggle) {
           {DISCIPLINES.map(d => (
             <button key={d} type="button"
               onClick={() => toggle('disciplines', d.replace(/^[^\s]+ /, '').toLowerCase())}
-              style={{
-                ...s.chip,
-                ...(a.disciplines?.includes(d.replace(/^[^\s]+ /, '').toLowerCase()) ? s.chipActive : {})
-              }}>
+              style={{ ...s.chip, ...(a.disciplines?.includes(d.replace(/^[^\s]+ /, '').toLowerCase()) ? s.chipActive : {}) }}>
               {d}
             </button>
           ))}
@@ -402,10 +387,7 @@ function Section03({ a, update, toggle }: SecPropsToggle) {
           {SPECIALTIES.map(sp => (
             <button key={sp} type="button"
               onClick={() => toggle('specialties', sp)}
-              style={{
-                ...s.chip,
-                ...(a.specialties?.includes(sp) ? s.chipActive : {})
-              }}>
+              style={{ ...s.chip, ...(a.specialties?.includes(sp) ? s.chipActive : {}) }}>
               {sp}
             </button>
           ))}
@@ -417,17 +399,13 @@ function Section03({ a, update, toggle }: SecPropsToggle) {
           {LANGUAGES.map(l => (
             <button key={l} type="button"
               onClick={() => toggle('languages', l)}
-              style={{
-                ...s.chip,
-                ...(a.languages?.includes(l) ? s.chipActive : {})
-              }}>
+              style={{ ...s.chip, ...(a.languages?.includes(l) ? s.chipActive : {}) }}>
               {l}
             </button>
           ))}
         </div>
       </Field>
 
-      {/* ─── INPUTS CORRIGIDOS: aceitam vírgulas ─── */}
       <Field label="Keywords (vírgula separa)">
         <input style={s.input}
           placeholder="afro, queer, decolonial, ritual..."
@@ -457,6 +435,8 @@ function Section03({ a, update, toggle }: SecPropsToggle) {
   )
 }
 
+// ─── SECÇÃO 04: PAÍSES ────────────────────────────────────
+
 function Section04({ a, update }: SecProps) {
   const selected = a.targetCountries || []
 
@@ -467,8 +447,8 @@ function Section04({ a, update }: SecProps) {
   }
 
   function selectRegion(codes: string[]) {
-    const all = codes.every(c => selected.includes(c))
-    update('targetCountries', all
+    const allSel = codes.every(c => selected.includes(c))
+    update('targetCountries', allSel
       ? selected.filter(c => !codes.includes(c))
       : Array.from(new Set([...selected, ...codes])))
   }
@@ -505,10 +485,7 @@ function Section04({ a, update }: SecProps) {
               {region.countries.map(c => (
                 <button key={c.code} type="button"
                   onClick={() => toggleCountry(c.code)}
-                  style={{
-                    ...s.country,
-                    ...(selected.includes(c.code) ? s.countryActive : {})
-                  }}>
+                  style={{ ...s.country, ...(selected.includes(c.code) ? s.countryActive : {}) }}>
                   {c.code} · {c.name}
                 </button>
               ))}
@@ -519,6 +496,8 @@ function Section04({ a, update }: SecProps) {
     </div>
   )
 }
+
+// ─── SECÇÃO 05: MOBILIDADE ────────────────────────────────
 
 function Section05({ a, update }: SecProps) {
   function updMobility(field: keyof ArtistMobility, value: any) {
@@ -531,26 +510,22 @@ function Section05({ a, update }: SecProps) {
 
       <div style={s.checkRow}>
         <label style={s.check}>
-          <input type="checkbox"
-            checked={a.mobility?.canTravel !== false}
+          <input type="checkbox" checked={a.mobility?.canTravel !== false}
             onChange={e => updMobility('canTravel', e.target.checked)} />
           Pode viajar
         </label>
         <label style={s.check}>
-          <input type="checkbox"
-            checked={a.mobility?.hasEUPassport === true}
+          <input type="checkbox" checked={a.mobility?.hasEUPassport === true}
             onChange={e => updMobility('hasEUPassport', e.target.checked)} />
           Tem passaporte UE
         </label>
         <label style={s.check}>
-          <input type="checkbox"
-            checked={a.mobility?.hasEUBankAccount === true}
+          <input type="checkbox" checked={a.mobility?.hasEUBankAccount === true}
             onChange={e => updMobility('hasEUBankAccount', e.target.checked)} />
           Conta bancária UE
         </label>
         <label style={s.check}>
-          <input type="checkbox"
-            checked={a.mobility?.hasBRBankAccount === true}
+          <input type="checkbox" checked={a.mobility?.hasBRBankAccount === true}
             onChange={e => updMobility('hasBRBankAccount', e.target.checked)} />
           Conta bancária BR
         </label>
@@ -567,8 +542,7 @@ function Section05({ a, update }: SecProps) {
         </Field>
         <Field label="Disponibilidade / períodos">
           <input style={s.input} placeholder="Outubro 2026, fins-de-semana..."
-            value={a.availability || ''}
-            onChange={e => update('availability', e.target.value)} />
+            value={a.availability || ''} onChange={e => update('availability', e.target.value)} />
         </Field>
         <Field label="Necessidades de visto">
           <input style={s.input} value={a.mobility?.visaNotes || ''}
@@ -578,6 +552,8 @@ function Section05({ a, update }: SecProps) {
     </div>
   )
 }
+
+// ─── SECÇÃO 06: MATERIAIS ─────────────────────────────────
 
 function Section06({ a, update }: SecProps) {
   function updMaterials(field: keyof ArtistMaterials, value: any) {
@@ -612,8 +588,7 @@ function Section06({ a, update }: SecProps) {
         <div style={s.checkRow}>
           {checkboxes.map(c => (
             <label key={c.key} style={s.check}>
-              <input type="checkbox"
-                checked={a.materials?.[c.key] === true}
+              <input type="checkbox" checked={a.materials?.[c.key] === true}
                 onChange={e => updMaterials(c.key, e.target.checked)} />
               {c.label}
             </label>
@@ -636,23 +611,22 @@ function Section06({ a, update }: SecProps) {
   )
 }
 
+// ─── SECÇÃO 07: PROJECTOS ─────────────────────────────────
+
 function Section07({ a, update }: SecProps) {
   const projects = (a as any).projects || []
   const [expanded, setExpanded] = useState<string | null>(null)
 
   function addProject() {
     const newId = crypto.randomUUID()
-    const newProject = {
-      id: newId,
-      name: '', format: '', duration: '', language: '',
+    update('projects' as any, [...projects, {
+      id: newId, name: '', format: '', duration: '', language: '',
       summary: '', technicalNeeds: '',
       videoLink: '', driveLink: '', dossierLink: '',
       projectTargetAudience: '', projectTerritories: '',
-      projectKeywords: [] as string[],
-      projectFormat: '',
+      projectKeywords: [] as string[], projectFormat: '',
       hasCirculated: false, circulationHistory: '',
-    }
-    update('projects' as any, [...projects, newProject])
+    }])
     setExpanded(newId)
   }
 
@@ -670,12 +644,18 @@ function Section07({ a, update }: SecProps) {
   return (
     <div>
       <h2 style={s.h2}>07 · Projectos</h2>
+
       {projects.map((p: any, i: number) => (
         <div key={p.id} style={s.projectCard}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setExpanded(expanded === p.id ? null : p.id)}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+            onClick={() => setExpanded(expanded === p.id ? null : p.id)}>
             <div>
               <strong>Projeto {i + 1}: {p.name || 'Sem nome'}</strong>
-              {p.projectKeywords && p.projectKeywords.length > 0 && <div style={{ fontSize: 11, color: '#ffcf5c', marginTop: 4 }}>{Array.isArray(p.projectKeywords) ? p.projectKeywords.join(', ') : p.projectKeywords}</div>}
+              {p.projectKeywords && p.projectKeywords.length > 0 && (
+                <div style={{ fontSize: 11, color: '#ffcf5c', marginTop: 4 }}>
+                  {Array.isArray(p.projectKeywords) ? p.projectKeywords.join(', ') : p.projectKeywords}
+                </div>
+              )}
             </div>
             <span style={{ color: '#60b4e8', fontSize: 18 }}>{expanded === p.id ? '▲' : '▼'}</span>
           </div>
@@ -683,34 +663,76 @@ function Section07({ a, update }: SecProps) {
           {expanded === p.id && (
             <div style={{ marginTop: 14 }}>
               <h4 style={{ color: '#60b4e8', marginBottom: 8 }}>📋 Dados do Projeto</h4>
-              <Field label="Nome do projeto"><input style={s.input} value={p.name || ''} onChange={e => updateProject(p.id, 'name', e.target.value)} /></Field>
+              <Field label="Nome do projeto">
+                <input style={s.input} value={p.name || ''} onChange={e => updateProject(p.id, 'name', e.target.value)} />
+              </Field>
               <div style={s.grid2}>
-                <Field label="Formato"><input style={s.input} value={p.format || ''} onChange={e => updateProject(p.id, 'format', e.target.value)} /></Field>
-                <Field label="Duração"><input style={s.input} value={p.duration || ''} onChange={e => updateProject(p.id, 'duration', e.target.value)} /></Field>
-                <Field label="Idioma da obra"><input style={s.input} value={p.language || ''} onChange={e => updateProject(p.id, 'language', e.target.value)} /></Field>
+                <Field label="Formato">
+                  <input style={s.input} value={p.format || ''} onChange={e => updateProject(p.id, 'format', e.target.value)} />
+                </Field>
+                <Field label="Duração">
+                  <input style={s.input} value={p.duration || ''} onChange={e => updateProject(p.id, 'duration', e.target.value)} />
+                </Field>
+                <Field label="Idioma da obra">
+                  <input style={s.input} value={p.language || ''} onChange={e => updateProject(p.id, 'language', e.target.value)} />
+                </Field>
               </div>
-              <Field label="Resumo do projeto"><textarea style={s.textarea} value={p.summary || ''} onChange={e => updateProject(p.id, 'summary', e.target.value)} /></Field>
-              <Field label="Necessidades técnicas"><textarea style={s.textarea} value={p.technicalNeeds || ''} onChange={e => updateProject(p.id, 'technicalNeeds', e.target.value)} /></Field>
+              <Field label="Resumo do projeto">
+                <textarea style={s.textarea} value={p.summary || ''} onChange={e => updateProject(p.id, 'summary', e.target.value)} />
+              </Field>
+              <Field label="Necessidades técnicas">
+                <textarea style={s.textarea} value={p.technicalNeeds || ''} onChange={e => updateProject(p.id, 'technicalNeeds', e.target.value)} />
+              </Field>
 
               <h4 style={{ color: '#60b4e8', marginBottom: 8, marginTop: 18 }}>🔗 Links de Materiais</h4>
               <div style={s.grid2}>
-                <Field label="Link Vídeo"><input style={s.input} value={p.videoLink || ''} onChange={e => updateProject(p.id, 'videoLink', e.target.value)} /></Field>
-                <Field label="Link Drive"><input style={s.input} value={p.driveLink || ''} onChange={e => updateProject(p.id, 'driveLink', e.target.value)} /></Field>
-                <Field label="Link Dossier"><input style={s.input} value={p.dossierLink || ''} onChange={e => updateProject(p.id, 'dossierLink', e.target.value)} /></Field>
+                <Field label="Link Vídeo">
+                  <input style={s.input} value={p.videoLink || ''} onChange={e => updateProject(p.id, 'videoLink', e.target.value)} />
+                </Field>
+                <Field label="Link Drive">
+                  <input style={s.input} value={p.driveLink || ''} onChange={e => updateProject(p.id, 'driveLink', e.target.value)} />
+                </Field>
+                <Field label="Link Dossier">
+                  <input style={s.input} value={p.dossierLink || ''} onChange={e => updateProject(p.id, 'dossierLink', e.target.value)} />
+                </Field>
               </div>
 
               <h4 style={{ color: '#ffcf5c', marginBottom: 8, marginTop: 18 }}>🧭 Mini-Cartografia do Projeto</h4>
-              <Field label="Público-alvo do projeto"><textarea style={s.textarea} value={p.projectTargetAudience || ''} onChange={e => updateProject(p.id, 'projectTargetAudience', e.target.value)} placeholder="Quem é o público ideal para este projeto?" /></Field>
-              <Field label="Territórios onde o projeto faz sentido"><textarea style={s.textarea} value={p.projectTerritories || ''} onChange={e => updateProject(p.id, 'projectTerritories', e.target.value)} placeholder="Em que cidades, países ou regiões?" /></Field>
-              <Field label="Keywords do projeto (vírgula separa)"><input style={s.input} value={Array.isArray(p.projectKeywords) ? p.projectKeywords.join(', ') : (p.projectKeywords || '')} onChange={e => updateProject(p.id, 'projectKeywords', e.target.value.split(',').map((x: string) => x.trim()).filter(Boolean))} placeholder="Ex: ritual, experimental, spoken word" /></Field>
-              <Field label="Formato de apresentação"><input style={s.input} value={p.projectFormat || ''} onChange={e => updateProject(p.id, 'projectFormat', e.target.value)} placeholder="Ex: Concerto, Performance, Instalação, DJ Set" /></Field>
+              <Field label="Público-alvo do projeto">
+                <textarea style={s.textarea} value={p.projectTargetAudience || ''}
+                  onChange={e => updateProject(p.id, 'projectTargetAudience', e.target.value)}
+                  placeholder="Quem é o público ideal para este projeto?" />
+              </Field>
+              <Field label="Territórios onde o projeto faz sentido">
+                <textarea style={s.textarea} value={p.projectTerritories || ''}
+                  onChange={e => updateProject(p.id, 'projectTerritories', e.target.value)}
+                  placeholder="Em que cidades, países ou regiões?" />
+              </Field>
+              <Field label="Keywords do projeto (vírgula separa)">
+                <input style={s.input}
+                  value={Array.isArray(p.projectKeywords) ? p.projectKeywords.join(', ') : (p.projectKeywords || '')}
+                  onChange={e => updateProject(p.id, 'projectKeywords', e.target.value.split(',').map((x: string) => x.trim()).filter(Boolean))}
+                  placeholder="Ex: ritual, experimental, spoken word" />
+              </Field>
+              <Field label="Formato de apresentação">
+                <input style={s.input} value={p.projectFormat || ''}
+                  onChange={e => updateProject(p.id, 'projectFormat', e.target.value)}
+                  placeholder="Ex: Concerto, Performance, Instalação, DJ Set" />
+              </Field>
               <div style={{ marginTop: 8, marginBottom: 12 }}>
-                <label style={s.check}><input type="checkbox" checked={p.hasCirculated === true} onChange={e => updateProject(p.id, 'hasCirculated', e.target.checked)} /> Já circulou / foi apresentado?</label>
+                <label style={s.check}>
+                  <input type="checkbox" checked={p.hasCirculated === true}
+                    onChange={e => updateProject(p.id, 'hasCirculated', e.target.checked)} />
+                  Já circulou / foi apresentado?
+                </label>
               </div>
               {p.hasCirculated && (
-                <Field label="Histórico de circulação"><textarea style={s.textarea} value={p.circulationHistory || ''} onChange={e => updateProject(p.id, 'circulationHistory', e.target.value)} placeholder="Onde já foi apresentado? Em que contexto?" /></Field>
+                <Field label="Histórico de circulação">
+                  <textarea style={s.textarea} value={p.circulationHistory || ''}
+                    onChange={e => updateProject(p.id, 'circulationHistory', e.target.value)}
+                    placeholder="Onde já foi apresentado? Em que contexto?" />
+                </Field>
               )}
-
               <div style={{ marginTop: 16 }}>
                 <button style={s.danger} onClick={() => removeProject(p.id)}>🗑 Remover projeto</button>
               </div>
@@ -718,16 +740,18 @@ function Section07({ a, update }: SecProps) {
           )}
         </div>
       ))}
+
       <button style={s.primary} onClick={addProject}>+ Adicionar projeto</button>
     </div>
   )
 }
 
+// ─── SECÇÃO 08: CRM INTERNO ───────────────────────────────
+
 function Section08({ a, update }: SecProps) {
   function updInternal(field: string, value: any) {
     update('internal', { ...(a.internal || {}), [field]: value })
   }
-
   const intl = a.internal || {}
 
   return (
@@ -775,7 +799,8 @@ function Section08({ a, update }: SecProps) {
   )
 }
 
-// ─── SECÇÃO 09: CARTOGRAFIA SOMA (v2 · Angela Davis) ─────
+// ─── SECÇÃO 09: CARTOGRAFIA SOMA (v2 · Angela Davis) ──────
+
 function Section09({ a, update }: SecProps) {
   const c = a.cartografia || {}
 
@@ -796,7 +821,7 @@ function Section09({ a, update }: SecProps) {
     <div>
       <h2 style={s.h2}>09 · Cartografia SOMA</h2>
       <p style={s.subtitle}>
-        Metodologia de inteligência curatorial baseada em Angela Davis, Paul Gilroy, Pierre Bourdieu e bell hooks.
+        Metodologia de inteligência curatorial — Angela Davis, Paul Gilroy, Pierre Bourdieu e bell hooks.
         ⭐ Vocabulário alimenta o matching automaticamente.
       </p>
 
@@ -818,16 +843,15 @@ function Section09({ a, update }: SecProps) {
             value={(c.raiz?.vocabulario || []).join(', ')}
             onChange={e => updRaiz('vocabulario', e.target.value.split(',').map((x: string) => x.trim()).filter(Boolean))} />
         </Field>
-        {/* NOVOS CAMPOS — Angela Davis */}
         <Field label="✊🏿 Legado de Resistência (Angela Davis)">
           <textarea style={s.textarea} rows={3} value={c.raiz?.legacyOfResistance || ''}
             onChange={e => updRaiz('legacyOfResistance', e.target.value)}
-            placeholder="Como o trabalho dialoga com a memória histórica de resistência? Que legados de luta, perseverança e insurgência estética o trabalho honra?" />
+            placeholder="Como o trabalho dialoga com a memória histórica de resistência?" />
         </Field>
         <Field label="🤲 Práticas de Cuidado Comunitário">
           <textarea style={s.textarea} rows={3} value={c.raiz?.carePractices || ''}
             onChange={e => updRaiz('carePractices', e.target.value)}
-            placeholder="Que práticas de cuidado coletivo sustentam o processo criativo? Como a comunidade se organiza para resistir à desumanização cotidiana?" />
+            placeholder="Que práticas de cuidado coletivo sustentam o processo criativo?" />
         </Field>
       </details>
 
@@ -862,11 +886,10 @@ function Section09({ a, update }: SecProps) {
           <textarea style={s.textarea} rows={3} value={c.teia?.influenceNetworks || ''}
             onChange={e => updTeia('influenceNetworks', e.target.value)} />
         </Field>
-        {/* NOVO CAMPO — Angela Davis */}
         <Field label="🤝 Alianças Éticas (Angela Davis)">
           <textarea style={s.textarea} rows={3} value={c.teia?.ethicalAlliances || ''}
             onChange={e => updTeia('ethicalAlliances', e.target.value)}
-            placeholder="Que instituições ou programadores demonstram uma prática antirracista e antisexista REAL? Quais evitam a 'diversidade cosmética'?" />
+            placeholder="Que instituições demonstram prática antirracista REAL? Quais evitam a 'diversidade cosmética'?" />
         </Field>
       </details>
 
@@ -895,7 +918,7 @@ function Section09({ a, update }: SecProps) {
   )
 }
 
-// ─── Field helper ────────────────────────────────────────
+// ─── Field helper ─────────────────────────────────────────
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -906,7 +929,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
-// ─── Styles ──────────────────────────────────────────────
+// ─── Styles ───────────────────────────────────────────────
 
 const s: Record<string, React.CSSProperties> = {
   wrap: { padding: '24px 22px', maxWidth: 1180, margin: '0 auto', color: '#fff' },
