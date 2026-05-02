@@ -1,0 +1,12 @@
+{
+    "rewrites": [
+      {
+        "source": "/somaode",
+        "destination": "https://soma-ode.vercel.app"
+      },
+      {
+        "source": "/somaode/:path*",
+        "destination": "https://soma-ode.vercel.app/:path*"
+      }
+    ]
+  }
