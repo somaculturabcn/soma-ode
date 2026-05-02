@@ -59,7 +59,7 @@ type Opportunity = {
   _matchScore?: number
   _matchReasons?: string[]
   _fromWeb?: boolean
-  _idiomaBusca?: string // NOVO: indica em que idioma foi encontrada
+  _idiomaBusca?: string
 }
 
 type ArtistLite = {
@@ -67,8 +67,8 @@ type ArtistLite = {
   artisticName?: string
   name?: string
   legalName?: string
-  disciplines?: string[] // NOVO: para busca estruturada
-  targetCountries?: string[] // NOVO: países alvo do artista
+  disciplines?: string[]
+  targetCountries?: string[]
 }
 
 type SavedSearch = {
@@ -83,7 +83,7 @@ type SavedSearch = {
   artistName?: string
   projectId?: string
   projectName?: string
-  tipoOportunidade?: string // NOVO: tipo de oportunidade (residência, edital, festival...)
+  tipoOportunidade?: string
 }
 
 // ─── Constantes ───────────────────────────────────────────
@@ -216,12 +216,8 @@ function scoreOpportunity(op: Opportunity, search: SavedSearch): { score: number
   return { score, reasons }
 }
 
-// ─── NOVO: Busca Gemini multilingue e estruturada ────────
+// ─── Busca Gemini simplificada (foco: disciplina + tipo + país) ────────
 
-/**
- * Busca oportunidades na web com Gemini, gerando uma query localizada
- * para cada país-alvo, no idioma correto, e agregando os resultados.
- */
 async function searchWebWithGemini(busca: BuscaEstruturada, maxResults: number = 8): Promise<{ opportunities: Opportunity[]; note: string }> {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY
   if (!apiKey) throw new Error('VITE_GEMINI_API_KEY não configurada. Adicione a chave no Vercel (Settings → Environment Variables).')
@@ -232,186 +228,125 @@ async function searchWebWithGemini(busca: BuscaEstruturada, maxResults: number =
     localizedQueries = await gerarEstrategiaBuscaMultilingue(busca)
   } catch (err) {
     console.warn('[MatchView] Falha ao gerar queries localizadas, usando fallback.', err)
-    // Fallback: usa os países sem tradução
     localizedQueries = busca.paises.map(pais => ({
       pais,
       idioma: 'en',
-      query: `${busca.disciplina} ${busca.queryOriginal} ${pais} ${busca.tipoOportunidade || ''}`,
-      termosChave: busca.queryOriginal.split(',').map((s: string) => s.trim()),
+      query: `${busca.disciplina} ${busca.tipoOportunidade} ${pais}`,
+      termosChave: [busca.disciplina, busca.tipoOportunidade, pais],
     }))
   }
 
   if (localizedQueries.length === 0) {
-    // Se não houver países, faz uma busca genérica
     localizedQueries = [{
       pais: '',
       idioma: 'pt',
-      query: `${busca.disciplina} ${busca.queryOriginal} ${busca.tipoOportunidade || ''}`,
-      termosChave: busca.queryOriginal.split(',').map((s: string) => s.trim()),
+      query: `${busca.disciplina} ${busca.tipoOportunidade}`,
+      termosChave: [busca.disciplina, busca.tipoOportunidade],
     }]
   }
 
   const currentYear = new Date().getFullYear()
   const model = 'gemini-2.0-flash'
-  const url = (key: string) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`
 
-  // 2. Para cada query localizada, faz uma chamada ao Gemini
   const todasOportunidades: Opportunity[] = []
-  const erros: string[] = []
+  const falhas: string[] = []
 
   for (const q of localizedQueries) {
-    const systemPrompt = `És um especialista em oportunidades culturais internacionais para artistas da diáspora afro-lusófona.
-Pesquisas editais, residências artísticas, festivais, open calls e programas de mobilidade que correspondem ao perfil descrito.
-O artista trabalha com ${busca.disciplina} e procura por ${busca.tipoOportunidade || 'oportunidades culturais'}.
-Respondes SEMPRE em JSON válido, sem markdown, sem comentários.`
+    const prompt = `És um especialista em oportunidades culturais para artistas da diáspora afro-lusófona.
+O artista trabalha com ${busca.disciplina} e procura especificamente por ${busca.tipoOportunidade || 'residências, editais e festivais'}.
 
-    const userPrompt = `Pesquisa na web oportunidades culturais actuais (${currentYear}-${currentYear + 1}) no país ${q.pais || 'qualquer'}.
+Busca oportunidades REAIS para ${q.pais || 'qualquer país'} no ano ${currentYear}-${currentYear + 1}.
+Usa esta query no idioma local (${q.idioma}): "${q.query}"
 
-Usa esta query otimizada no idioma local (${q.idioma}): "${q.query}"
+Devolve APENAS um array JSON com este formato, sem texto adicional:
+[{
+  "titulo": "Nome da oportunidade",
+  "organizacao": "Nome da organização",
+  "pais": "${q.pais}",
+  "cidade": "Cidade",
+  "tipo": "Residência | Edital | Festival | Open Call | Bolsa",
+  "deadline": "YYYY-MM-DD ou null",
+  "cobreCustos": true/false,
+  "resumo": "2-3 frases em português",
+  "link": "URL oficial",
+  "disciplinas": ["disciplina1", "disciplina2"]
+}]
 
-Termos chave para orientar a busca: ${q.termosChave.join(', ')}
-
-Perfil do artista:
-- Disciplina principal: ${busca.disciplina}
-- Tipo de oportunidade desejada: ${busca.tipoOportunidade || 'residência, edital, festival'}
-- Intenção original: ${busca.queryOriginal}
-
-Encontra até ${Math.ceil(maxResults / localizedQueries.length)} oportunidades REAIS e ACTUAIS (com links verificáveis) em ${q.pais || 'qualquer país'}.
-
-Para cada oportunidade, devolve:
-- title: nome da oportunidade
-- organization: organização que oferece
-- country: país (nome em português)
-- countryCode: código ISO (ex: DE, FR, PT)
-- city: cidade
-- type: Edital | Residência | Festival | Open Call | Prémio | Mobilidade
-- deadline: data limite (formato YYYY-MM-DD, null se não encontrada)
-- coversCosts: true se cobre viagem/alojamento
-- summary: resumo em 2-3 frases em português
-- link: URL directo do edital ou página oficial
-- disciplines: array de disciplinas aceites
-- keywords: array de 3-5 palavras-chave relevantes
-
-Responde APENAS com este JSON:
-{
-  "opportunities": [
-    {
-      "title": "...",
-      "organization": "...",
-      "country": "...",
-      "countryCode": "...",
-      "city": "...",
-      "type": "...",
-      "deadline": "...",
-      "coversCosts": true,
-      "summary": "...",
-      "link": "...",
-      "disciplines": [],
-      "keywords": []
-    }
-  ]
-}`
+Responde APENAS com o array JSON, sem markdown, sem comentários. Máximo ${Math.ceil(maxResults / localizedQueries.length)} resultados.`
 
     try {
-      // Primeira tentativa: com Google Search grounding
-      const res = await fetch(url(apiKey), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\n---\n\n${userPrompt}` }] }],
-          generationConfig: { temperature: 0.3, maxOutputTokens: 4096 },
-          tools: [{ googleSearch: {} }],
-        }),
-      })
-
-      let data: any
-      if (!res.ok) {
-        // Fallback sem googleSearch se não tiver permissão
-        const res2 = await fetch(url(apiKey), {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\n---\n\n${userPrompt}` }] }],
-            generationConfig: { temperature: 0.4, maxOutputTokens: 4096 },
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.3, maxOutputTokens: 2048 },
           }),
-        })
-        if (!res2.ok) {
-          const errBody = await res2.json().catch(() => ({}))
-          erros.push(`${q.pais} (${q.idioma}): erro HTTP`)
-          continue
         }
-        data = await res2.json()
-      } else {
-        data = await res.json()
+      )
+
+      if (!response.ok) {
+        const errText = await response.text()
+        console.error(`[MatchView] Erro API Gemini para ${q.pais} (${q.idioma}):`, response.status, errText)
+        falhas.push(`${q.pais} (${q.idioma}): HTTP ${response.status}`)
+        continue
       }
 
-      const parsed = parseGeminiOpportunitiesFromData(data, q)
-      todasOportunidades.push(...parsed)
+      const data = await response.json()
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+      const limpo = text.replace(/```json|```/g, '').trim()
+      const match = limpo.match(/\[[\s\S]*\]/)
+      
+      if (match) {
+        const parsed = JSON.parse(match[0])
+        if (Array.isArray(parsed)) {
+          for (const op of parsed) {
+            todasOportunidades.push({
+              id: crypto.randomUUID(),
+              title: op.titulo || op.title || 'Oportunidade sem título',
+              organization: op.organizacao || op.organization || '',
+              type: op.tipo || op.type || 'Edital',
+              country: q.pais || op.pais || '',
+              countryName: op.pais || q.pais || '',
+              countryCode: '',
+              city: op.cidade || op.city || '',
+              disciplines: safeArr(op.disciplinas || op.disciplines),
+              deadline: op.deadline || '',
+              summary: op.resumo || op.summary || '',
+              description: op.resumo || op.summary || '',
+              link: op.link || '',
+              coversCosts: Boolean(op.cobreCustos || op.coversCosts),
+              status: 'open',
+              source: 'gemini_web',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              _fromWeb: true,
+              _idiomaBusca: q.idioma,
+            })
+          }
+        }
+      }
     } catch (err: any) {
-      console.error(`[MatchView] Erro na busca para ${q.pais} (${q.idioma}):`, err)
-      erros.push(`${q.pais} (${q.idioma}): ${err.message}`)
+      console.error(`[MatchView] Falha para ${q.pais}:`, err.message)
+      falhas.push(`${q.pais} (${q.idioma}): ${err.message}`)
     }
   }
 
-  const noteParts: string[] = []
-  if (todasOportunidades.length > 0) {
-    noteParts.push(`${todasOportunidades.length} oportunidades encontradas`)
-  }
-  if (localizedQueries.length > 1) {
-    noteParts.push(`buscas em ${localizedQueries.length} idiomas`)
-  }
-  if (erros.length > 0) {
-    noteParts.push(`${erros.length} falhas`)
-  }
+  const partes: string[] = []
+  if (todasOportunidades.length > 0) partes.push(`${todasOportunidades.length} oportunidades`)
+  partes.push(`${localizedQueries.length} buscas`)
+  if (falhas.length > 0) partes.push(`${falhas.length} falhas`)
 
   return {
     opportunities: todasOportunidades,
-    note: noteParts.join(' · ') || 'Nenhum resultado encontrado',
+    note: partes.join(' · '),
   }
 }
 
-function parseGeminiOpportunitiesFromData(data: any, queryInfo: QueryLocalizada): Opportunity[] {
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+// ─── Função antiga de parse preservada como fallback ──────
 
-  try {
-    const clean = text.replace(/```json/gi, '').replace(/```/g, '').trim()
-    const jsonMatch = clean.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) return []
-
-    const parsed = JSON.parse(jsonMatch[0])
-    const opps = parsed.opportunities || []
-
-    return opps.map((op: any) => ({
-      id: crypto.randomUUID(),
-      title: op.title || 'Oportunidade sem título',
-      organization: op.organization || '',
-      type: op.type || 'Edital',
-      country: op.countryCode || op.country || queryInfo.pais || '',
-      countryName: op.country || queryInfo.pais || '',
-      countryCode: op.countryCode || '',
-      city: op.city || '',
-      disciplines: safeArr(op.disciplines),
-      languages: safeArr(op.languages),
-      keywords: safeArr(op.keywords),
-      deadline: op.deadline || '',
-      summary: op.summary || '',
-      description: op.summary || '',
-      link: op.link || '',
-      coversCosts: Boolean(op.coversCosts),
-      status: 'open',
-      source: 'gemini_web',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      _fromWeb: true,
-      _idiomaBusca: queryInfo.idioma, // NOVO: idioma em que foi encontrada
-    }))
-  } catch (err) {
-    console.error('[MatchView] Erro ao parsear resposta Gemini:', err)
-    return []
-  }
-}
-
-// ─── Função de parse antiga preservada como fallback ──────
 function parseGeminiOpportunities(data: any, search: SavedSearch): Opportunity[] {
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
   try {
@@ -541,7 +476,7 @@ export default function MatchView() {
     })
   }, [manual])
 
-  // ─── Quando Scout é executado (ATUALIZADO) ─────────────
+  // ─── Quando Scout é executado ──────────────────────────
 
   async function handleScoutExecute(savedSearch: SavedSearch) {
     // 1. Activar o scout e preencher a barra de pesquisa imediatamente
@@ -551,22 +486,29 @@ export default function MatchView() {
     setWebError('')
     setWebNote('')
 
-    // 2. Construir a busca estruturada com disciplina, tipo e países
+    // 2. Construir a busca estruturada ENXUTA (só disciplina + tipo + país)
     const artista = artists.find(a => a.id === savedSearch.artistId)
-    const disciplinaPrincipal = safeArr(artista?.disciplines || []).join(', ') || savedSearch.disciplines || 'multi-disciplinar'
     const paisesAlvo = savedSearch.countries
       ? savedSearch.countries.split(',').map(s => s.trim()).filter(Boolean)
       : (artista?.targetCountries || [])
-    const tipoOportunidade = savedSearch.tipoOportunidade || savedSearch.type || 'residência, edital, festival'
+
+    // Pega apenas a primeira parte da query, antes das rotas "Barcelona → ..."
+    const queryPrincipal = savedSearch.query.split('Barcelona →')[0].trim()
+      || savedSearch.query.split('→')[0].trim()
+      || savedSearch.query
 
     const busca: BuscaEstruturada = {
-      disciplina: disciplinaPrincipal,
-      tipoOportunidade: tipoOportunidade,
+      // Apenas as primeiras 3 disciplinas, sem keywords poéticas nem cartografia
+      disciplina: safeArr(artista?.disciplines || []).slice(0, 3).join(', ') || savedSearch.disciplines || 'multi-disciplinar',
+      // O tipo de oportunidade (residência, edital, festival...)
+      tipoOportunidade: savedSearch.tipoOportunidade || 'residência artística, edital, festival',
+      // Os países alvo
       paises: paisesAlvo,
-      queryOriginal: savedSearch.query,
+      // A frase de busca principal, sem as rotas
+      queryOriginal: queryPrincipal,
     }
 
-    // 3. Em paralelo: buscar na web com Gemini (agora multilingue)
+    // 3. Em paralelo: buscar na web com Gemini (agora simplificado)
     setWebLoading(true)
     try {
       const { opportunities, note } = await searchWebWithGemini(busca, savedSearch.maxResults || 8)
@@ -794,7 +736,7 @@ export default function MatchView() {
                   <span style={{ ...st.badge, background: 'rgba(96,180,232,0.2)', color: '#60b4e8' }}>
                     🌐 {op.type || 'Edital'}
                   </span>
-                  {/* NOVO: badge com o idioma da busca */}
+                  {/* Badge com o idioma da busca */}
                   {op._idiomaBusca && (
                     <span style={{ ...st.badge, background: 'rgba(255,207,92,0.15)', color: '#ffcf5c', marginLeft: 6 }}>
                       {op._idiomaBusca.toUpperCase()}
