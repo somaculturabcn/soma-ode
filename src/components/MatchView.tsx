@@ -3,6 +3,7 @@
 // Quando "Executar" é clicado:
 //   1. IMEDIATO: filtra e ordena oportunidades registadas por relevância
 //   2. PARALELO: Gemini gera queries localizadas por país e busca na web
+// CORREÇÃO CORS: chamadas ao Gemini passam por proxy /api/gemini (serverless function no Vercel)
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ScoutUrlExtractor from './ScoutUrlExtractor'
@@ -55,7 +56,6 @@ type Opportunity = {
   notes?: string
   createdAt?: string
   updatedAt?: string
-  // Campos de resultado de busca
   _matchScore?: number
   _matchReasons?: string[]
   _fromWeb?: boolean
@@ -168,14 +168,12 @@ function scoreOpportunity(op: Opportunity, search: SavedSearch): { score: number
     ...safeArr(op.disciplines), ...safeArr(op.keywords), ...safeArr(op.themes),
   ].join(' '))
 
-  // Match de palavras da query
   const queryMatches = queryWords.filter(w => opText.includes(w))
   if (queryMatches.length > 0) {
     score += Math.min(40, queryMatches.length * 8)
     reasons.push(`${queryMatches.length} palavras-chave encontradas`)
   }
 
-  // Match de países
   if (search.countries) {
     const searchCountries = search.countries.toLowerCase().split(',').map(s => s.trim())
     const opCountry = cleanText(op.countryName || op.country || '')
@@ -186,7 +184,6 @@ function scoreOpportunity(op: Opportunity, search: SavedSearch): { score: number
     }
   }
 
-  // Match de disciplinas
   if (search.disciplines) {
     const searchDisc = search.disciplines.toLowerCase().split(',').map(s => s.trim())
     const opDisc = safeArr(op.disciplines).map(d => d.toLowerCase())
@@ -197,7 +194,6 @@ function scoreOpportunity(op: Opportunity, search: SavedSearch): { score: number
     }
   }
 
-  // Match de idiomas
   if (search.languages) {
     const searchLangs = search.languages.toLowerCase().split(',').map(s => s.trim())
     const opLangs = safeArr(op.languages).map(l => l.toLowerCase())
@@ -207,7 +203,6 @@ function scoreOpportunity(op: Opportunity, search: SavedSearch): { score: number
     }
   }
 
-  // Custos cobertos
   if (op.coversCosts) {
     score += 10
     reasons.push('Cobre custos')
@@ -216,12 +211,9 @@ function scoreOpportunity(op: Opportunity, search: SavedSearch): { score: number
   return { score, reasons }
 }
 
-// ─── Busca Gemini simplificada (foco: disciplina + tipo + país) ────────
+// ─── NOVO: Busca Gemini via proxy /api/gemini (resolve CORS) ────────
 
 async function searchWebWithGemini(busca: BuscaEstruturada, maxResults: number = 8): Promise<{ opportunities: Opportunity[]; note: string }> {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY
-  if (!apiKey) throw new Error('VITE_GEMINI_API_KEY não configurada. Adicione a chave no Vercel (Settings → Environment Variables).')
-
   // 1. Gera as queries localizadas por país
   let localizedQueries: QueryLocalizada[] = []
   try {
@@ -238,7 +230,7 @@ async function searchWebWithGemini(busca: BuscaEstruturada, maxResults: number =
 
   if (localizedQueries.length === 0) {
     localizedQueries = [{
-      pais: '',
+      pais: 'Brasil',
       idioma: 'pt',
       query: `${busca.disciplina} ${busca.tipoOportunidade}`,
       termosChave: [busca.disciplina, busca.tipoOportunidade],
@@ -246,8 +238,6 @@ async function searchWebWithGemini(busca: BuscaEstruturada, maxResults: number =
   }
 
   const currentYear = new Date().getFullYear()
-  const model = 'gemini-2.0-flash'
-
   const todasOportunidades: Opportunity[] = []
   const falhas: string[] = []
 
@@ -275,27 +265,22 @@ Devolve APENAS um array JSON com este formato, sem texto adicional:
 Responde APENAS com o array JSON, sem markdown, sem comentários. Máximo ${Math.ceil(maxResults / localizedQueries.length)} resultados.`
 
     try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.3, maxOutputTokens: 2048 },
-          }),
-        }
-      )
+      // CHAMADA VIA PROXY (resolve CORS — a API key está no servidor)
+      const response = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
+      })
 
       if (!response.ok) {
-        const errText = await response.text()
-        console.error(`[MatchView] Erro API Gemini para ${q.pais} (${q.idioma}):`, response.status, errText)
-        falhas.push(`${q.pais} (${q.idioma}): HTTP ${response.status}`)
+        const errData = await response.json().catch(() => ({}))
+        console.error(`[MatchView] Erro no proxy para ${q.pais} (${q.idioma}):`, response.status, errData)
+        falhas.push(`${q.pais} (${q.idioma}): proxy HTTP ${response.status}`)
         continue
       }
 
       const data = await response.json()
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+      const text = data.text || ''
       const limpo = text.replace(/```json|```/g, '').trim()
       const match = limpo.match(/\[[\s\S]*\]/)
       
@@ -342,45 +327,6 @@ Responde APENAS com o array JSON, sem markdown, sem comentários. Máximo ${Math
   return {
     opportunities: todasOportunidades,
     note: partes.join(' · '),
-  }
-}
-
-// ─── Função antiga de parse preservada como fallback ──────
-
-function parseGeminiOpportunities(data: any, search: SavedSearch): Opportunity[] {
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
-  try {
-    const clean = text.replace(/```json/gi, '').replace(/```/g, '').trim()
-    const jsonMatch = clean.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) return []
-    const parsed = JSON.parse(jsonMatch[0])
-    const opps = parsed.opportunities || []
-    return opps.map((op: any) => ({
-      id: crypto.randomUUID(),
-      title: op.title || 'Oportunidade sem título',
-      organization: op.organization || '',
-      type: op.type || 'Edital',
-      country: op.countryCode || op.country || '',
-      countryName: op.country || '',
-      countryCode: op.countryCode || '',
-      city: op.city || '',
-      disciplines: safeArr(op.disciplines),
-      languages: safeArr(op.languages),
-      keywords: safeArr(op.keywords),
-      deadline: op.deadline || '',
-      summary: op.summary || '',
-      description: op.summary || '',
-      link: op.link || '',
-      coversCosts: Boolean(op.coversCosts),
-      status: 'open',
-      source: 'gemini_web',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      _fromWeb: true,
-    }))
-  } catch (err) {
-    console.error('[MatchView] Erro ao parsear resposta Gemini:', err)
-    return []
   }
 }
 
@@ -431,14 +377,12 @@ export default function MatchView() {
   const [assigning, setAssigning] = useState<Opportunity | null>(null)
   const [selectedArtistId, setSelectedArtistId] = useState('')
 
-  // Filtros normais
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('todos')
   const [countryFilter, setCountryFilter] = useState('todos')
   const [artistFilter, setArtistFilter] = useState('todos')
   const [onlyCosts, setOnlyCosts] = useState(false)
 
-  // Scout executado
   const [activeScout, setActiveScout] = useState<SavedSearch | null>(null)
   const [webResults, setWebResults] = useState<Opportunity[]>([])
   const [webLoading, setWebLoading] = useState(false)
@@ -476,39 +420,29 @@ export default function MatchView() {
     })
   }, [manual])
 
-  // ─── Quando Scout é executado ──────────────────────────
-
   async function handleScoutExecute(savedSearch: SavedSearch) {
-    // 1. Activar o scout e preencher a barra de pesquisa imediatamente
     setActiveScout(savedSearch)
     setSearch(savedSearch.query)
     setWebResults([])
     setWebError('')
     setWebNote('')
 
-    // 2. Construir a busca estruturada ENXUTA (só disciplina + tipo + país)
     const artista = artists.find(a => a.id === savedSearch.artistId)
     const paisesAlvo = savedSearch.countries
       ? savedSearch.countries.split(',').map(s => s.trim()).filter(Boolean)
       : (artista?.targetCountries || [])
 
-    // Pega apenas a primeira parte da query, antes das rotas "Barcelona → ..."
     const queryPrincipal = savedSearch.query.split('Barcelona →')[0].trim()
       || savedSearch.query.split('→')[0].trim()
       || savedSearch.query
 
     const busca: BuscaEstruturada = {
-      // Apenas as primeiras 3 disciplinas, sem keywords poéticas nem cartografia
       disciplina: safeArr(artista?.disciplines || []).slice(0, 3).join(', ') || savedSearch.disciplines || 'multi-disciplinar',
-      // O tipo de oportunidade (residência, edital, festival...)
       tipoOportunidade: savedSearch.tipoOportunidade || 'residência artística, edital, festival',
-      // Os países alvo
       paises: paisesAlvo,
-      // A frase de busca principal, sem as rotas
       queryOriginal: queryPrincipal,
     }
 
-    // 3. Em paralelo: buscar na web com Gemini (agora simplificado)
     setWebLoading(true)
     try {
       const { opportunities, note } = await searchWebWithGemini(busca, savedSearch.maxResults || 8)
@@ -516,7 +450,7 @@ export default function MatchView() {
       setWebNote(note)
     } catch (err: any) {
       console.error('[MatchView] Erro na busca web:', err)
-      setWebError(err.message || 'Erro ao buscar na web. Verifica a API key do Gemini no Vercel.')
+      setWebError(err.message || 'Erro ao buscar na web.')
     } finally {
       setWebLoading(false)
     }
@@ -528,12 +462,9 @@ export default function MatchView() {
   }
 
   function handleScoutCallback(data: any) {
-    // Distinguir entre salvar oportunidade URL e executar busca salva
     if (data && data.query !== undefined && data.name !== undefined) {
-      // É uma SavedSearch a ser executada
       handleScoutExecute(data as SavedSearch)
     } else {
-      // É uma Opportunity a ser guardada (do URL extractor)
       handleScoutSave(data as Opportunity)
     }
   }
@@ -550,12 +481,9 @@ export default function MatchView() {
     const toSave = { ...op, source: 'web_scout', _fromWeb: undefined, _matchScore: undefined, _matchReasons: undefined, _idiomaBusca: undefined }
     const next = [toSave, ...getManualOpportunities()]
     persist(next)
-    // Remover dos resultados web (já está guardada)
     setWebResults(prev => prev.filter(w => w.id !== op.id))
     alert('Oportunidade guardada na base.')
   }
-
-  // ─── Filtro e scoring das oportunidades da base ─────────
 
   const filteredBase: Opportunity[] = useMemo(() => {
     const q = cleanText(search)
@@ -581,11 +509,9 @@ export default function MatchView() {
         return op
       })
       .sort((a, b) => {
-        // Se há scout activo, ordenar por score
         if (activeScout) {
           return (b._matchScore || 0) - (a._matchScore || 0)
         }
-        // Senão, ordenar por deadline
         const da = daysLeft(a.deadline)
         const db = daysLeft(b.deadline)
         return (da ?? 9999) - (db ?? 9999)
@@ -736,7 +662,6 @@ export default function MatchView() {
                   <span style={{ ...st.badge, background: 'rgba(96,180,232,0.2)', color: '#60b4e8' }}>
                     🌐 {op.type || 'Edital'}
                   </span>
-                  {/* Badge com o idioma da busca */}
                   {op._idiomaBusca && (
                     <span style={{ ...st.badge, background: 'rgba(255,207,92,0.15)', color: '#ffcf5c', marginLeft: 6 }}>
                       {op._idiomaBusca.toUpperCase()}
@@ -825,7 +750,6 @@ export default function MatchView() {
                   <div style={st.artistTag}>Artista: {op.assignedArtistName}</div>
                 )}
 
-                {/* Razões do match */}
                 {hasScore && op._matchReasons && op._matchReasons.length > 0 && (
                   <div style={st.matchReasons}>
                     {op._matchReasons.slice(0, 3).map((r, i) => <span key={i}>✓ {r}</span>)}
@@ -1000,4 +924,42 @@ const st: Record<string, React.CSSProperties> = {
   label: { display: 'flex', flexDirection: 'column', gap: 6, color: 'rgba(255,255,255,0.55)', fontSize: 12, marginBottom: 12 },
   textarea: { width: '100%', minHeight: 110, background: '#0a0a0a', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8, padding: 12, fontSize: 13, boxSizing: 'border-box', outline: 'none', resize: 'vertical' },
   modalFooter: { display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 },
+}
+
+// ─── Preservada para referência, não usada na versão atual ──────
+function parseGeminiOpportunities(data: any, search: SavedSearch): Opportunity[] {
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+  try {
+    const clean = text.replace(/```json/gi, '').replace(/```/g, '').trim()
+    const jsonMatch = clean.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) return []
+    const parsed = JSON.parse(jsonMatch[0])
+    const opps = parsed.opportunities || []
+    return opps.map((op: any) => ({
+      id: crypto.randomUUID(),
+      title: op.title || 'Oportunidade sem título',
+      organization: op.organization || '',
+      type: op.type || 'Edital',
+      country: op.countryCode || op.country || '',
+      countryName: op.country || '',
+      countryCode: op.countryCode || '',
+      city: op.city || '',
+      disciplines: safeArr(op.disciplines),
+      languages: safeArr(op.languages),
+      keywords: safeArr(op.keywords),
+      deadline: op.deadline || '',
+      summary: op.summary || '',
+      description: op.summary || '',
+      link: op.link || '',
+      coversCosts: Boolean(op.coversCosts),
+      status: 'open',
+      source: 'gemini_web',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      _fromWeb: true,
+    }))
+  } catch (err) {
+    console.error('[MatchView] Erro ao parsear resposta Gemini:', err)
+    return []
+  }
 }
