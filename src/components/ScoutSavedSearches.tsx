@@ -1,697 +1,682 @@
 // src/components/ScoutSavedSearches.tsx
-// SOMA ODÉ — Scout proativo com buscas salvas
+// SOMA ODÉ — Scout Proativo com selecção de Artista + Projecto
+// A busca é associada a um artista e projecto específicos
+// Os campos preenchem-se automaticamente a partir do perfil + cartografia
 
-import { useMemo, useState } from 'react'
-import type { CSSProperties } from 'react'
+import { useEffect, useState, useMemo } from 'react'
+import { loadArtistsFromSupabase } from '../data/artistsSupabaseStore'
+import type { Artist } from '../types/artist'
 
-type SavedSearch = {
+// ─── Tipos ────────────────────────────────────────────────
+
+interface SavedSearch {
   id: string
   name: string
   query: string
-  countries: string[]
-  disciplines: string[]
-  languages: string[]
-  limit: number
+  countries: string
+  disciplines: string
+  languages: string
+  maxResults: number
+  artistId?: string
+  artistName?: string
+  projectId?: string
+  projectName?: string
+  autoFilled?: boolean
   createdAt: string
-  updatedAt: string
+  lastRunAt?: string
+  lastResultCount?: number
 }
 
-type OpportunitySuggestion = {
-  title: string
-  organization?: string
-  type?: string
-  country?: string
-  countryCode?: string
-  city?: string
-  regionId?: string
-  disciplines?: string[]
-  languages?: string[]
-  deadline?: string
-  summary?: string
-  link?: string
-  keywords?: string[]
-  requirements?: string[]
-  coverage?: {
-    travel?: boolean
-    accommodation?: boolean
-    meals?: boolean
-    production?: boolean
-    fee?: boolean
-  }
-  coversCosts?: boolean
-  notes?: string
+interface ScoutSavedSearchesProps {
+  onSave?: (search: SavedSearch) => void
 }
 
-type Props = {
-  onSave?: (opportunity: any) => void
-}
+const STORAGE_KEY = 'soma-scout-saved-searches-v2'
 
-const SEARCHES_KEY = 'soma-scout-saved-searches-v1'
-
-function getStoredSearches(): SavedSearch[] {
+function loadSearches(): SavedSearch[] {
   try {
-    const raw = localStorage.getItem(SEARCHES_KEY)
+    const raw = localStorage.getItem(STORAGE_KEY)
     return raw ? JSON.parse(raw) : []
-  } catch {
-    return []
-  }
+  } catch { return [] }
 }
 
-function saveStoredSearches(searches: SavedSearch[]) {
-  localStorage.setItem(SEARCHES_KEY, JSON.stringify(searches))
+function saveSearches(searches: SavedSearch[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(searches))
 }
 
-function splitTags(value: string) {
-  return value
-    .split(',')
-    .map(x => x.trim())
-    .filter(Boolean)
-}
+// ─── Componente principal ─────────────────────────────────
 
-function joinTags(value?: string[]) {
-  return Array.isArray(value) ? value.join(', ') : ''
-}
+export default function ScoutSavedSearches({ onSave }: ScoutSavedSearchesProps) {
+  const [searches, setSearches] = useState<SavedSearch[]>(loadSearches())
+  const [showModal, setShowModal] = useState(false)
+  const [artists, setArtists] = useState<Artist[]>([])
+  const [loadingArtists, setLoadingArtists] = useState(false)
 
-function emptySearch(): SavedSearch {
-  const now = new Date().toISOString()
-
-  return {
-    id: crypto.randomUUID(),
+  // Form state
+  const [form, setForm] = useState<Omit<SavedSearch, 'id' | 'createdAt'>>({
     name: '',
     query: '',
-    countries: [],
-    disciplines: [],
-    languages: [],
-    limit: 8,
-    createdAt: now,
-    updatedAt: now,
-  }
-}
+    countries: '',
+    disciplines: '',
+    languages: '',
+    maxResults: 8,
+    artistId: '',
+    artistName: '',
+    projectId: '',
+    projectName: '',
+    autoFilled: false,
+  })
 
-function normalizeOpportunity(op: OpportunitySuggestion) {
-  return {
-    id: crypto.randomUUID(),
-    title: op.title || 'Oportunidade sem título',
-    organization: op.organization || '',
-    type: op.type || 'Edital',
-    country: op.countryCode || op.country || '',
-    countryName: op.country || '',
-    countryCode: op.countryCode || '',
-    city: op.city || '',
-    regionId: op.regionId || '',
-    regionLabel: op.regionId || '',
-    disciplines: op.disciplines || [],
-    languages: op.languages || [],
-    deadline: op.deadline || '',
-    summary: op.summary || '',
-    description: op.summary || '',
-    link: op.link || '',
-    keywords: op.keywords || [],
-    themes: op.keywords || [],
-    genres: [],
-    requirements: op.requirements || [],
-    coverage: op.coverage || {},
-    coversCosts: Boolean(op.coversCosts),
-    status: 'open',
-    source: 'scout_proativo',
-    notes: op.notes || '',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  }
-}
-
-function readableError(data: any) {
-  if (typeof data?.detail === 'string') return data.detail
-  if (data?.detail?.error?.message) return data.detail.error.message
-  if (data?.detail?.message) return data.detail.message
-  if (data?.error) return data.error
-
-  try {
-    return JSON.stringify(data)
-  } catch {
-    return 'Erro no Scout proativo.'
-  }
-}
-
-export default function ScoutSavedSearches({ onSave }: Props) {
-  const [searches, setSearches] = useState<SavedSearch[]>(getStoredSearches())
-  const [editing, setEditing] = useState<SavedSearch | null>(null)
-  const [activeSearchId, setActiveSearchId] = useState<string>('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [results, setResults] = useState<OpportunitySuggestion[]>([])
-
-  const activeSearch = useMemo(
-    () => searches.find(s => s.id === activeSearchId) || searches[0],
-    [searches, activeSearchId]
+  // Artista seleccionado
+  const selectedArtist = useMemo(
+    () => artists.find(a => a.id === form.artistId) || null,
+    [artists, form.artistId]
   )
 
-  function persist(next: SavedSearch[]) {
-    setSearches(next)
-    saveStoredSearches(next)
-  }
+  // Projectos do artista seleccionado
+  const artistProjects = useMemo(
+    () => (selectedArtist as any)?.projects || [],
+    [selectedArtist]
+  )
 
-  function saveSearch() {
-    if (!editing) return
+  // Projecto seleccionado
+  const selectedProject = useMemo(
+    () => artistProjects.find((p: any) => p.id === form.projectId) || null,
+    [artistProjects, form.projectId]
+  )
 
-    if (!editing.name.trim()) {
-      alert('A busca precisa de nome.')
-      return
+  // Carregar artistas ao abrir modal
+  useEffect(() => {
+    if (showModal && artists.length === 0) {
+      setLoadingArtists(true)
+      loadArtistsFromSupabase()
+        .then(data => setArtists(data || []))
+        .catch(console.error)
+        .finally(() => setLoadingArtists(false))
     }
+  }, [showModal])
 
-    if (!editing.query.trim()) {
-      alert('A busca precisa de uma frase de pesquisa.')
-      return
-    }
+  // Auto-preencher campos quando artista ou projecto mudam
+  useEffect(() => {
+    if (!selectedArtist) return
 
-    const updated = {
-      ...editing,
-      updatedAt: new Date().toISOString(),
-    }
+    const c = selectedArtist.cartografia || {}
+    const vocabulario = (c.raiz?.vocabulario || []).join(', ')
+    const corredores = (c.rota?.corredores || []).join(', ')
+    const territorios = (c.campo?.audienceTerritories || []).join(', ')
 
-    const exists = searches.some(s => s.id === updated.id)
-    const next = exists
-      ? searches.map(s => (s.id === updated.id ? updated : s))
-      : [updated, ...searches]
+    // Construir query automática baseada na cartografia
+    const queryParts = [
+      vocabulario && `"${vocabulario}"`,
+      selectedArtist.disciplines?.slice(0, 3).join(' '),
+      corredores,
+      c.rota?.gaps ? 'residência' : '',
+    ].filter(Boolean)
 
-    persist(next)
-    setActiveSearchId(updated.id)
-    setEditing(null)
-  }
+    const autoQuery = queryParts.join(' ')
 
-  function deleteSearch(id: string) {
-    if (!confirm('Apagar esta busca salva?')) return
-    const next = searches.filter(s => s.id !== id)
-    persist(next)
-    if (activeSearchId === id) setActiveSearchId('')
-  }
+    // Países: corredores + territórios da cartografia + targetCountries
+    const autoCountries = [
+      ...(c.rota?.corredores || []),
+      ...(c.campo?.audienceTerritories || []),
+      ...(selectedArtist.targetCountries || []).slice(0, 5),
+    ].filter((v, i, arr) => arr.indexOf(v) === i).slice(0, 8).join(', ')
 
-  async function runSearch(search: SavedSearch) {
-    setError('')
-    setResults([])
-    setLoading(true)
+    // Disciplinas do artista
+    const autoDisciplines = (selectedArtist.disciplines || []).join(', ')
 
-    try {
-      const res = await fetch('/api/scout-search', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(search),
-      })
+    // Idiomas do artista
+    const autoLanguages = (selectedArtist.languages || []).join(', ')
 
-      const data = await res.json()
+    setForm(prev => ({
+      ...prev,
+      query: autoQuery || prev.query,
+      countries: autoCountries || prev.countries,
+      disciplines: autoDisciplines || prev.disciplines,
+      languages: autoLanguages || prev.languages,
+      autoFilled: true,
+    }))
+  }, [selectedArtist])
 
-      if (!res.ok) {
-        throw new Error(readableError(data))
+  // Refinar com dados do projecto
+  useEffect(() => {
+    if (!selectedProject) return
+
+    const projectKeywords = Array.isArray(selectedProject.projectKeywords)
+      ? selectedProject.projectKeywords.join(', ')
+      : (selectedProject.projectKeywords || '')
+
+    const projectTerritories = selectedProject.projectTerritories || ''
+
+    // Adicionar keywords do projecto à query
+    setForm(prev => {
+      const baseQuery = prev.query
+      const projectAddition = [
+        projectKeywords,
+        selectedProject.projectFormat || '',
+      ].filter(Boolean).join(' ')
+
+      return {
+        ...prev,
+        query: projectAddition ? `${baseQuery} ${projectAddition}`.trim() : baseQuery,
+        countries: projectTerritories
+          ? `${prev.countries}, ${projectTerritories}`.replace(/^, /, '')
+          : prev.countries,
+        name: prev.name || `Scout — ${selectedProject.name || 'Projecto'}`,
       }
+    })
+  }, [selectedProject])
 
-      setResults(Array.isArray(data.results) ? data.results : [])
-    } catch (err: any) {
-      setError(err?.message || 'Erro ao executar busca.')
-    } finally {
-      setLoading(false)
-    }
+  function handleArtistChange(artistId: string) {
+    const artist = artists.find(a => a.id === artistId)
+    setForm(prev => ({
+      ...prev,
+      artistId,
+      artistName: artist?.name || '',
+      projectId: '',
+      projectName: '',
+      autoFilled: false,
+      // Limpar campos que serão preenchidos pelo useEffect
+      query: '',
+      countries: '',
+      disciplines: '',
+      languages: '',
+    }))
   }
 
-  function saveOpportunity(op: OpportunitySuggestion) {
-    const normalized = normalizeOpportunity(op)
+  function handleProjectChange(projectId: string) {
+    const project = artistProjects.find((p: any) => p.id === projectId)
+    setForm(prev => ({
+      ...prev,
+      projectId,
+      projectName: project?.name || '',
+    }))
+  }
 
-    if (onSave) {
-      onSave(normalized)
-    } else {
-      const raw = localStorage.getItem('soma-manual-opportunities-v1')
-      const current = raw ? JSON.parse(raw) : []
-      localStorage.setItem('soma-manual-opportunities-v1', JSON.stringify([normalized, ...current]))
+  function handleSave() {
+    if (!form.name.trim()) {
+      alert('Dá um nome à busca.')
+      return
+    }
+    if (!form.query.trim()) {
+      alert('A frase de busca é obrigatória.')
+      return
     }
 
-    alert('Oportunidade guardada.')
+    const newSearch: SavedSearch = {
+      ...form,
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+    }
+
+    const updated = [newSearch, ...searches]
+    setSearches(updated)
+    saveSearches(updated)
+    onSave?.(newSearch)
+    setShowModal(false)
+    resetForm()
   }
+
+  function handleDelete(id: string) {
+    if (!confirm('Apagar esta busca salva?')) return
+    const updated = searches.filter(s => s.id !== id)
+    setSearches(updated)
+    saveSearches(updated)
+  }
+
+  function handleRun(search: SavedSearch) {
+    // Marca como executada
+    const updated = searches.map(s =>
+      s.id === search.id
+        ? { ...s, lastRunAt: new Date().toISOString() }
+        : s
+    )
+    setSearches(updated)
+    saveSearches(updated)
+    onSave?.(search)
+  }
+
+  function resetForm() {
+    setForm({
+      name: '', query: '', countries: '', disciplines: '',
+      languages: '', maxResults: 8,
+      artistId: '', artistName: '', projectId: '', projectName: '',
+      autoFilled: false,
+    })
+  }
+
+  function openModal() {
+    resetForm()
+    setShowModal(true)
+  }
+
+  // ─── RENDER ─────────────────────────────────────────────
 
   return (
-    <section style={styles.box}>
-      <div style={styles.header}>
+    <div style={sc.wrap}>
+
+      {/* HEADER */}
+      <div style={sc.header}>
         <div>
-          <h2 style={styles.title}>Scout proativo</h2>
-          <p style={styles.subtitle}>
-            Guarda pesquisas estratégicas e executa buscas online para descobrir novas oportunidades.
+          <h3 style={sc.title}>🔍 Scout Proativo</h3>
+          <p style={sc.subtitle}>
+            {searches.length} busca{searches.length !== 1 ? 's' : ''} guardada{searches.length !== 1 ? 's' : ''}
+            {searches.filter(s => s.artistId).length > 0 &&
+              ` · ${searches.filter(s => s.artistId).length} ligada${searches.filter(s => s.artistId).length !== 1 ? 's' : ''} a artistas`
+            }
           </p>
         </div>
-
-        <button style={styles.primaryBtn} onClick={() => setEditing(emptySearch())}>
+        <button style={sc.primaryBtn} onClick={openModal}>
           + Nova busca
         </button>
       </div>
 
-      {searches.length === 0 && (
-        <div style={styles.empty}>
-          Nenhuma busca salva ainda. Cria a primeira busca, por exemplo:
-          <br />
-          <strong>residências artísticas performance diáspora Europa 2026</strong>
-        </div>
-      )}
-
+      {/* LISTA DE BUSCAS SALVAS */}
       {searches.length > 0 && (
-        <>
-          <div style={styles.toolbar}>
-            <select
-              style={styles.select}
-              value={activeSearch?.id || ''}
-              onChange={e => setActiveSearchId(e.target.value)}
-            >
-              {searches.map(s => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-
-            <button
-              style={styles.primaryBtn}
-              disabled={!activeSearch || loading}
-              onClick={() => activeSearch && runSearch(activeSearch)}
-            >
-              {loading ? 'A procurar...' : '🔎 Executar busca'}
-            </button>
-
-            {activeSearch && (
-              <>
-                <button style={styles.secondaryBtn} onClick={() => setEditing(activeSearch)}>
-                  Editar busca
-                </button>
-
-                <button style={styles.dangerBtn} onClick={() => deleteSearch(activeSearch.id)}>
-                  Apagar
-                </button>
-              </>
-            )}
-          </div>
-
-          {activeSearch && (
-            <div style={styles.searchInfo}>
-              <strong>{activeSearch.query}</strong>
-              <span>
-                Países: {joinTags(activeSearch.countries) || 'todos'} · Disciplinas:{' '}
-                {joinTags(activeSearch.disciplines) || 'todas'} · Idiomas:{' '}
-                {joinTags(activeSearch.languages) || 'todos'}
-              </span>
+        <div style={sc.searchList}>
+          {searches.map(search => (
+            <div key={search.id} style={sc.searchCard}>
+              <div style={sc.searchCardTop}>
+                <div style={{ flex: 1 }}>
+                  <div style={sc.searchName}>{search.name}</div>
+                  {search.artistName && (
+                    <div style={sc.searchArtistTag}>
+                      🎤 {search.artistName}
+                      {search.projectName && ` · 📁 ${search.projectName}`}
+                    </div>
+                  )}
+                  <div style={sc.searchQuery}>"{search.query}"</div>
+                  <div style={sc.searchMeta}>
+                    {search.countries && <span style={sc.metaTag}>🌍 {search.countries}</span>}
+                    {search.disciplines && <span style={sc.metaTag}>🎨 {search.disciplines}</span>}
+                    {search.languages && <span style={sc.metaTag}>💬 {search.languages}</span>}
+                  </div>
+                </div>
+                <div style={sc.searchActions}>
+                  <button style={sc.runBtn} onClick={() => handleRun(search)}>
+                    ▶ Executar
+                  </button>
+                  <button style={sc.deleteBtn} onClick={() => handleDelete(search.id)}>
+                    ✕
+                  </button>
+                </div>
+              </div>
+              {search.lastRunAt && (
+                <div style={sc.lastRun}>
+                  Última execução: {new Date(search.lastRunAt).toLocaleDateString('pt-PT')}
+                </div>
+              )}
             </div>
-          )}
-        </>
-      )}
-
-      {error && <div style={styles.error}>⚠ {error}</div>}
-
-      {results.length > 0 && (
-        <div style={styles.results}>
-          <h3 style={styles.resultsTitle}>Sugestões encontradas</h3>
-
-          {results.map((op, index) => (
-            <article key={`${op.link}-${index}`} style={styles.card}>
-              <div style={styles.cardTop}>
-                <span style={styles.badge}>{op.type || 'Edital'}</span>
-                <span style={styles.deadline}>{op.deadline || 'sem deadline'}</span>
-              </div>
-
-              <h4 style={styles.cardTitle}>{op.title}</h4>
-
-              <p style={styles.meta}>
-                {[op.organization, op.city, op.country].filter(Boolean).join(' · ') || 'Sem local/organização'}
-              </p>
-
-              <p style={styles.summary}>{op.summary || 'Sem resumo.'}</p>
-
-              <div style={styles.tags}>
-                {(op.disciplines || []).map(d => (
-                  <span key={d} style={styles.tag}>{d}</span>
-                ))}
-                {op.coversCosts && <span style={styles.costTag}>custos cobertos</span>}
-              </div>
-
-              <div style={styles.cardActions}>
-                {op.link && (
-                  <a href={op.link} target="_blank" rel="noopener noreferrer" style={styles.link}>
-                    abrir edital →
-                  </a>
-                )}
-
-                <button style={styles.primaryBtn} onClick={() => saveOpportunity(op)}>
-                  Guardar oportunidade
-                </button>
-              </div>
-            </article>
           ))}
         </div>
       )}
 
-      {editing && (
-        <div style={styles.overlay}>
-          <div style={styles.modal}>
-            <div style={styles.modalHeader}>
+      {/* MODAL — NOVA BUSCA */}
+      {showModal && (
+        <div style={sc.overlay}>
+          <div style={sc.modal}>
+
+            {/* MODAL HEADER */}
+            <div style={sc.modalHeader}>
               <div>
-                <h3 style={styles.modalTitle}>
-                  {searches.some(s => s.id === editing.id) ? 'Editar busca' : 'Nova busca salva'}
-                </h3>
-                <p style={styles.modalSubtitle}>Define uma busca que podes repetir sempre que quiseres.</p>
+                <h2 style={sc.modalTitle}>Nova busca salva</h2>
+                <p style={sc.modalSubtitle}>
+                  Define uma busca que podes repetir. Associa a um artista para preencher automaticamente.
+                </p>
+              </div>
+              <button style={sc.closeBtn} onClick={() => setShowModal(false)}>Fechar</button>
+            </div>
+
+            {/* SECÇÃO: ARTISTA + PROJECTO */}
+            <div style={sc.sectionBlock}>
+              <div style={sc.sectionLabel}>
+                🎤 Associar a artista e projecto
+                <span style={sc.sectionHint}>opcional · preenche os campos automaticamente</span>
               </div>
 
-              <button style={styles.secondaryBtn} onClick={() => setEditing(null)}>
-                Fechar
-              </button>
+              <div style={sc.row2}>
+                {/* Artista */}
+                <div>
+                  <label style={sc.label}>Artista</label>
+                  <select
+                    style={sc.select}
+                    value={form.artistId || ''}
+                    onChange={e => handleArtistChange(e.target.value)}
+                    disabled={loadingArtists}
+                  >
+                    <option value="">
+                      {loadingArtists ? 'A carregar artistas...' : '— Sem artista específico —'}
+                    </option>
+                    {artists.map(a => (
+                      <option key={a.id} value={a.id}>
+                        {a.name || 'Artista sem nome'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Projecto */}
+                <div>
+                  <label style={sc.label}>Projecto</label>
+                  <select
+                    style={sc.select}
+                    value={form.projectId || ''}
+                    onChange={e => handleProjectChange(e.target.value)}
+                    disabled={!form.artistId || artistProjects.length === 0}
+                  >
+                    <option value="">
+                      {!form.artistId
+                        ? '— Selecciona artista primeiro —'
+                        : artistProjects.length === 0
+                          ? '— Artista sem projectos —'
+                          : '— Todos os projectos —'
+                      }
+                    </option>
+                    {artistProjects.map((p: any) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name || 'Projecto sem nome'}
+                        {p.projectKeywords?.length > 0 && ` · ${p.projectKeywords.slice(0, 2).join(', ')}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Preview da cartografia auto-preenchida */}
+              {selectedArtist && (
+                <div style={sc.autoFillPreview}>
+                  <div style={sc.autoFillHeader}>
+                    ✨ Preenchido automaticamente a partir da Cartografia SOMA
+                  </div>
+                  <div style={sc.autoFillGrid}>
+                    {selectedArtist.cartografia?.raiz?.vocabulario?.length ? (
+                      <div>
+                        <span style={sc.autoFillLabel}>Vocabulário</span>
+                        <div style={sc.autoFillTags}>
+                          {(selectedArtist.cartografia.raiz.vocabulario || []).map((v: string) => (
+                            <span key={v} style={sc.autoFillTag}>{v}</span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                    {selectedArtist.cartografia?.rota?.corredores?.length ? (
+                      <div>
+                        <span style={sc.autoFillLabel}>Corredores</span>
+                        <div style={sc.autoFillTags}>
+                          {(selectedArtist.cartografia.rota.corredores || []).map((v: string) => (
+                            <span key={v} style={sc.autoFillTag}>{v}</span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                    {selectedProject && (
+                      <div>
+                        <span style={sc.autoFillLabel}>Projecto seleccionado</span>
+                        <div style={sc.autoFillTags}>
+                          <span style={{ ...sc.autoFillTag, background: 'rgba(255,207,92,0.15)', borderColor: 'rgba(255,207,92,0.4)', color: '#ffcf5c' }}>
+                            {selectedProject.name}
+                          </span>
+                          {(selectedProject.projectKeywords || []).map((k: string) => (
+                            <span key={k} style={sc.autoFillTag}>{k}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
-            <label style={styles.label}>
-              Nome da busca
-              <input
-                style={styles.input}
-                placeholder="Ex: Residências performance Europa"
-                value={editing.name}
-                onChange={e => setEditing({ ...editing, name: e.target.value })}
-              />
-            </label>
+            {/* SECÇÃO: CONFIGURAÇÃO DA BUSCA */}
+            <div style={sc.sectionBlock}>
+              <div style={sc.sectionLabel}>⚙️ Configuração da busca</div>
 
-            <label style={styles.label}>
-              Frase de busca
-              <textarea
-                style={styles.textarea}
-                placeholder="Ex: open call residência artística performance artistas afrodescendentes Europa 2026"
-                value={editing.query}
-                onChange={e => setEditing({ ...editing, query: e.target.value })}
-              />
-            </label>
-
-            <div style={styles.grid}>
-              <label style={styles.label}>
-                Países preferidos
+              <div style={{ marginBottom: 14 }}>
+                <label style={sc.label}>Nome da busca *</label>
                 <input
-                  style={styles.input}
-                  placeholder="Portugal, Espanha, França"
-                  value={joinTags(editing.countries)}
-                  onChange={e => setEditing({ ...editing, countries: splitTags(e.target.value) })}
+                  style={sc.input}
+                  placeholder={form.artistId
+                    ? `Ex: Scout ${form.artistName} — Europa 2026`
+                    : 'Ex: Residências performance Europa'
+                  }
+                  value={form.name}
+                  onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
                 />
-              </label>
+              </div>
 
-              <label style={styles.label}>
-                Disciplinas
-                <input
-                  style={styles.input}
-                  placeholder="performance, musica, danca"
-                  value={joinTags(editing.disciplines)}
-                  onChange={e => setEditing({ ...editing, disciplines: splitTags(e.target.value) })}
+              <div style={{ marginBottom: 14 }}>
+                <label style={sc.label}>
+                  Frase de busca *
+                  {form.autoFilled && (
+                    <span style={sc.autoLabel}>✨ auto-preenchida</span>
+                  )}
+                </label>
+                <textarea
+                  style={sc.textarea}
+                  placeholder="Ex: open call residência artística performance artistas afrodescendentes Europa 2026"
+                  value={form.query}
+                  onChange={e => setForm(prev => ({ ...prev, query: e.target.value, autoFilled: false }))}
+                  rows={3}
                 />
-              </label>
+              </div>
 
-              <label style={styles.label}>
-                Idiomas
-                <input
-                  style={styles.input}
-                  placeholder="PT, ES, EN"
-                  value={joinTags(editing.languages)}
-                  onChange={e => setEditing({ ...editing, languages: splitTags(e.target.value) })}
-                />
-              </label>
+              <div style={sc.row3}>
+                <div>
+                  <label style={sc.label}>
+                    Países preferidos
+                    {form.autoFilled && form.countries && (
+                      <span style={sc.autoLabel}>✨ auto</span>
+                    )}
+                  </label>
+                  <input
+                    style={sc.input}
+                    placeholder="Portugal, Espanha, França"
+                    value={form.countries}
+                    onChange={e => setForm(prev => ({ ...prev, countries: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label style={sc.label}>
+                    Disciplinas
+                    {form.autoFilled && form.disciplines && (
+                      <span style={sc.autoLabel}>✨ auto</span>
+                    )}
+                  </label>
+                  <input
+                    style={sc.input}
+                    placeholder="performance, música, dança"
+                    value={form.disciplines}
+                    onChange={e => setForm(prev => ({ ...prev, disciplines: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label style={sc.label}>
+                    Idiomas
+                    {form.autoFilled && form.languages && (
+                      <span style={sc.autoLabel}>✨ auto</span>
+                    )}
+                  </label>
+                  <input
+                    style={sc.input}
+                    placeholder="PT, ES, EN"
+                    value={form.languages}
+                    onChange={e => setForm(prev => ({ ...prev, languages: e.target.value }))}
+                  />
+                </div>
+              </div>
 
-              <label style={styles.label}>
-                Máximo de resultados
+              <div style={{ maxWidth: 200 }}>
+                <label style={sc.label}>Máximo de resultados</label>
                 <input
-                  style={styles.input}
+                  style={sc.input}
                   type="number"
-                  min={3}
-                  max={15}
-                  value={editing.limit}
-                  onChange={e => setEditing({ ...editing, limit: Number(e.target.value) })}
+                  min={1}
+                  max={20}
+                  value={form.maxResults}
+                  onChange={e => setForm(prev => ({ ...prev, maxResults: Number(e.target.value) }))}
                 />
-              </label>
+              </div>
             </div>
 
-            <div style={styles.modalFooter}>
-              <button style={styles.secondaryBtn} onClick={() => setEditing(null)}>
-                Cancelar
-              </button>
-
-              <button style={styles.primaryBtn} onClick={saveSearch}>
-                Guardar busca
+            {/* MODAL FOOTER */}
+            <div style={sc.modalFooter}>
+              <button style={sc.cancelBtn} onClick={() => setShowModal(false)}>Cancelar</button>
+              <button style={sc.primaryBtn} onClick={handleSave}>
+                💾 Guardar busca
               </button>
             </div>
           </div>
         </div>
       )}
-    </section>
+    </div>
   )
 }
 
-const styles: Record<string, CSSProperties> = {
-  box: {
-    background: '#050505',
-    border: '1px solid rgba(26,105,148,0.45)',
-    borderRadius: 14,
-    padding: 20,
-    marginBottom: 24,
-    color: '#fff',
-  },
+// ─── Styles ───────────────────────────────────────────────
+
+const sc: Record<string, React.CSSProperties> = {
+  wrap: { marginBottom: 16 },
+
   header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: 16,
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  title: {
-    margin: 0,
-    color: '#60b4e8',
-    fontSize: 22,
-  },
-  subtitle: {
-    margin: '6px 0 0',
-    color: 'rgba(255,255,255,0.55)',
-    fontSize: 13,
-  },
-  empty: {
-    border: '1px dashed rgba(255,255,255,0.16)',
-    borderRadius: 12,
-    padding: 18,
-    color: 'rgba(255,255,255,0.55)',
-    fontSize: 13,
-  },
-  toolbar: {
-    display: 'flex',
-    gap: 10,
-    flexWrap: 'wrap',
-    alignItems: 'center',
+    display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
     marginBottom: 12,
   },
-  select: {
-    background: '#0a0a0a',
-    color: '#fff',
-    border: '1px solid rgba(255,255,255,0.14)',
-    borderRadius: 8,
-    padding: '10px 12px',
-    minWidth: 260,
-    fontSize: 13,
+  title: { margin: 0, fontSize: 16, color: '#60b4e8' },
+  subtitle: { margin: '4px 0 0', color: 'rgba(255,255,255,0.45)', fontSize: 12 },
+
+  searchList: { display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 },
+  searchCard: {
+    background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: 10, padding: 14,
   },
-  input: {
-    width: '100%',
-    background: '#0a0a0a',
-    color: '#fff',
-    border: '1px solid rgba(255,255,255,0.14)',
-    borderRadius: 8,
-    padding: '10px 12px',
-    fontSize: 13,
-    boxSizing: 'border-box',
-    outline: 'none',
+  searchCardTop: { display: 'flex', gap: 12, alignItems: 'flex-start' },
+  searchName: { fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 4 },
+  searchArtistTag: {
+    fontSize: 11, color: '#60b4e8',
+    background: 'rgba(26,105,148,0.15)', border: '1px solid rgba(26,105,148,0.25)',
+    borderRadius: 6, padding: '2px 8px', display: 'inline-block', marginBottom: 6,
   },
-  textarea: {
-    width: '100%',
-    minHeight: 100,
-    background: '#0a0a0a',
-    color: '#fff',
-    border: '1px solid rgba(255,255,255,0.14)',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 13,
-    boxSizing: 'border-box',
-    outline: 'none',
-    resize: 'vertical',
+  searchQuery: { fontSize: 12, color: 'rgba(255,255,255,0.5)', fontStyle: 'italic', marginBottom: 8 },
+  searchMeta: { display: 'flex', gap: 6, flexWrap: 'wrap' },
+  metaTag: {
+    fontSize: 10, color: 'rgba(255,255,255,0.45)',
+    background: 'rgba(255,255,255,0.05)', borderRadius: 4, padding: '2px 6px',
   },
-  primaryBtn: {
-    background: '#1A6994',
-    color: '#fff',
-    border: 'none',
-    borderRadius: 8,
-    padding: '10px 14px',
-    fontSize: 13,
-    fontWeight: 800,
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
+  searchActions: { display: 'flex', gap: 6, flexShrink: 0 },
+  runBtn: {
+    background: '#1A6994', color: '#fff', border: 'none',
+    borderRadius: 6, padding: '7px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
   },
-  secondaryBtn: {
-    background: 'rgba(255,255,255,0.06)',
-    color: '#fff',
-    border: '1px solid rgba(255,255,255,0.12)',
-    borderRadius: 8,
-    padding: '10px 14px',
-    fontSize: 13,
-    cursor: 'pointer',
+  deleteBtn: {
+    background: 'rgba(255,70,70,0.1)', color: '#ff8a8a',
+    border: '1px solid rgba(255,70,70,0.2)', borderRadius: 6,
+    padding: '7px 10px', fontSize: 12, cursor: 'pointer',
   },
-  dangerBtn: {
-    background: 'rgba(255,70,70,0.12)',
-    color: '#ff8a8a',
-    border: '1px solid rgba(255,70,70,0.25)',
-    borderRadius: 8,
-    padding: '10px 14px',
-    fontSize: 13,
-    cursor: 'pointer',
-  },
-  searchInfo: {
-    background: '#000',
-    border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: 10,
-    padding: 12,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 4,
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 12,
-  },
-  error: {
-    marginTop: 12,
-    color: '#ff8a8a',
-    background: 'rgba(255,70,70,0.10)',
-    border: '1px solid rgba(255,70,70,0.25)',
-    padding: 10,
-    borderRadius: 8,
-    fontSize: 13,
-    whiteSpace: 'pre-wrap',
-  },
-  results: {
-    marginTop: 18,
-  },
-  resultsTitle: {
-    margin: '0 0 12px',
-    fontSize: 18,
-  },
-  card: {
-    background: '#111',
-    border: '1px solid rgba(255,255,255,0.09)',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  cardTop: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: 10,
-    marginBottom: 10,
-  },
-  badge: {
-    background: 'rgba(26,105,148,0.24)',
-    color: '#60b4e8',
-    borderRadius: 20,
-    padding: '3px 9px',
-    fontSize: 11,
-    fontWeight: 800,
-  },
-  deadline: {
-    color: '#ffcf5c',
-    fontSize: 12,
-    fontWeight: 700,
-  },
-  cardTitle: {
-    margin: 0,
-    fontSize: 17,
-  },
-  meta: {
-    color: 'rgba(255,255,255,0.45)',
-    fontSize: 12,
-  },
-  summary: {
-    color: 'rgba(255,255,255,0.62)',
-    fontSize: 13,
-    lineHeight: 1.45,
-  },
-  tags: {
-    display: 'flex',
-    gap: 6,
-    flexWrap: 'wrap',
-    marginTop: 10,
-  },
-  tag: {
-    fontSize: 11,
-    background: 'rgba(255,255,255,0.06)',
-    color: 'rgba(255,255,255,0.65)',
-    padding: '2px 8px',
-    borderRadius: 20,
-  },
-  costTag: {
-    fontSize: 11,
-    background: 'rgba(110,243,165,0.12)',
-    color: '#6ef3a5',
-    padding: '2px 8px',
-    borderRadius: 20,
-  },
-  cardActions: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: 8,
-    flexWrap: 'wrap',
-    marginTop: 14,
-  },
-  link: {
-    color: '#60b4e8',
-    textDecoration: 'none',
-    fontSize: 13,
-    alignSelf: 'center',
-  },
+  lastRun: { fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 8 },
+
+  // Modal
   overlay: {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(0,0,0,0.82)',
-    zIndex: 500,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
+    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+    zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
   },
   modal: {
-    width: 'min(900px, 100%)',
-    maxHeight: '92vh',
-    overflowY: 'auto',
-    background: '#000',
-    border: '1px solid #1A6994',
-    borderRadius: 16,
-    padding: 22,
+    width: 'min(780px, 100%)', maxHeight: '92vh', overflowY: 'auto',
+    background: '#000', border: '1px solid #1A6994', borderRadius: 16, padding: 24,
   },
   modalHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: 16,
-    marginBottom: 18,
+    display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 20,
+    paddingBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.08)',
   },
-  modalTitle: {
-    margin: 0,
-    color: '#60b4e8',
-    fontSize: 24,
+  modalTitle: { margin: 0, color: '#60b4e8', fontSize: 22 },
+  modalSubtitle: { margin: '6px 0 0', color: 'rgba(255,255,255,0.45)', fontSize: 13 },
+  closeBtn: {
+    background: 'rgba(255,255,255,0.06)', color: '#fff',
+    border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8,
+    padding: '8px 14px', fontSize: 13, cursor: 'pointer', flexShrink: 0,
   },
-  modalSubtitle: {
-    margin: '4px 0 0',
-    color: 'rgba(255,255,255,0.45)',
-    fontSize: 12,
+
+  sectionBlock: {
+    background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.07)',
+    borderRadius: 10, padding: 18, marginBottom: 14,
   },
+  sectionLabel: {
+    fontSize: 12, color: '#60b4e8', letterSpacing: '0.08em',
+    textTransform: 'uppercase', fontWeight: 700, marginBottom: 14,
+    display: 'flex', alignItems: 'center', gap: 8,
+  },
+  sectionHint: {
+    fontSize: 10, color: 'rgba(255,255,255,0.35)',
+    letterSpacing: '0.02em', textTransform: 'none', fontWeight: 400,
+  },
+
+  row2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 },
+  row3: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 },
+
   label: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 6,
-    color: 'rgba(255,255,255,0.55)',
-    fontSize: 12,
-    marginBottom: 12,
+    display: 'flex', alignItems: 'center', gap: 6,
+    fontSize: 11, color: 'rgba(255,255,255,0.5)',
+    letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6,
   },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-    gap: 12,
+  autoLabel: {
+    fontSize: 10, color: '#ffcf5c',
+    background: 'rgba(255,207,92,0.1)', borderRadius: 4, padding: '1px 5px',
+    textTransform: 'none', letterSpacing: 0,
   },
+
+  input: {
+    width: '100%', background: '#111', color: '#fff',
+    border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8,
+    padding: '10px 12px', fontSize: 13, outline: 'none', boxSizing: 'border-box',
+  },
+  select: {
+    width: '100%', background: '#111', color: '#fff',
+    border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8,
+    padding: '10px 12px', fontSize: 13, outline: 'none', boxSizing: 'border-box',
+    cursor: 'pointer',
+  },
+  textarea: {
+    width: '100%', background: '#111', color: '#fff',
+    border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8,
+    padding: '10px 12px', fontSize: 13, outline: 'none',
+    resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box',
+  },
+
+  // Auto-fill preview
+  autoFillPreview: {
+    marginTop: 12, padding: 12,
+    background: 'rgba(26,105,148,0.06)',
+    border: '1px solid rgba(26,105,148,0.2)',
+    borderRadius: 8,
+  },
+  autoFillHeader: {
+    fontSize: 11, color: '#60b4e8', marginBottom: 10,
+    letterSpacing: '0.04em',
+  },
+  autoFillGrid: { display: 'flex', flexDirection: 'column', gap: 8 },
+  autoFillLabel: {
+    display: 'block', fontSize: 10,
+    color: 'rgba(255,255,255,0.4)', marginBottom: 4,
+    textTransform: 'uppercase', letterSpacing: '0.06em',
+  },
+  autoFillTags: { display: 'flex', flexWrap: 'wrap', gap: 5 },
+  autoFillTag: {
+    fontSize: 11, padding: '2px 8px', borderRadius: 12,
+    background: 'rgba(26,105,148,0.15)',
+    border: '1px solid rgba(26,105,148,0.3)',
+    color: '#60b4e8',
+  },
+
   modalFooter: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: 10,
-    marginTop: 16,
+    display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20,
+    paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.08)',
+  },
+  cancelBtn: {
+    background: 'rgba(255,255,255,0.06)', color: '#fff',
+    border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8,
+    padding: '10px 16px', fontSize: 13, cursor: 'pointer',
+  },
+  primaryBtn: {
+    background: '#1A6994', color: '#fff', border: 'none',
+    borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 800, cursor: 'pointer',
   },
 }
