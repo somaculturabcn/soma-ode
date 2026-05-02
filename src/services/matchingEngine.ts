@@ -461,3 +461,175 @@ ${matches.slice(0, 3).map((m, i) =>
   ).join('\n')}
   `.trim()
 }
+// ═══ MATCHING POR PROJETO ═══
+
+import type { ProjectForScout, ProjectMatchContext, ScoutRequest } from '../types/opportunity'
+
+/**
+ * Extrai do projeto os dados relevantes para o matching,
+ * "sobrescrevendo" temporariamente os campos do artista
+ */
+export function buildProjectContext(
+  artist: Artist,
+  project: ProjectForScout,
+): ProjectMatchContext {
+  // Disciplinas: usa as do artista, mas o formato do projeto refina
+  const disciplinas = artist.disciplines || []
+  
+  // Se o projeto tem formato específico, adiciona como disciplina extra
+  if (project.projectFormat && !disciplinas.includes(project.projectFormat.toLowerCase())) {
+    disciplinas.push(project.projectFormat.toLowerCase())
+  }
+
+  // Territórios do projeto
+  const territorios = project.projectTerritories
+    ? project.projectTerritories
+        .split(/[,;/]/)
+        .map(t => t.trim())
+        .filter(Boolean)
+    : []
+
+  // Tamanho do grupo baseado no formato do projeto
+  const tamanhoGrupo = inferGroupSize(project.format || project.projectFormat || '')
+
+  // Keywords combinadas: artista + projeto
+  const keywords = [
+    ...(artist.keywords || []),
+    ...(artist.themes || []),
+    ...(project.projectKeywords || []),
+  ]
+
+  // Cache mínimo: usar o do artista como base
+  const cacheMinimo = artist.minFee || undefined
+
+  return {
+    disciplinas,
+    formato: project.format || project.projectFormat || '',
+    territorios,
+    keywords,
+    publicoAlvo: project.projectTargetAudience || '',
+    tamanhoGrupo,
+    cacheMinimo,
+    idioma: project.language || '',
+    necessidadesTecnicas: project.technicalNeeds || '',
+  }
+}
+
+/**
+ * Infere o tamanho do grupo a partir do formato do projeto
+ */
+function inferGroupSize(format: string): number {
+  const f = norm(format)
+  if (/\bsolo\b/.test(f)) return 1
+  if (/\bduo\b/.test(f)) return 2
+  if (/\btrio\b/.test(f)) return 3
+  if (/\bquart[eé]to\b/.test(f)) return 4
+  if (/\bbanda\b/.test(f)) return 4
+  if (/\bcoletivo\b/.test(f)) return 5
+  if (/\bgrande\s+formato\b/.test(f)) return 8
+  // DJ set, performance solo
+  if (/\bdj\b/.test(f)) return 1
+  if (/\bperformance\b/.test(f) && /\bsolo\b/.test(f)) return 1
+  return 2 // default: duo
+}
+
+/**
+ * Cria um "artist virtual" temporário para o matching,
+ * combinando dados do artista real + contexto do projeto
+ */
+export function createProjectArtist(
+  artist: Artist,
+  ctx: ProjectMatchContext,
+): Artist {
+  return {
+    ...artist,
+    // Sobrescreve com dados do projeto
+    disciplines: ctx.disciplinas,
+    keywords: ctx.keywords,
+    targetCountries: ctx.territorios.length > 0 
+      ? ctx.territorios 
+      : artist.targetCountries,
+    minFee: ctx.cacheMinimo ?? artist.minFee,
+    // Adiciona keywords do projeto ao vocabulário cartográfico
+    cartografia: {
+      ...(artist.cartografia || {}),
+      raiz: {
+        ...(artist.cartografia?.raiz || {}),
+        vocabulario: [
+          ...(artist.cartografia?.raiz?.vocabulario || []),
+          ...ctx.keywords,
+        ],
+      },
+    },
+  } as Artist
+}
+
+/**
+ * Versão do runMatch que aceita ScoutRequest (artista ou projeto)
+ */
+export function runMatchWithTarget(
+  artist: Artist | null,
+  projects: ProjectForScout[],
+  opportunities: Opportunity[],
+  request: ScoutRequest,
+  options?: { hideBlocked?: boolean },
+): ScoredOpportunity[] {
+  if (!artist) return []
+
+  let targetArtist: Artist
+
+  if (request.target.type === 'artist') {
+    // Matching tradicional (artista completo)
+    targetArtist = artist
+  } else {
+    // Matching por projeto específico
+    const project = projects.find(p => p.id === request.target.projectId)
+    if (!project) {
+      console.warn(`Projeto ${request.target.projectId} não encontrado`)
+      return []
+    }
+    const ctx = buildProjectContext(artist, project)
+    targetArtist = createProjectArtist(artist, ctx)
+  }
+
+  // Aplicar filtros adicionais do ScoutRequest
+  let filtered = opportunities
+
+  if (request.filtros?.paises?.length) {
+    const paises = request.filtros.paises.map(p => p.toUpperCase())
+    filtered = filtered.filter(o => 
+      paises.includes(norm(o.country).toUpperCase())
+    )
+  }
+
+  if (request.filtros?.disciplinas?.length) {
+    const disciplinas = request.filtros.disciplinas.map(norm)
+    filtered = filtered.filter(o =>
+      o.disciplines?.some(d => disciplinas.includes(norm(d)))
+    )
+  }
+
+  if (request.filtros?.cacheMin) {
+    filtered = filtered.filter(o =>
+      (o.feeOffered || 0) >= (request.filtros?.cacheMin || 0)
+    )
+  }
+
+  if (request.filtros?.prazoMaximo) {
+    const prazoMax = new Date(request.filtros.prazoMaximo)
+    filtered = filtered.filter(o => {
+      if (!o.deadline) return true
+      return new Date(o.deadline) <= prazoMax
+    })
+  }
+
+  // Rodar matching com o artista (real ou virtual)
+  const scored = runMatch(targetArtist, filtered, options)
+
+  // Filtrar por score mínimo
+  if (request.scoreMinimo) {
+    return scored.filter(s => s.match.percentage >= request.scoreMinimo)
+  }
+
+  return scored
+}

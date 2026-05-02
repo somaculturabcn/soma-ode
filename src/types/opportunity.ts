@@ -115,3 +115,49 @@ export interface MatchResult {
 export interface ScoredOpportunity extends Opportunity {
   match: MatchResult
 }
+// ═══ TIPOS PARA SCOUT POR PROJETO ═══
+
+export type ScoutTarget = 
+  | { type: 'artist'; artistId: string }
+  | { type: 'project'; artistId: string; projectId: string }
+
+export interface ScoutRequest {
+  target: ScoutTarget
+  filtros?: {
+    paises?: string[]
+    disciplinas?: string[]
+    formato?: string
+    cacheMin?: number
+    prazoMaximo?: string // YYYY-MM-DD
+  }
+  scoreMinimo?: number
+}
+
+export interface ProjectForScout {
+  id: string
+  name: string
+  format: string
+  duration: string
+  language: string
+  summary: string
+  technicalNeeds: string
+  projectTargetAudience: string
+  projectTerritories: string
+  projectKeywords: string[]
+  projectFormat: string
+  hasCirculated: boolean
+  circulationHistory: string
+}
+
+export interface ProjectMatchContext {
+  // O que o projeto "empresta" ao artista para o matching
+  disciplinas: string[]
+  formato: string
+  territorios: string[]     // países/cidades extraídos do projectTerritories
+  keywords: string[]
+  publicoAlvo: string
+  tamanhoGrupo: number
+  cacheMinimo?: number
+  idioma: string
+  necessidadesTecnicas: string
+}
