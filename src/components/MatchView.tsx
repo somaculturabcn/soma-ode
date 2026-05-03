@@ -1,15 +1,15 @@
 // src/components/MatchView.tsx
-// SOMA ODÉ — Oportunidades com Google Search Grounding
-// Scout executa:
-//   1. BASE: filtra oportunidades registadas com score >= 45
-//   2. WEB: Gemini + Google Search em tempo real → editais reais actuais
+// SOMA ODÉ — Oportunidades com Google Search Grounding + botão "Análise SOMA"
+// Botão "Análise SOMA" → Gemini analisa encaixe projecto × oportunidade em profundidade
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ScoutUrlExtractor from './ScoutUrlExtractor'
 import ScoutSavedSearches from './ScoutSavedSearches'
 import ProposeOpportunityButton from './ProposeOpportunityButton'
+import SomaAnalysisModal, { type OpportunityForAnalysis, type ArtistForAnalysis } from './SomaAnalysisModal'
 import { mockOpportunities } from '../data/mockOpportunities'
 import { realOpportunities } from '../data/realOpportunities'
+import { loadArtistsFromSupabase } from '../data/artistsSupabaseStore'
 
 // ─── Helper ───────────────────────────────────────────────
 function safeArr(val: any): string[] {
@@ -65,6 +65,8 @@ type SavedSearch = {
   artistName?: string
   projectId?: string
   projectName?: string
+  opportunityType?: string
+  selectedCountries?: string[]
 }
 
 const STORAGE_KEY = 'soma-manual-opportunities-v1'
@@ -121,7 +123,7 @@ function deadlineLabel(deadline?: string) {
   return deadline ?? ''
 }
 
-// ─── Scoring por projecto ─────────────────────────────────
+// ─── Scoring ──────────────────────────────────────────────
 
 function scoreOpportunity(op: Opportunity, search: SavedSearch): { score: number; reasons: string[] } {
   const reasons: string[] = []
@@ -131,7 +133,6 @@ function scoreOpportunity(op: Opportunity, search: SavedSearch): { score: number
   const opDiscs = safeArr(op.disciplines).map(d => cleanText(d))
   const opText = cleanText([op.title, op.summary, op.description, ...safeArr(op.keywords)].join(' '))
 
-  // Disciplinas — peso principal
   if (searchDiscs.length > 0 && opDiscs.length > 0) {
     const matches = searchDiscs.filter(sd => opDiscs.some(od => od.includes(sd) || sd.includes(od) || opText.includes(sd)))
     if (matches.length > 0) {
@@ -142,16 +143,14 @@ function scoreOpportunity(op: Opportunity, search: SavedSearch): { score: number
     }
   }
 
-  // Keywords do projecto
   const queryWords = cleanText(search.query).split(/\s+/)
-    .filter(w => w.length > 4 && !['para', 'como', 'open', 'call', 'residencia', 'festival', 'artes', 'musica'].includes(w))
+    .filter(w => w.length > 4 && !['para', 'como', 'open', 'call', 'residencia', 'festival', 'artes'].includes(w))
   const kwMatches = queryWords.filter(w => opText.includes(w))
   if (kwMatches.length > 0) {
     score += Math.min(30, kwMatches.length * 8)
     reasons.push(`${kwMatches.length} palavras-chave`)
   }
 
-  // País
   if (search.countries) {
     const searchCountries = search.countries.split(',').map(c => cleanText(c.trim())).filter(c => c.length > 2 && !c.includes('→'))
     const opCountry = cleanText(op.countryName || op.country || '')
@@ -162,38 +161,47 @@ function scoreOpportunity(op: Opportunity, search: SavedSearch): { score: number
   }
 
   if (op.coversCosts) { score += 10; reasons.push('Cobre custos') }
-
   const dias = daysLeft(op.deadline)
   if (dias !== null && dias < 0) score -= 15
 
   return { score: Math.max(0, Math.min(100, score)), reasons }
 }
 
-// ─── Busca Gemini com Google Search Grounding ─────────────
+// ─── Gemini web search ────────────────────────────────────
 
 function buildCleanQuery(search: SavedSearch): string {
+  const opType = search.opportunityType || 'residencia'
+  const typeMap: Record<string, string> = {
+    residencia: 'residencia artística artist residency',
+    open_call: 'open call convocatoria artística',
+    festival: 'festival artes performativas',
+    premio: 'beca premio artístico grant',
+    mobilidade: 'movilidad artística programa movilidad',
+    financiamento: 'financiación cultural apoyo creación',
+  }
+  const typeKeyword = typeMap[opType] || opType
+
+  const countries = (search.selectedCountries || search.countries.split(','))
+    .map((c: string) => c.trim())
+    .filter(c => c.length <= 3) // códigos ISO
+    .slice(0, 5)
+    .join(' ')
+
   const disciplines = safeArr(search.disciplines)
     .map(d => d.replace(/^[^\s]+ /, '').toLowerCase())
     .filter((d, i, arr) => arr.indexOf(d) === i)
     .slice(0, 3)
     .join(' ')
 
-  const countries = search.countries
-    .split(',')
-    .map(c => c.trim())
-    .filter(c => !c.includes('→') && c.length > 2)
-    .slice(0, 3)
-    .join(' ')
-
   const year = new Date().getFullYear()
-  return `open call edital residência artística ${disciplines} ${countries} ${year} ${year + 1}`
+  return `${typeKeyword} ${disciplines} afrodiaspórico queer ${countries} ${year}`.trim()
 }
 
 async function searchWebWithGemini(search: SavedSearch): Promise<{ results: Opportunity[]; note: string }> {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY
   if (!apiKey) throw new Error('VITE_GEMINI_API_KEY não configurada')
 
-  const cleanQuery = buildCleanQuery(search)
+  const query = buildCleanQuery(search)
   const year = new Date().getFullYear()
 
   const disciplines = safeArr(search.disciplines)
@@ -201,26 +209,34 @@ async function searchWebWithGemini(search: SavedSearch): Promise<{ results: Oppo
     .filter((d, i, arr) => arr.indexOf(d) === i)
     .slice(0, 4).join(', ')
 
-  const countries = search.countries.split(',')
-    .filter(c => !c.includes('→') && c.trim().length > 2)
-    .slice(0, 5).join(', ')
+  const countries = (search.selectedCountries || search.countries.split(','))
+    .map((c: string) => c.trim()).filter(c => c.length > 1).slice(0, 8).join(', ')
 
-  const prompt = `Pesquisa na web oportunidades culturais REAIS e ABERTAS (${year}-${year + 1}) para:
+  const opTypeLabel = {
+    residencia: 'residências artísticas',
+    open_call: 'open calls e editais',
+    festival: 'festivais',
+    premio: 'prémios e bolsas',
+    mobilidade: 'programas de mobilidade',
+    financiamento: 'financiamentos culturais',
+  }[search.opportunityType || 'residencia'] || 'oportunidades culturais'
+
+  const prompt = `Pesquisa ${opTypeLabel} REAIS e ABERTAS (${year}-${year + 1}) para este perfil:
 
 ARTISTA: ${search.artistName || 'Artista da diáspora afro-lusófona'}
-PROJECTO: ${search.projectName || 'Não especificado'}
-DISCIPLINAS: ${disciplines}
-PAÍSES: ${countries || 'Europa, Brasil'}
+PROJECTO: ${search.projectName || 'Investigação artística'}
+TIPO PROCURADO: ${opTypeLabel}
+DISCIPLINAS DO PROJECTO: ${disciplines || 'performance, instalação, investigação artística'}
+PAÍSES PRIORITÁRIOS: ${countries || 'Europa'}
 IDIOMAS: ${search.languages || 'PT, EN, ES'}
 
-Busca especificamente: "${cleanQuery}"
+Busca específica: "${query}"
 
-Encontra ${Math.min(search.maxResults || 8, 10)} oportunidades com candidaturas ABERTAS agora.
-Prioridade: residências artísticas, open calls, editais com custos cobertos.
-IMPORTANTE: Só inclui oportunidades com links reais e verificáveis.
-NÃO inventar — só resultados reais encontrados na pesquisa.
+Encontra ${Math.min(search.maxResults || 8, 10)} ${opTypeLabel} REAIS, com candidaturas abertas ou com ciclo anual recorrente.
+Prioridade: custos cobertos, reconhecimento europeu, afinidade com práticas afrodiaspóricas e queer.
+NÃO inventar — só resultados reais com links verificáveis.
 
-Responde com JSON:
+Responde APENAS com JSON:
 {
   "opportunities": [
     {
@@ -229,124 +245,81 @@ Responde com JSON:
       "country": "país em português",
       "countryCode": "código ISO 2 letras",
       "city": "cidade",
-      "type": "Residência|Open Call|Edital|Festival|Prémio",
+      "type": "${search.opportunityType || 'residencia'}",
       "deadline": "YYYY-MM-DD ou null",
       "coversCosts": true,
-      "summary": "2-3 frases em português",
-      "link": "URL oficial",
-      "disciplines": ["disciplina1"],
-      "keywords": ["keyword1", "keyword2"]
+      "summary": "2-3 frases em português sobre o que é, para quem serve e o que oferece",
+      "link": "URL oficial directa",
+      "disciplines": ["performance", "instalação"],
+      "keywords": ["afrodiaspórico", "investigação", "comunidade"]
     }
   ]
 }`
 
-  // ✅ CORRIGIDO: modelo actualizado para gemini-2.5-flash
-  const model = 'gemini-2.5-flash'
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
-
-  // ✅ Google Search Grounding activado
-  const body = {
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    tools: [{ googleSearch: {} }],
-    generationConfig: { temperature: 0.2, maxOutputTokens: 4096 },
-  }
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        tools: [{ googleSearch: {} }],
+        generationConfig: { temperature: 0.2, maxOutputTokens: 4096 },
+      }),
+    }
+  )
 
   if (!res.ok) {
-    const err = await res.json()
-    // Fallback sem googleSearch se billing não activo
-    if (err?.error?.code === 429 || err?.error?.code === 403) {
-      console.warn('[MatchView] Google Search não disponível, usando conhecimento interno...')
-      return searchWithoutGrounding(search, prompt)
-    }
-    throw new Error(`Gemini error ${res.status}: ${JSON.stringify(err).substring(0, 200)}`)
+    // fallback sem googleSearch
+    const res2 = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.3, maxOutputTokens: 4096 },
+        }),
+      }
+    )
+    if (!res2.ok) throw new Error('Gemini não disponível')
+    const d2 = await res2.json()
+    return { results: parseGemini(d2), note: `Gemini (conhecimento interno) · ${opTypeLabel}` }
   }
 
   const data = await res.json()
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
-
-  if (!text || text.length < 50) {
-    console.warn('[MatchView] Resposta vazia com grounding, usando fallback...')
-    return searchWithoutGrounding(search, prompt)
-  }
-
-  const results = parseGeminiResponse(text)
+  const results = parseGemini(data)
   const hasGrounding = !!data.candidates?.[0]?.groundingMetadata?.webSearchQueries
-
   return {
     results,
-    note: `${results.length} oportunidades encontradas${hasGrounding ? ' via Google Search' : ' via Gemini'} para: ${disciplines}`,
+    note: `${results.length} ${opTypeLabel} encontradas${hasGrounding ? ' via Google Search' : ''} · ${disciplines}`,
   }
 }
 
-async function searchWithoutGrounding(search: SavedSearch, prompt: string): Promise<{ results: Opportunity[]; note: string }> {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY
-  // ✅ CORRIGIDO: modelo actualizado para gemini-2.5-flash
-  const model = 'gemini-2.5-flash'
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.3, maxOutputTokens: 4096 },
-    }),
-  })
-
-  if (!res.ok) throw new Error('Gemini fallback também falhou')
-
-  const data = await res.json()
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
-  const results = parseGeminiResponse(text)
-
-  const disciplines = safeArr(search.disciplines).map(d => d.replace(/^[^\s]+ /, '')).slice(0, 3).join(', ')
-  return { results, note: `${results.length} sugestões Gemini (conhecimento interno) para: ${disciplines}` }
-}
-
-function parseGeminiResponse(text: string): Opportunity[] {
+function parseGemini(data: any): Opportunity[] {
   try {
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
     const clean = text.replace(/```json/gi, '').replace(/```/g, '').trim()
     const jsonMatch = clean.match(/\{[\s\S]*\}/)
     if (!jsonMatch) return []
-
     const parsed = JSON.parse(jsonMatch[0])
-    const opps = parsed.opportunities || []
-
-    return opps
+    return (parsed.opportunities || [])
       .filter((op: any) => op.title && (op.link || op.organization))
       .map((op: any) => ({
         id: crypto.randomUUID(),
-        title: op.title,
-        organization: op.organization || '',
+        title: op.title, organization: op.organization || '',
         type: op.type || 'Edital',
         country: op.countryCode || op.country || '',
-        countryName: op.country || '',
-        countryCode: op.countryCode || '',
-        city: op.city || '',
-        disciplines: safeArr(op.disciplines),
-        languages: [],
-        keywords: safeArr(op.keywords),
-        deadline: op.deadline || '',
-        summary: op.summary || '',
-        description: op.summary || '',
-        link: op.link || '',
-        coversCosts: Boolean(op.coversCosts),
-        status: 'open',
-        source: 'gemini_web',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        countryName: op.country || '', countryCode: op.countryCode || '',
+        city: op.city || '', disciplines: safeArr(op.disciplines),
+        keywords: safeArr(op.keywords), deadline: op.deadline || '',
+        summary: op.summary || '', description: op.summary || '',
+        link: op.link || '', coversCosts: Boolean(op.coversCosts),
+        status: 'open', source: 'gemini_web',
+        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
         _fromWeb: true,
       }))
-  } catch (err) {
-    console.error('[MatchView] Erro ao parsear Gemini:', err)
-    return []
-  }
+  } catch { return [] }
 }
 
 function parseCsv(text: string): Opportunity[] {
@@ -391,6 +364,11 @@ export default function MatchView() {
   const [webError, setWebError] = useState('')
   const [webNote, setWebNote] = useState('')
 
+  // Análise SOMA
+  const [analysisOp, setAnalysisOp] = useState<Opportunity | null>(null)
+  const [analysisArtist, setAnalysisArtist] = useState<ArtistForAnalysis | null>(null)
+  const [loadingArtistData, setLoadingArtistData] = useState(false)
+
   useEffect(() => {
     setManual(getManualOpportunities())
     setArtists(getArtists())
@@ -421,6 +399,60 @@ export default function MatchView() {
     })
   }, [manual])
 
+  // ─── Análise SOMA ─────────────────────────────────────
+
+  async function openAnalysis(op: Opportunity) {
+    setAnalysisOp(op)
+
+    // Se há scout activo com artista, carrega os dados do artista
+    if (activeScout?.artistId) {
+      setLoadingArtistData(true)
+      try {
+        const allArtists = await loadArtistsFromSupabase()
+        const artist = allArtists.find((a: any) => a.id === activeScout.artistId)
+        if (artist) {
+          // Encontra o projecto activo
+          const projects = (artist as any).projects || []
+          const project = projects.find((p: any) => p.id === activeScout.projectId) || projects[0]
+
+          setAnalysisArtist({
+            name: artist.name || artist.artisticName || 'Artista',
+            bio: artist.bio,
+            origin: artist.origin,
+            base: artist.base,
+            disciplines: safeArr(artist.disciplines),
+            languages: safeArr(artist.languages),
+            keywords: safeArr(artist.keywords),
+            themes: safeArr(artist.themes),
+            cartografia: artist.cartografia,
+            project: project ? {
+              name: project.name,
+              format: project.projectFormat || project.format,
+              summary: project.summary,
+              keywords: safeArr(project.projectKeywords),
+              territories: project.projectTerritories,
+              targetAudience: project.projectTargetAudience,
+            } : undefined,
+          })
+        }
+      } catch (err) {
+        console.error('Erro ao carregar artista:', err)
+        // Fallback sem dados do artista
+        setAnalysisArtist({
+          name: activeScout.artistName || 'Artista',
+          project: { name: activeScout.projectName },
+        })
+      } finally {
+        setLoadingArtistData(false)
+      }
+    } else {
+      // Sem scout activo — análise genérica
+      setAnalysisArtist({ name: 'Artista SOMA' })
+    }
+  }
+
+  // ─── Scout ────────────────────────────────────────────
+
   async function handleScoutExecute(savedSearch: SavedSearch) {
     setActiveScout(savedSearch)
     setSearch(savedSearch.query)
@@ -450,9 +482,7 @@ export default function MatchView() {
     }
   }
 
-  function handleScoutSave(op: Opportunity) {
-    persist([op, ...getManualOpportunities()])
-  }
+  function handleScoutSave(op: Opportunity) { persist([op, ...getManualOpportunities()]) }
 
   function clearScout() {
     setActiveScout(null); setSearch(''); setWebResults([])
@@ -548,6 +578,81 @@ export default function MatchView() {
     a.click(); URL.revokeObjectURL(url)
   }
 
+  // Helper para renderizar cards
+  function renderCard(op: Opportunity, isWeb = false) {
+    const isManual = manual.some(m => m.id === op.id)
+    const urgent = (daysLeft(op.deadline) ?? 999) <= 14 && (daysLeft(op.deadline) ?? -1) >= 0
+    const hasScore = activeScout && op._matchScore !== undefined
+    const scoreColor = (op._matchScore || 0) >= 70 ? '#6ef3a5' : (op._matchScore || 0) >= 50 ? '#ffcf5c' : 'rgba(255,255,255,0.4)'
+
+    return (
+      <article key={op.id} style={{
+        ...st.card,
+        borderColor: isWeb
+          ? 'rgba(96,180,232,0.4)'
+          : hasScore && (op._matchScore || 0) >= 70
+            ? 'rgba(110,243,165,0.35)'
+            : urgent ? 'rgba(255,207,92,0.35)' : 'rgba(255,255,255,0.09)',
+        background: isWeb ? 'rgba(26,105,148,0.05)' : '#111',
+      }}>
+        <div style={st.cardTop}>
+          <span style={{
+            ...st.badge,
+            ...(isWeb ? { background: 'rgba(96,180,232,0.2)', color: '#60b4e8' } : {}),
+          }}>
+            {isWeb ? '🌐 ' : ''}{op.type || 'Edital'}
+          </span>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {hasScore && !isWeb && (
+              <span style={{ fontSize: 12, fontWeight: 700, color: scoreColor }}>{op._matchScore}%</span>
+            )}
+            <span style={{ fontSize: 12, color: urgent ? '#ffcf5c' : 'rgba(255,255,255,0.4)' }}>
+              {deadlineLabel(op.deadline)}
+            </span>
+          </div>
+        </div>
+
+        <h3 style={st.cardTitle}>{op.title}</h3>
+        <p style={st.meta}>{[op.organization, op.city, op.countryName || op.country].filter(Boolean).join(' · ') || 'Sem entidade'}</p>
+
+        {/* Razões do match */}
+        {hasScore && !isWeb && op._matchReasons && op._matchReasons.length > 0 && (
+          <div style={st.reasons}>{op._matchReasons.map((r, i) => <span key={i}>✓ {r}</span>)}</div>
+        )}
+
+        <p style={st.summary}>{op.summary || op.description || 'Sem resumo.'}</p>
+
+        <div style={st.tags}>
+          {safeArr(op.disciplines).slice(0, 3).map(d => <span key={d} style={st.tag}>{d}</span>)}
+          {op.coversCosts && <span style={st.costTag}>custos cobertos</span>}
+          {!activeScout && !isWeb && <span style={st.sourceTag}>{isManual ? 'manual' : 'base'}</span>}
+        </div>
+
+        <div style={st.cardActions}>
+          {op.link && <a href={op.link} target="_blank" rel="noopener noreferrer" style={st.link}>ver edital →</a>}
+
+          {/* ✅ BOTÃO ANÁLISE SOMA */}
+          <button
+            style={st.analysisBtn}
+            onClick={() => openAnalysis(op)}
+            disabled={loadingArtistData}
+            title="Análise profunda Gemini: encaixe, argumentos, alertas e como adaptar o texto"
+          >
+            {loadingArtistData ? '⟳' : '🔬'} Análise SOMA
+          </button>
+
+          {!isWeb && <ProposeOpportunityButton opportunity={op} />}
+          <button style={st.secondaryBtn} onClick={() => { setAssigning(op); setSelectedArtistId(op.assignedArtistId || '') }}>Associar</button>
+          {isWeb
+            ? <button style={st.primaryBtn} onClick={() => saveWebOpportunity(op)}>💾 Guardar</button>
+            : <button style={st.secondaryBtn} onClick={() => duplicateToEdit(op)}>{isManual ? 'Editar' : 'Duplicar'}</button>
+          }
+          {isManual && !isWeb && <button style={st.dangerBtn} onClick={() => deleteOpportunity(op.id)}>✕</button>}
+        </div>
+      </article>
+    )
+  }
+
   // ─── RENDER ──────────────────────────────────────────────
 
   return (
@@ -575,7 +680,7 @@ export default function MatchView() {
       <ScoutUrlExtractor onSave={handleScoutSave} />
       <ScoutSavedSearches onSave={handleScoutCallback} />
 
-      {/* BANNER SCOUT ACTIVO */}
+      {/* BANNER SCOUT */}
       {activeScout && (
         <div style={st.scoutBanner}>
           <div>
@@ -583,18 +688,9 @@ export default function MatchView() {
             <strong> {activeScout.name}</strong>
             {activeScout.artistName && <span style={{ color: '#60b4e8' }}> · {activeScout.artistName}</span>}
             {activeScout.projectName && <span style={{ color: '#ffcf5c' }}> · {activeScout.projectName}</span>}
-            {activeScout.disciplines && (
-              <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginLeft: 8 }}>
-                [{safeArr(activeScout.disciplines.split(',')).map(d => d.replace(/^[^\s]+ /, '')).join(', ')}]
-              </span>
-            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {webLoading && (
-              <span style={{ color: '#60b4e8', fontSize: 12 }}>
-                ⟳ Google Search a pesquisar editais reais...
-              </span>
-            )}
+            {webLoading && <span style={{ color: '#60b4e8', fontSize: 12 }}>⟳ Google Search a pesquisar...</span>}
             {webNote && !webLoading && <span style={{ color: '#6ef3a5', fontSize: 12 }}>✓ {webNote}</span>}
             {webError && !webLoading && <span style={{ color: '#ff8a8a', fontSize: 12 }}>⚠ {webError}</span>}
             <button style={st.clearBtn} onClick={clearScout}>× Limpar</button>
@@ -602,7 +698,7 @@ export default function MatchView() {
         </div>
       )}
 
-      {/* FILTROS normais */}
+      {/* FILTROS */}
       {!activeScout && (
         <section style={st.toolbar}>
           <input style={st.input} placeholder="Pesquisar..." value={search} onChange={e => setSearch(e.target.value)} />
@@ -621,47 +717,19 @@ export default function MatchView() {
         </section>
       )}
 
-      {/* RESULTADOS WEB — Google Search Grounding */}
+      {/* RESULTADOS WEB */}
       {webResults.length > 0 && (
         <section style={{ marginBottom: 28 }}>
           <div style={st.sectionHeader}>
-            <h2 style={st.sectionTitle}>
-              🌐 Google Search encontrou {webResults.length} oportunidades reais
-              <span style={{ color: '#60b4e8', fontSize: 11, marginLeft: 8 }}>
-                para: {safeArr(activeScout?.disciplines?.split(',') || []).map(d => d.replace(/^[^\s]+ /, '')).slice(0, 3).join(', ')}
-              </span>
-            </h2>
+            <h2 style={st.sectionTitle}>🌐 Google Search — {webResults.length} oportunidades encontradas</h2>
           </div>
-          <div style={st.grid}>
-            {webResults.map(op => (
-              <article key={op.id} style={{ ...st.card, borderColor: 'rgba(96,180,232,0.4)', background: 'rgba(26,105,148,0.05)' }}>
-                <div style={st.cardTop}>
-                  <span style={{ ...st.badge, background: 'rgba(96,180,232,0.2)', color: '#60b4e8' }}>🌐 {op.type}</span>
-                  <span style={{ fontSize: 12, color: (daysLeft(op.deadline) ?? 999) <= 30 ? '#ffcf5c' : 'rgba(255,255,255,0.4)' }}>
-                    {deadlineLabel(op.deadline)}
-                  </span>
-                </div>
-                <h3 style={st.cardTitle}>{op.title}</h3>
-                <p style={st.meta}>{[op.organization, op.city, op.countryName].filter(Boolean).join(' · ')}</p>
-                <p style={st.summary}>{op.summary || 'Sem resumo.'}</p>
-                <div style={st.tags}>
-                  {safeArr(op.disciplines).slice(0, 3).map(d => <span key={d} style={st.tag}>{d}</span>)}
-                  {op.coversCosts && <span style={st.costTag}>custos cobertos</span>}
-                </div>
-                <div style={st.cardActions}>
-                  {op.link && <a href={op.link} target="_blank" rel="noopener noreferrer" style={st.link}>ver edital →</a>}
-                  <button style={st.primaryBtn} onClick={() => saveWebOpportunity(op)}>💾 Guardar</button>
-                  <button style={st.secondaryBtn} onClick={() => duplicateToEdit(op)}>Editar</button>
-                </div>
-              </article>
-            ))}
-          </div>
+          <div style={st.grid}>{webResults.map(op => renderCard(op, true))}</div>
         </section>
       )}
 
       {/* RESULTADOS BASE */}
       <section>
-        {activeScout && (
+        {activeScout && filteredBase.length > 0 && (
           <div style={st.sectionHeader}>
             <h2 style={st.sectionTitle}>
               📁 Base — {filteredBase.length} relevantes
@@ -669,57 +737,13 @@ export default function MatchView() {
             </h2>
           </div>
         )}
-
         {filteredBase.length === 0 && (
           <div style={st.empty}>
-            <p>{activeScout ? `Nenhuma oportunidade relevante na base para "${safeArr(activeScout.disciplines?.split(',')).map(d => d.replace(/^[^\s]+ /, '')).join(', ')}"` : 'Nenhuma oportunidade encontrada.'}</p>
+            <p>{activeScout ? 'Nenhuma oportunidade relevante na base.' : 'Nenhuma oportunidade encontrada.'}</p>
             <p style={{ opacity: 0.6, fontSize: 12 }}>Guarda oportunidades da web ou importa CSV.</p>
           </div>
         )}
-
-        <div style={st.grid}>
-          {filteredBase.map(op => {
-            const isManual = manual.some(m => m.id === op.id)
-            const urgent = (daysLeft(op.deadline) ?? 999) <= 14 && (daysLeft(op.deadline) ?? -1) >= 0
-            const hasScore = activeScout && op._matchScore !== undefined
-            const scoreColor = (op._matchScore || 0) >= 70 ? '#6ef3a5' : (op._matchScore || 0) >= 50 ? '#ffcf5c' : 'rgba(255,255,255,0.4)'
-
-            return (
-              <article key={op.id} style={{
-                ...st.card,
-                borderColor: hasScore && (op._matchScore || 0) >= 70
-                  ? 'rgba(110,243,165,0.35)'
-                  : urgent ? 'rgba(255,207,92,0.35)' : 'rgba(255,255,255,0.09)'
-              }}>
-                <div style={st.cardTop}>
-                  <span style={st.badge}>{op.type || 'Edital'}</span>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    {hasScore && <span style={{ fontSize: 12, fontWeight: 700, color: scoreColor }}>{op._matchScore}%</span>}
-                    <span style={{ fontSize: 12, color: urgent ? '#ffcf5c' : 'rgba(255,255,255,0.4)' }}>{deadlineLabel(op.deadline)}</span>
-                  </div>
-                </div>
-                <h3 style={st.cardTitle}>{op.title}</h3>
-                <p style={st.meta}>{[op.organization, op.city, op.countryName || op.country].filter(Boolean).join(' · ') || 'Sem entidade'}</p>
-                {hasScore && op._matchReasons && op._matchReasons.length > 0 && (
-                  <div style={st.reasons}>{op._matchReasons.map((r, i) => <span key={i}>✓ {r}</span>)}</div>
-                )}
-                <p style={st.summary}>{op.summary || op.description || 'Sem resumo.'}</p>
-                <div style={st.tags}>
-                  {safeArr(op.disciplines).slice(0, 4).map(d => <span key={d} style={st.tag}>{d}</span>)}
-                  {op.coversCosts && <span style={st.costTag}>custos cobertos</span>}
-                  {!activeScout && <span style={st.sourceTag}>{isManual ? 'manual' : 'base'}</span>}
-                </div>
-                <div style={st.cardActions}>
-                  {op.link && <a href={op.link} target="_blank" rel="noopener noreferrer" style={st.link}>ver edital →</a>}
-                  <ProposeOpportunityButton opportunity={op} />
-                  <button style={st.secondaryBtn} onClick={() => { setAssigning(op); setSelectedArtistId(op.assignedArtistId || '') }}>Associar</button>
-                  <button style={st.secondaryBtn} onClick={() => duplicateToEdit(op)}>{isManual ? 'Editar' : 'Duplicar'}</button>
-                  {isManual && <button style={st.dangerBtn} onClick={() => deleteOpportunity(op.id)}>✕</button>}
-                </div>
-              </article>
-            )
-          })}
-        </div>
+        <div style={st.grid}>{filteredBase.map(op => renderCard(op, false))}</div>
       </section>
 
       {/* MODAL ASSOCIAR */}
@@ -752,7 +776,8 @@ export default function MatchView() {
             </div>
             <div style={st.formGrid}>
               {(['title', 'organization', 'type', 'countryName', 'city', 'link'] as (keyof Opportunity)[]).map(field => (
-                <label key={field} style={st.label}>{field === 'countryName' ? 'País' : field === 'title' ? 'Título' : field === 'organization' ? 'Organização' : field === 'type' ? 'Tipo' : field === 'city' ? 'Cidade' : 'Link'}
+                <label key={field} style={st.label}>
+                  {field === 'title' ? 'Título' : field === 'organization' ? 'Organização' : field === 'type' ? 'Tipo' : field === 'countryName' ? 'País' : field === 'city' ? 'Cidade' : 'Link'}
                   <input style={st.input} value={(editing as any)[field] || ''}
                     onChange={e => setEditing({ ...editing, [field]: e.target.value })} />
                 </label>
@@ -782,6 +807,29 @@ export default function MatchView() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* MODAL ANÁLISE SOMA */}
+      {analysisOp && analysisArtist && !loadingArtistData && (
+        <SomaAnalysisModal
+          opportunity={{
+            title: analysisOp.title,
+            organization: analysisOp.organization,
+            type: analysisOp.type,
+            country: analysisOp.country,
+            countryName: analysisOp.countryName,
+            city: analysisOp.city,
+            summary: analysisOp.summary,
+            description: analysisOp.description,
+            link: analysisOp.link,
+            disciplines: safeArr(analysisOp.disciplines),
+            keywords: safeArr(analysisOp.keywords),
+            coversCosts: analysisOp.coversCosts,
+            deadline: analysisOp.deadline,
+          }}
+          artist={analysisArtist}
+          onClose={() => { setAnalysisOp(null); setAnalysisArtist(null) }}
+        />
       )}
     </div>
   )
@@ -815,11 +863,19 @@ const st: Record<string, React.CSSProperties> = {
   tag: { fontSize: 11, background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.65)', padding: '2px 8px', borderRadius: 20 },
   costTag: { fontSize: 11, background: 'rgba(110,243,165,0.12)', color: '#6ef3a5', padding: '2px 8px', borderRadius: 20 },
   sourceTag: { fontSize: 11, background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.3)', padding: '2px 8px', borderRadius: 20 },
-  cardActions: { display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', marginTop: 14 },
-  link: { color: '#60b4e8', textDecoration: 'none', fontSize: 13, alignSelf: 'center' },
+  cardActions: { display: 'flex', justifyContent: 'flex-end', gap: 6, flexWrap: 'wrap', marginTop: 14 },
+  link: { color: '#60b4e8', textDecoration: 'none', fontSize: 12, alignSelf: 'center' },
+
+  // ✅ BOTÃO ANÁLISE SOMA
+  analysisBtn: {
+    background: 'rgba(255,207,92,0.12)', color: '#ffcf5c',
+    border: '1px solid rgba(255,207,92,0.3)', borderRadius: 8,
+    padding: '7px 11px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+  },
+
   empty: { textAlign: 'center', color: 'rgba(255,255,255,0.45)', padding: 40, border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 12, marginBottom: 24 },
   primaryBtn: { background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 14px', fontSize: 13, fontWeight: 800, cursor: 'pointer' },
-  secondaryBtn: { background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '8px 12px', fontSize: 12, cursor: 'pointer' },
+  secondaryBtn: { background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '8px 11px', fontSize: 12, cursor: 'pointer' },
   dangerBtn: { background: 'rgba(255,70,70,0.12)', color: '#ff8a8a', border: '1px solid rgba(255,70,70,0.25)', borderRadius: 8, padding: '8px 10px', fontSize: 12, cursor: 'pointer' },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
   modal: { width: 'min(900px, 100%)', maxHeight: '92vh', overflowY: 'auto', background: '#000', border: '1px solid #1A6994', borderRadius: 16, padding: 22 },
