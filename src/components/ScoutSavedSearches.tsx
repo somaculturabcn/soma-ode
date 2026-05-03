@@ -1,7 +1,9 @@
 // src/components/ScoutSavedSearches.tsx
-// SOMA ODÉ — Scout Proativo (redesenhado)
-// Fluxo: produtor selecciona projecto → tipo de oportunidade → países → Executar
-// A query é construída automaticamente a partir do tipo do projecto, não das disciplinas do artista
+// SOMA ODÉ — Scout Proativo
+// 3 modos de busca:
+//   1. Genérico — só tipo + países (sem artista)
+//   2. Por artista — usa Cartografia (sem projecto específico)
+//   3. Por projecto — usa keywords do projecto (artista + projecto)
 
 import { useEffect, useState, useMemo } from 'react'
 import { loadArtistsFromSupabase } from '../data/artistsSupabaseStore'
@@ -18,6 +20,7 @@ function safeArray<T = string>(value: unknown): T[] {
 // ─── Tipos ────────────────────────────────────────────────
 
 type OpportunityType = 'residencia' | 'open_call' | 'festival' | 'premio' | 'mobilidade' | 'financiamento'
+type SearchMode = 'generic' | 'artist' | 'project'
 
 interface SavedSearch {
   id: string
@@ -27,6 +30,7 @@ interface SavedSearch {
   disciplines: string
   languages: string
   maxResults: number
+  mode: SearchMode
   artistId?: string
   artistName?: string
   projectId?: string
@@ -41,19 +45,19 @@ interface ScoutSavedSearchesProps {
   onSave?: (search: SavedSearch) => void
 }
 
+// ─── Constantes ───────────────────────────────────────────
+
 const STORAGE_KEY = 'soma-scout-saved-searches-v3'
 
-// Tipos de oportunidade com labels e keywords para o Gemini
 const OPPORTUNITY_TYPES: { value: OpportunityType; label: string; icon: string; keywords: string[] }[] = [
-  { value: 'residencia', label: 'Residência artística', icon: '🏠', keywords: ['residencia artística', 'artist residency', 'residência artística', 'residencia de creación'] },
+  { value: 'residencia', label: 'Residência artística', icon: '🏠', keywords: ['residencia artística', 'artist residency', 'residência artística'] },
   { value: 'open_call', label: 'Open Call / Edital', icon: '📋', keywords: ['open call', 'edital', 'convocatoria artística', 'call for artists'] },
-  { value: 'festival', label: 'Festival', icon: '🎪', keywords: ['festival', 'festival de artes performativas', 'festival internacional'] },
+  { value: 'festival', label: 'Festival', icon: '🎪', keywords: ['festival', 'festival artes performativas'] },
   { value: 'premio', label: 'Prémio / Bolsa', icon: '🏆', keywords: ['premio artístico', 'beca de creación', 'bolsa artística', 'grant'] },
-  { value: 'mobilidade', label: 'Mobilidade / Touring', icon: '✈️', keywords: ['movilidad artística', 'programa de movilidad', 'touring', 'circulación internacional'] },
-  { value: 'financiamento', label: 'Financiamento', icon: '💰', keywords: ['financiación cultural', 'apoyo a la creación', 'fundo cultural', 'apoio à criação'] },
+  { value: 'mobilidade', label: 'Mobilidade / Touring', icon: '✈️', keywords: ['movilidad artística', 'touring', 'circulación internacional'] },
+  { value: 'financiamento', label: 'Financiamento', icon: '💰', keywords: ['financiación cultural', 'apoyo a la creación', 'fundo cultural'] },
 ]
 
-// Países organizados por região (os mais relevantes para o roster SOMA)
 const COUNTRY_REGIONS = [
   {
     region: 'Europa Ocidental',
@@ -67,7 +71,7 @@ const COUNTRY_REGIONS = [
       { code: 'CH', name: 'Suíça', flag: '🇨🇭' },
       { code: 'AT', name: 'Áustria', flag: '🇦🇹' },
       { code: 'GB', name: 'Reino Unido', flag: '🇬🇧' },
-      { code: 'IE', name: 'Irlanda', flag: '🇮🇪' },
+      { code: 'IT', name: 'Itália', flag: '🇮🇹' },
     ],
   },
   {
@@ -96,12 +100,23 @@ const COUNTRY_REGIONS = [
       { code: 'MX', name: 'México', flag: '🇲🇽' },
     ],
   },
+  {
+    region: 'África',
+    countries: [
+      { code: 'SN', name: 'Senegal', flag: '🇸🇳' },
+      { code: 'NG', name: 'Nigéria', flag: '🇳🇬' },
+      { code: 'ZA', name: 'África do Sul', flag: '🇿🇦' },
+      { code: 'AO', name: 'Angola', flag: '🇦🇴' },
+      { code: 'MZ', name: 'Moçambique', flag: '🇲🇿' },
+    ],
+  },
 ]
+
+const ALL_COUNTRIES = COUNTRY_REGIONS.flatMap(r => r.countries)
 
 function loadSearches(): SavedSearch[] {
   try {
-    // Suporta chave anterior e nova
-    const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('soma-scout-saved-searches-v2')
+    const raw = localStorage.getItem(STORAGE_KEY)
     return raw ? JSON.parse(raw) : []
   } catch { return [] }
 }
@@ -110,41 +125,62 @@ function saveSearches(searches: SavedSearch[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(searches))
 }
 
-// Constrói a query para o Gemini a partir do tipo + formato do projecto
+// ─── Construção de query por modo ─────────────────────────
+
 function buildQuery(
-  project: any,
+  mode: SearchMode,
   opportunityType: OpportunityType,
-  selectedCountries: string[],
+  artist: Artist | null,
+  project: any | null,
 ): string {
   const typeInfo = OPPORTUNITY_TYPES.find(t => t.value === opportunityType)
   const mainKeyword = typeInfo?.keywords[0] || 'residencia artística'
-
-  // Tipo do projecto (performance, instalação, investigação)
-  const projectFormat = project?.projectFormat || ''
-  const projectKeywords = safeArray(project?.projectKeywords).slice(0, 3)
-
-  // Construir query limpa
-  const parts = [
-    mainKeyword,
-    projectFormat,
-    ...projectKeywords,
-  ].filter(Boolean)
-
   const year = new Date().getFullYear()
-  return `${parts.join(' ')} ${year} ${year + 1}`.trim()
+
+  if (mode === 'generic') {
+    return `${mainKeyword} arte contemporânea afrodiaspórico queer ${year}`
+  }
+
+  if (mode === 'artist' && artist) {
+    const c = artist.cartografia || {}
+    const vocabulario = safeArray(c.raiz?.vocabulario).slice(0, 4).join(' ')
+    const corredores = safeArray(c.rota?.corredores).slice(0, 2).join(' ')
+    return `${mainKeyword} ${vocabulario} ${corredores} ${year}`.trim()
+  }
+
+  if (mode === 'project' && project) {
+    const keywords = safeArray(project.projectKeywords).slice(0, 4).join(' ')
+    const format = project.projectFormat || ''
+    return `${mainKeyword} ${keywords} ${format} ${year}`.trim()
+  }
+
+  return `${mainKeyword} ${year}`
 }
 
-// Constrói o campo disciplines para o Gemini (baseado no projecto, não no artista)
-function buildDisciplines(project: any, opportunityType: OpportunityType): string {
+function buildDisciplines(
+  mode: SearchMode,
+  opportunityType: OpportunityType,
+  artist: Artist | null,
+  project: any | null,
+): string {
   const typeInfo = OPPORTUNITY_TYPES.find(t => t.value === opportunityType)
-  const projectFormat = project?.projectFormat || ''
-  const projectKeywords = safeArray(project?.projectKeywords).slice(0, 4)
 
-  return [
-    projectFormat,
-    ...projectKeywords,
-    ...(typeInfo?.keywords.slice(0, 2) || []),
-  ].filter(Boolean).join(', ')
+  if (mode === 'generic') {
+    return typeInfo?.keywords.slice(0, 2).join(', ') || ''
+  }
+
+  if (mode === 'artist' && artist) {
+    const vocab = safeArray(artist.cartografia?.raiz?.vocabulario).slice(0, 3)
+    return [...vocab, typeInfo?.keywords[0] || ''].filter(Boolean).join(', ')
+  }
+
+  if (mode === 'project' && project) {
+    const keywords = safeArray(project.projectKeywords).slice(0, 4)
+    const format = project.projectFormat || ''
+    return [format, ...keywords].filter(Boolean).join(', ')
+  }
+
+  return ''
 }
 
 // ─── Componente ───────────────────────────────────────────
@@ -155,7 +191,8 @@ export default function ScoutSavedSearches({ onSave }: ScoutSavedSearchesProps) 
   const [artists, setArtists] = useState<Artist[]>([])
   const [loadingArtists, setLoadingArtists] = useState(false)
 
-  // Formulário simplificado
+  // Formulário
+  const [mode, setMode] = useState<SearchMode>('generic')
   const [artistId, setArtistId] = useState('')
   const [projectId, setProjectId] = useState('')
   const [opportunityType, setOpportunityType] = useState<OpportunityType>('residencia')
@@ -177,21 +214,25 @@ export default function ScoutSavedSearches({ onSave }: ScoutSavedSearchesProps) 
     }
   }, [showModal])
 
-  // Quando artista muda → pré-seleccionar países do perfil
+  // Pré-seleccionar países do artista quando muda
   useEffect(() => {
-    if (!selectedArtist) { setSelectedCountries([]); setProjectId(''); return }
+    if (!selectedArtist) return
     const artistCountries = safeArray(selectedArtist.targetCountries).slice(0, 8)
-    setSelectedCountries(artistCountries)
+    if (artistCountries.length > 0) setSelectedCountries(artistCountries)
     setProjectId('')
   }, [selectedArtist])
 
-  // Nome automático quando projecto + tipo estão seleccionados
+  // Nome auto-gerado
   useEffect(() => {
-    if (selectedProject && opportunityType) {
-      const typeLabel = OPPORTUNITY_TYPES.find(t => t.value === opportunityType)?.label || ''
-      setSearchName(`${selectedProject.name || 'Projecto'} — ${typeLabel}`)
+    const typeLabel = OPPORTUNITY_TYPES.find(t => t.value === opportunityType)?.label || ''
+    if (mode === 'generic') {
+      setSearchName(`Scout SOMA — ${typeLabel}`)
+    } else if (mode === 'artist' && selectedArtist) {
+      setSearchName(`${selectedArtist.name} — ${typeLabel}`)
+    } else if (mode === 'project' && selectedProject) {
+      setSearchName(`${(selectedProject as any).name || 'Projecto'} — ${typeLabel}`)
     }
-  }, [selectedProject, opportunityType])
+  }, [mode, selectedArtist, selectedProject, opportunityType])
 
   function toggleCountry(code: string) {
     setSelectedCountries(prev =>
@@ -200,43 +241,50 @@ export default function ScoutSavedSearches({ onSave }: ScoutSavedSearchesProps) 
   }
 
   function toggleRegion(codes: string[]) {
-    const allSelected = codes.every(c => selectedCountries.includes(c))
-    if (allSelected) {
-      setSelectedCountries(prev => prev.filter(c => !codes.includes(c)))
-    } else {
-      setSelectedCountries(prev => Array.from(new Set([...prev, ...codes])))
+    const allSel = codes.every(c => selectedCountries.includes(c))
+    setSelectedCountries(prev =>
+      allSel ? prev.filter(c => !codes.includes(c)) : Array.from(new Set([...prev, ...codes]))
+    )
+  }
+
+  function handleModeChange(newMode: SearchMode) {
+    setMode(newMode)
+    if (newMode === 'generic') {
+      setArtistId('')
+      setProjectId('')
+      setSelectedCountries([])
+    }
+    if (newMode === 'artist') {
+      setProjectId('')
     }
   }
 
   function handleArtistChange(id: string) {
     setArtistId(id)
     setProjectId('')
-    setSearchName('')
   }
 
   function handleSave() {
-    if (!artistId) { alert('Selecciona um artista.'); return }
-    if (!projectId) { alert('Selecciona um projecto.'); return }
     if (selectedCountries.length === 0) { alert('Selecciona pelo menos um país.'); return }
     if (!searchName.trim()) { alert('Dá um nome à busca.'); return }
 
-    const query = buildQuery(selectedProject, opportunityType, selectedCountries)
-    const disciplines = buildDisciplines(selectedProject, opportunityType)
-    const countries = selectedCountries.join(', ')
-    const languages = safeArray(selectedArtist?.languages).join(', ')
+    const query = buildQuery(mode, opportunityType, selectedArtist, selectedProject)
+    const disciplines = buildDisciplines(mode, opportunityType, selectedArtist, selectedProject)
+    const languages = selectedArtist ? safeArray(selectedArtist.languages).join(', ') : 'PT, EN, ES'
 
     const newSearch: SavedSearch = {
       id: crypto.randomUUID(),
       name: searchName,
       query,
-      countries,
+      countries: selectedCountries.join(', '),
       disciplines,
       languages,
       maxResults,
-      artistId,
-      artistName: selectedArtist?.name || '',
-      projectId,
-      projectName: (selectedProject as any)?.name || '',
+      mode,
+      artistId: artistId || undefined,
+      artistName: selectedArtist?.name || undefined,
+      projectId: projectId || undefined,
+      projectName: (selectedProject as any)?.name || undefined,
       opportunityType,
       selectedCountries,
       createdAt: new Date().toISOString(),
@@ -253,22 +301,21 @@ export default function ScoutSavedSearches({ onSave }: ScoutSavedSearchesProps) 
   function handleDelete(id: string) {
     if (!confirm('Apagar esta busca?')) return
     const updated = searches.filter(s => s.id !== id)
-    setSearches(updated)
-    saveSearches(updated)
+    setSearches(updated); saveSearches(updated)
   }
 
   function handleRun(search: SavedSearch) {
     const updated = searches.map(s =>
       s.id === search.id ? { ...s, lastRunAt: new Date().toISOString() } : s
     )
-    setSearches(updated)
-    saveSearches(updated)
+    setSearches(updated); saveSearches(updated)
     onSave?.(search)
   }
 
   function resetForm() {
-    setArtistId(''); setProjectId(''); setOpportunityType('residencia')
-    setSelectedCountries([]); setSearchName(''); setMaxResults(8)
+    setMode('generic'); setArtistId(''); setProjectId('')
+    setOpportunityType('residencia'); setSelectedCountries([])
+    setSearchName(''); setMaxResults(8)
   }
 
   function openModal() { resetForm(); setShowModal(true) }
@@ -285,37 +332,33 @@ export default function ScoutSavedSearches({ onSave }: ScoutSavedSearchesProps) 
         <button style={sc.primaryBtn} onClick={openModal}>+ Nova busca</button>
       </div>
 
-      {/* LISTA DE BUSCAS GUARDADAS */}
+      {/* LISTA */}
       {searches.length > 0 && (
         <div style={sc.searchList}>
           {searches.map(search => {
             const typeInfo = OPPORTUNITY_TYPES.find(t => t.value === search.opportunityType)
+            const modeLabel = { generic: '🌐 Genérico', artist: '🎤 Artista', project: '📁 Projecto' }[search.mode || 'generic']
             return (
               <div key={search.id} style={sc.searchCard}>
                 <div style={sc.searchCardTop}>
                   <div style={{ flex: 1 }}>
                     <div style={sc.searchName}>{search.name}</div>
                     <div style={sc.searchTags}>
-                      {search.artistName && (
-                        <span style={sc.tagArtist}>🎤 {search.artistName}</span>
-                      )}
-                      {search.projectName && (
-                        <span style={sc.tagProject}>📁 {search.projectName}</span>
-                      )}
-                      {typeInfo && (
-                        <span style={sc.tagType}>{typeInfo.icon} {typeInfo.label}</span>
-                      )}
+                      <span style={sc.tagMode}>{modeLabel}</span>
+                      {search.artistName && <span style={sc.tagArtist}>🎤 {search.artistName}</span>}
+                      {search.projectName && <span style={sc.tagProject}>📁 {search.projectName}</span>}
+                      {typeInfo && <span style={sc.tagType}>{typeInfo.icon} {typeInfo.label}</span>}
                     </div>
                     {search.selectedCountries && search.selectedCountries.length > 0 && (
                       <div style={sc.countryRow}>
-                        {search.selectedCountries.slice(0, 8).map(c => {
-                          const found = COUNTRY_REGIONS.flatMap(r => r.countries).find(x => x.code === c)
-                          return found ? (
-                            <span key={c} style={sc.countryChip}>{found.flag} {found.code}</span>
-                          ) : null
+                        {search.selectedCountries.slice(0, 10).map(c => {
+                          const found = ALL_COUNTRIES.find(x => x.code === c)
+                          return found
+                            ? <span key={c} style={sc.countryChip}>{found.flag} {found.code}</span>
+                            : <span key={c} style={sc.countryChip}>{c}</span>
                         })}
-                        {search.selectedCountries.length > 8 && (
-                          <span style={sc.countryChip}>+{search.selectedCountries.length - 8}</span>
+                        {search.selectedCountries.length > 10 && (
+                          <span style={sc.countryChip}>+{search.selectedCountries.length - 10}</span>
                         )}
                       </div>
                     )}
@@ -326,9 +369,7 @@ export default function ScoutSavedSearches({ onSave }: ScoutSavedSearchesProps) 
                   </div>
                 </div>
                 {search.lastRunAt && (
-                  <div style={sc.lastRun}>
-                    Última execução: {new Date(search.lastRunAt).toLocaleDateString('pt-PT')}
-                  </div>
+                  <div style={sc.lastRun}>Última execução: {new Date(search.lastRunAt).toLocaleDateString('pt-PT')}</div>
                 )}
               </div>
             )
@@ -343,56 +384,94 @@ export default function ScoutSavedSearches({ onSave }: ScoutSavedSearchesProps) 
             <div style={sc.modalHeader}>
               <div>
                 <h2 style={sc.modalTitle}>Nova busca Scout</h2>
-                <p style={sc.modalSubtitle}>Selecciona projecto → tipo de oportunidade → países</p>
+                <p style={sc.modalSubtitle}>Define o foco da busca e os países alvo</p>
               </div>
               <button style={sc.closeBtn} onClick={() => setShowModal(false)}>Fechar</button>
             </div>
 
-            {/* PASSO 1 — ARTISTA + PROJECTO */}
+            {/* PASSO 1 — MODO */}
             <div style={sc.step}>
               <div style={sc.stepLabel}>
                 <span style={sc.stepNum}>1</span>
-                Artista e projecto
+                Foco da busca
               </div>
-              <div style={sc.row2}>
-                <div>
+              <div style={sc.modeGrid}>
+                {[
+                  { value: 'generic', icon: '🌐', label: 'Genérico', desc: 'Sem artista específico — busca para o roster SOMA' },
+                  { value: 'artist', icon: '🎤', label: 'Por artista', desc: 'Usa a Cartografia do artista (vocabulário, corredores)' },
+                  { value: 'project', icon: '📁', label: 'Por projecto', desc: 'Usa as keywords específicas do projecto' },
+                ].map(m => (
+                  <button key={m.value} type="button"
+                    onClick={() => handleModeChange(m.value as SearchMode)}
+                    style={{ ...sc.modeBtn, ...(mode === m.value ? sc.modeBtnActive : {}) }}>
+                    <span style={{ fontSize: 24 }}>{m.icon}</span>
+                    <span style={{ fontWeight: 700, fontSize: 13, marginTop: 4 }}>{m.label}</span>
+                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 2, lineHeight: 1.3 }}>{m.desc}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Artista (modo artist ou project) */}
+              {(mode === 'artist' || mode === 'project') && (
+                <div style={{ marginTop: 14 }}>
                   <label style={sc.label}>Artista</label>
                   <select style={sc.select} value={artistId} onChange={e => handleArtistChange(e.target.value)} disabled={loadingArtists}>
                     <option value="">{loadingArtists ? 'A carregar...' : '— Seleccionar artista —'}</option>
                     {artists.map(a => <option key={a.id} value={a.id}>{a.name || 'Artista sem nome'}</option>)}
                   </select>
                 </div>
-                <div>
+              )}
+
+              {/* Projecto (só modo project) */}
+              {mode === 'project' && artistId && (
+                <div style={{ marginTop: 10 }}>
                   <label style={sc.label}>Projecto</label>
-                  <select style={sc.select} value={projectId} onChange={e => setProjectId(e.target.value)} disabled={!artistId || artistProjects.length === 0}>
-                    <option value="">{!artistId ? '— Selecciona artista —' : '— Seleccionar projecto —'}</option>
+                  <select style={sc.select} value={projectId} onChange={e => setProjectId(e.target.value)}
+                    disabled={artistProjects.length === 0}>
+                    <option value="">{artistProjects.length === 0 ? '— Artista sem projectos —' : '— Seleccionar projecto —'}</option>
                     {artistProjects.map((p: any) => (
-                      <option key={p.id} value={p.id}>{p.name || 'Projecto sem nome'}</option>
+                      <option key={p.id} value={p.id}>
+                        {p.name || 'Projecto sem nome'}
+                        {safeArray(p.projectKeywords).length > 0 && ` · ${safeArray(p.projectKeywords).slice(0, 2).join(', ')}`}
+                      </option>
                     ))}
                   </select>
                 </div>
-              </div>
+              )}
 
-              {/* Preview do projecto */}
-              {selectedProject && (
-                <div style={sc.projectPreview}>
-                  <div style={sc.projectPreviewTitle}>📁 {(selectedProject as any).name}</div>
-                  {(selectedProject as any).projectFormat && (
-                    <span style={sc.projectTag}>Formato: {(selectedProject as any).projectFormat}</span>
-                  )}
-                  {safeArray((selectedProject as any).projectKeywords).slice(0, 5).map((k: string) => (
-                    <span key={k} style={sc.projectTag}>{k}</span>
-                  ))}
-                  {(selectedProject as any).summary && (
-                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: '6px 0 0', lineHeight: 1.4 }}>
-                      {(selectedProject as any).summary.substring(0, 120)}...
-                    </p>
-                  )}
+              {/* Preview do que vai ser usado na busca */}
+              {mode === 'artist' && selectedArtist && (
+                <div style={sc.previewBox}>
+                  <div style={sc.previewTitle}>Cartografia usada na busca</div>
+                  <div style={sc.previewTags}>
+                    {safeArray(selectedArtist.cartografia?.raiz?.vocabulario).map(v => (
+                      <span key={v} style={sc.previewTag}>{v}</span>
+                    ))}
+                    {safeArray(selectedArtist.cartografia?.rota?.corredores).map(v => (
+                      <span key={v} style={{ ...sc.previewTag, color: '#ffcf5c', borderColor: 'rgba(255,207,92,0.3)' }}>{v}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {mode === 'project' && selectedProject && (
+                <div style={sc.previewBox}>
+                  <div style={sc.previewTitle}>Keywords do projecto usadas na busca</div>
+                  <div style={sc.previewTags}>
+                    {(selectedProject as any).projectFormat && (
+                      <span style={{ ...sc.previewTag, color: '#6ef3a5', borderColor: 'rgba(110,243,165,0.3)' }}>
+                        {(selectedProject as any).projectFormat}
+                      </span>
+                    )}
+                    {safeArray((selectedProject as any).projectKeywords).map((k: string) => (
+                      <span key={k} style={sc.previewTag}>{k}</span>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* PASSO 2 — TIPO DE OPORTUNIDADE */}
+            {/* PASSO 2 — TIPO */}
             <div style={sc.step}>
               <div style={sc.stepLabel}>
                 <span style={sc.stepNum}>2</span>
@@ -402,12 +481,9 @@ export default function ScoutSavedSearches({ onSave }: ScoutSavedSearchesProps) 
                 {OPPORTUNITY_TYPES.map(t => (
                   <button key={t.value} type="button"
                     onClick={() => setOpportunityType(t.value)}
-                    style={{
-                      ...sc.typeBtn,
-                      ...(opportunityType === t.value ? sc.typeBtnActive : {}),
-                    }}>
-                    <span style={{ fontSize: 22 }}>{t.icon}</span>
-                    <span style={{ fontSize: 12, marginTop: 4 }}>{t.label}</span>
+                    style={{ ...sc.typeBtn, ...(opportunityType === t.value ? sc.typeBtnActive : {}) }}>
+                    <span style={{ fontSize: 20 }}>{t.icon}</span>
+                    <span style={{ fontSize: 11, marginTop: 3 }}>{t.label}</span>
                   </button>
                 ))}
               </div>
@@ -420,16 +496,14 @@ export default function ScoutSavedSearches({ onSave }: ScoutSavedSearchesProps) 
                 Em que países procurar?
                 <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 400, marginLeft: 8 }}>
                   {selectedCountries.length} seleccionados
-                  {selectedArtist && ' · pré-seleccionados do perfil'}
+                  {mode !== 'generic' && selectedArtist && selectedCountries.length > 0 && ' · do perfil do artista'}
                 </span>
               </div>
               <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
                 <button style={sc.regionAllBtn} onClick={() => {
-                  const all = COUNTRY_REGIONS.flatMap(r => r.countries.map(c => c.code))
+                  const all = ALL_COUNTRIES.map(c => c.code)
                   setSelectedCountries(selectedCountries.length === all.length ? [] : all)
-                }}>
-                  {selectedCountries.length > 50 ? '× Limpar' : '🌍 Todos'}
-                </button>
+                }}>🌍 Todos</button>
                 <button style={sc.regionAllBtn} onClick={() => setSelectedCountries([])}>× Limpar</button>
               </div>
               {COUNTRY_REGIONS.map(region => {
@@ -447,10 +521,7 @@ export default function ScoutSavedSearches({ onSave }: ScoutSavedSearchesProps) 
                       {region.countries.map(c => (
                         <button key={c.code} type="button"
                           onClick={() => toggleCountry(c.code)}
-                          style={{
-                            ...sc.countryBtn,
-                            ...(selectedCountries.includes(c.code) ? sc.countryBtnActive : {}),
-                          }}>
+                          style={{ ...sc.countryBtn, ...(selectedCountries.includes(c.code) ? sc.countryBtnActive : {}) }}>
                           {c.flag} {c.name}
                         </button>
                       ))}
@@ -464,14 +535,14 @@ export default function ScoutSavedSearches({ onSave }: ScoutSavedSearchesProps) 
             <div style={sc.step}>
               <div style={sc.stepLabel}>
                 <span style={sc.stepNum}>4</span>
-                Confirmar e guardar
+                Confirmar
               </div>
               <div style={sc.row2}>
                 <div>
                   <label style={sc.label}>Nome da busca</label>
                   <input style={sc.input} value={searchName}
                     onChange={e => setSearchName(e.target.value)}
-                    placeholder="Ex: PICUMÃ — Residência Europa" />
+                    placeholder="Ex: SOMA — Residências Europa 2026" />
                 </div>
                 <div>
                   <label style={sc.label}>Máximo de resultados</label>
@@ -480,14 +551,14 @@ export default function ScoutSavedSearches({ onSave }: ScoutSavedSearchesProps) 
                 </div>
               </div>
 
-              {/* Preview da query que vai ser enviada */}
-              {selectedProject && selectedCountries.length > 0 && (
+              {/* Preview da query */}
+              {selectedCountries.length > 0 && (
                 <div style={sc.queryPreview}>
-                  <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>Query que será enviada ao Gemini:</span>
+                  <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>Query que será enviada ao Gemini + Google Search:</span>
                   <div style={{ color: '#60b4e8', fontSize: 12, marginTop: 4 }}>
-                    "{buildQuery(selectedProject, opportunityType, selectedCountries)}"
+                    "{buildQuery(mode, opportunityType, selectedArtist, selectedProject)}"
                   </div>
-                  <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 4 }}>
+                  <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, marginTop: 4 }}>
                     Países: {selectedCountries.join(', ')}
                   </div>
                 </div>
@@ -497,7 +568,7 @@ export default function ScoutSavedSearches({ onSave }: ScoutSavedSearchesProps) 
             <div style={sc.modalFooter}>
               <button style={sc.cancelBtn} onClick={() => setShowModal(false)}>Cancelar</button>
               <button style={sc.primaryBtn} onClick={handleSave}
-                disabled={!artistId || !projectId || selectedCountries.length === 0}>
+                disabled={selectedCountries.length === 0 || !searchName.trim()}>
                 💾 Guardar busca
               </button>
             </div>
@@ -521,6 +592,7 @@ const sc: Record<string, React.CSSProperties> = {
   searchCardTop: { display: 'flex', gap: 12, alignItems: 'flex-start' },
   searchName: { fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 6 },
   searchTags: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 },
+  tagMode: { fontSize: 11, color: 'rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '2px 8px' },
   tagArtist: { fontSize: 11, color: '#60b4e8', background: 'rgba(26,105,148,0.15)', border: '1px solid rgba(26,105,148,0.25)', borderRadius: 6, padding: '2px 8px' },
   tagProject: { fontSize: 11, color: '#ffcf5c', background: 'rgba(255,207,92,0.1)', border: '1px solid rgba(255,207,92,0.25)', borderRadius: 6, padding: '2px 8px' },
   tagType: { fontSize: 11, color: '#6ef3a5', background: 'rgba(110,243,165,0.1)', border: '1px solid rgba(110,243,165,0.25)', borderRadius: 6, padding: '2px 8px' },
@@ -542,19 +614,23 @@ const sc: Record<string, React.CSSProperties> = {
   stepLabel: { display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 14 },
   stepNum: { background: '#1A6994', color: '#fff', borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, flexShrink: 0 },
 
-  row2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
-  label: { display: 'block', fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 },
-  input: { width: '100%', background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none', boxSizing: 'border-box' },
-  select: { width: '100%', background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none', boxSizing: 'border-box', cursor: 'pointer' },
+  // Modos
+  modeGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 14 },
+  modeBtn: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', padding: '14px 10px', background: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, cursor: 'pointer', color: 'rgba(255,255,255,0.6)', textAlign: 'center', gap: 2 },
+  modeBtnActive: { background: 'rgba(26,105,148,0.2)', border: '2px solid #1A6994', color: '#fff' },
 
-  projectPreview: { marginTop: 12, padding: 12, background: 'rgba(255,207,92,0.04)', border: '1px solid rgba(255,207,92,0.2)', borderRadius: 8, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' },
-  projectPreviewTitle: { width: '100%', fontSize: 13, fontWeight: 700, color: '#ffcf5c', marginBottom: 4 },
-  projectTag: { fontSize: 11, padding: '2px 8px', borderRadius: 12, background: 'rgba(255,207,92,0.1)', border: '1px solid rgba(255,207,92,0.25)', color: '#ffcf5c' },
+  // Preview
+  previewBox: { marginTop: 12, padding: 12, background: 'rgba(26,105,148,0.06)', border: '1px solid rgba(26,105,148,0.18)', borderRadius: 8 },
+  previewTitle: { fontSize: 10, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 },
+  previewTags: { display: 'flex', flexWrap: 'wrap', gap: 5 },
+  previewTag: { fontSize: 11, padding: '2px 8px', borderRadius: 12, background: 'rgba(26,105,148,0.15)', border: '1px solid rgba(26,105,148,0.3)', color: '#60b4e8' },
 
-  typeGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 },
-  typeBtn: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '14px 10px', background: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, cursor: 'pointer', color: 'rgba(255,255,255,0.6)', transition: 'all 0.15s' },
+  // Tipos
+  typeGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 },
+  typeBtn: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '12px 8px', background: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, cursor: 'pointer', color: 'rgba(255,255,255,0.6)', gap: 3 },
   typeBtnActive: { background: 'rgba(26,105,148,0.25)', border: '1px solid #1A6994', color: '#fff' },
 
+  // Países
   regionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   regionLabel: { fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.08em', textTransform: 'uppercase' },
   regionToggle: { background: 'transparent', color: '#60b4e8', border: 'none', fontSize: 11, cursor: 'pointer' },
@@ -563,7 +639,12 @@ const sc: Record<string, React.CSSProperties> = {
   countryBtn: { padding: '7px 10px', background: 'transparent', color: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 12, cursor: 'pointer', textAlign: 'left' },
   countryBtnActive: { background: 'rgba(26,105,148,0.25)', color: '#fff', border: '1px solid #1A6994' },
 
-  queryPreview: { marginTop: 12, padding: 12, background: 'rgba(26,105,148,0.06)', border: '1px solid rgba(26,105,148,0.2)', borderRadius: 8 },
+  // Confirmar
+  row2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 },
+  label: { display: 'block', fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 },
+  input: { width: '100%', background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none', boxSizing: 'border-box' },
+  select: { width: '100%', background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none', boxSizing: 'border-box', cursor: 'pointer' },
+  queryPreview: { padding: 12, background: 'rgba(26,105,148,0.06)', border: '1px solid rgba(26,105,148,0.2)', borderRadius: 8 },
 
   modalFooter: { display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.08)' },
   cancelBtn: { background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '10px 16px', fontSize: 13, cursor: 'pointer' },
