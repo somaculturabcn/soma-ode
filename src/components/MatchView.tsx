@@ -1,7 +1,7 @@
 // src/components/MatchView.tsx
 // SOMA ODÉ — Oportunidades
-// Cards totalmente editáveis: deadline, abertura, recorrência, notas
-// Scout por disciplina → encontra → edita → associa a artista → propõe
+// FIX: threshold 20, sem penalização disciplina, retry Gemini automático
+// NOVO: tipos incluem venue, festa, clube — essenciais para músicos e DJs
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ScoutUrlExtractor from './ScoutUrlExtractor'
@@ -34,9 +34,8 @@ type Opportunity = {
   disciplines?: string[]
   languages?: string[]
   deadline?: string
-  openingDate?: string       // data de abertura
-  recurrence?: Recurrence    // recorrência
-  nextEdition?: string       // próxima edição prevista
+  openingDate?: string
+  recurrence?: Recurrence
   summary?: string
   description?: string
   link?: string
@@ -48,7 +47,7 @@ type Opportunity = {
   coversCosts?: boolean
   status?: string
   source?: string
-  notes?: string             // notas internas
+  notes?: string
   createdAt?: string
   updatedAt?: string
   _matchScore?: number
@@ -73,7 +72,39 @@ type SavedSearch = {
 
 const STORAGE_KEY = 'soma-manual-opportunities-v1'
 const ARTISTS_KEY = 'soma-artists-v2'
-const SCORE_THRESHOLD = 45
+
+// ✅ FIX: threshold baixado de 45 para 20
+const SCORE_THRESHOLD = 20
+
+// ─── Tipos de oportunidade (inclui venue e festa) ─────────
+
+const TYPE_COLORS: Record<string, string> = {
+  residency:      '#6ef3a5',
+  residencia:     '#6ef3a5',
+  festival:       '#ffcf5c',
+  open_call:      '#60b4e8',
+  showcase:       '#ff9f5c',
+  grant:          '#c084fc',
+  premio:         '#c084fc',
+  mobilidade:     '#38bdf8',
+  financiamento:  '#4ade80',
+  // ✅ NOVO: venue, festa, clube
+  venue:          '#f472b6',
+  festa:          '#f472b6',
+  clube:          '#f472b6',
+  party:          '#f472b6',
+}
+
+const TYPE_ICONS: Record<string, string> = {
+  residency: '🏠', residencia: '🏠',
+  festival: '🎪',
+  open_call: '📋',
+  showcase: '🎤',
+  grant: '🏆', premio: '🏆',
+  mobilidade: '✈️',
+  financiamento: '💰',
+  venue: '🏛', festa: '🎉', clube: '🎧', party: '🎉',
+}
 
 const RECURRENCE_OPTIONS: { value: Recurrence; label: string; color: string }[] = [
   { value: 'anual', label: '🔄 Anual', color: '#6ef3a5' },
@@ -81,19 +112,6 @@ const RECURRENCE_OPTIONS: { value: Recurrence; label: string; color: string }[] 
   { value: 'irregular', label: '⚡ Irregular', color: '#ffcf5c' },
   { value: 'unica', label: '1️⃣ Única', color: 'rgba(255,255,255,0.5)' },
 ]
-
-const TYPE_COLORS: Record<string, string> = {
-  residency: '#6ef3a5',
-  residencia: '#6ef3a5',
-  festival: '#ffcf5c',
-  open_call: '#60b4e8',
-  showcase: '#ff9f5c',
-  grant: '#c084fc',
-  premio: '#c084fc',
-  mobilidade: '#38bdf8',
-  financiamento: '#4ade80',
-  venue: 'rgba(255,255,255,0.45)',
-}
 
 // ─── Utilitários ──────────────────────────────────────────
 
@@ -113,9 +131,10 @@ function emptyOpportunity(): Opportunity {
   return {
     id: crypto.randomUUID(), title: '', organization: '', type: 'open_call',
     country: '', countryName: '', city: '', disciplines: [], languages: [],
-    deadline: '', openingDate: '', recurrence: 'anual', summary: '', description: '',
-    link: '', keywords: [], coversCosts: false, status: 'open', source: 'manual',
-    notes: '', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    deadline: '', openingDate: '', recurrence: 'anual',
+    summary: '', description: '', link: '', keywords: [],
+    coversCosts: false, status: 'open', source: 'manual', notes: '',
+    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
   }
 }
 function splitTags(v: string) { return v.split(',').map(x => x.trim()).filter(Boolean) }
@@ -146,7 +165,8 @@ function deadlineLabel(deadline?: string) {
   return { text: `${d} dias`, color: 'rgba(255,255,255,0.5)' }
 }
 
-// ─── Scoring simples ──────────────────────────────────────
+// ─── Scoring ─────────────────────────────────────────────
+// ✅ FIX: sem penalização quando disciplinas não coincidem
 
 function scoreOpportunity(op: Opportunity, search: SavedSearch): { score: number; reasons: string[] } {
   const reasons: string[] = []
@@ -154,61 +174,147 @@ function scoreOpportunity(op: Opportunity, search: SavedSearch): { score: number
 
   const searchDiscs = safeArr(search.disciplines).map(d => cleanText(d.replace(/^[^\s]+ /, '')))
   const opDiscs = safeArr(op.disciplines).map(d => cleanText(d))
-  const opText = cleanText([op.title, op.summary, op.description, ...safeArr(op.keywords)].join(' '))
+  const opText = cleanText([op.title, op.summary, op.description, op.organization, ...safeArr(op.keywords)].join(' '))
 
-  if (searchDiscs.length > 0 && opDiscs.length > 0) {
-    const matches = searchDiscs.filter(sd => opDiscs.some(od => od.includes(sd) || sd.includes(od) || opText.includes(sd)))
+  // Disciplinas — peso 40pts, SEM penalização
+  if (searchDiscs.length > 0) {
+    const matches = searchDiscs.filter(sd =>
+      opDiscs.some(od => od.includes(sd) || sd.includes(od)) ||
+      opText.includes(sd)
+    )
     if (matches.length > 0) {
       score += Math.min(40, matches.length * 15)
       reasons.push(`Disciplina: ${matches.slice(0, 2).join(', ')}`)
-    } else score -= 20
-  }
-
-  if (search.countries) {
-    const sc = search.countries.split(',').map(c => cleanText(c.trim())).filter(c => c.length > 2)
-    const opC = cleanText(op.countryName || op.country || '')
-    if (sc.some(c => opC.includes(c) || c.includes(opC)) && opC) {
-      score += 20; reasons.push(`País: ${op.countryName || op.country}`)
     }
+    // ✅ FIX: sem "else score -= 20"
   }
 
-  const queryWords = cleanText(search.query).split(/\s+/).filter(w => w.length > 4)
+  // Palavras-chave da query — peso 30pts
+  const queryWords = cleanText(search.query).split(/\s+/)
+    .filter(w => w.length > 3 && !['para', 'como', 'open', 'call', 'todos', 'tipos'].includes(w))
   const kwMatches = queryWords.filter(w => opText.includes(w))
   if (kwMatches.length > 0) {
     score += Math.min(30, kwMatches.length * 8)
-    reasons.push(`${kwMatches.length} palavras-chave`)
+    reasons.push(`${kwMatches.length} palavra${kwMatches.length > 1 ? 's' : ''}-chave`)
   }
 
-  if (op.coversCosts) { score += 10; reasons.push('Cobre custos') }
+  // País — peso 20pts
+  if (search.countries) {
+    const sc = search.countries.split(',').map(c => cleanText(c.trim())).filter(c => c.length > 1)
+    const opC = cleanText(op.countryName || op.country || '')
+    if (opC && sc.some(c => opC.includes(c) || c.includes(opC))) {
+      score += 20
+      reasons.push(`País: ${op.countryName || op.country}`)
+    }
+  }
+
+  // Custos cobertos — bónus 10pts
+  if (op.coversCosts) {
+    score += 10
+    reasons.push('Cobre custos')
+  }
+
+  // Prazo expirado — penalização leve
   const dias = daysLeft(op.deadline)
-  if (dias !== null && dias < 0) score -= 15
+  if (dias !== null && dias < 0) score -= 10
 
   return { score: Math.max(0, Math.min(100, score)), reasons }
 }
 
-// ─── Gemini web search ────────────────────────────────────
+// ─── Gemini web search com retry ─────────────────────────
+
+async function callGeminiWithRetry(url: string, body: any, retries = 2): Promise<any> {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (res.ok) return await res.json()
+      const err = await res.json()
+      const code = err?.error?.code || res.status
+      // 503 = servidor sobrecarregado → espera e tenta de novo
+      if (code === 503 && i < retries) {
+        await new Promise(r => setTimeout(r, 2000 * (i + 1)))
+        continue
+      }
+      throw new Error(`Gemini ${code}: ${err?.error?.message || 'erro desconhecido'}`)
+    } catch (err: any) {
+      if (i === retries) throw err
+      await new Promise(r => setTimeout(r, 1500))
+    }
+  }
+}
 
 async function searchWebWithGemini(search: SavedSearch): Promise<{ results: Opportunity[]; note: string }> {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY
   if (!apiKey) throw new Error('VITE_GEMINI_API_KEY não configurada')
 
   const year = new Date().getFullYear()
-  const typeLabel = search.opportunityType === 'todos' ? 'oportunidade cultural'
-    : { residencia: 'residência artística', open_call: 'open call edital', festival: 'festival', showcase: 'showcase', premio: 'prémio bolsa', mobilidade: 'mobilidade artística', financiamento: 'financiamento cultural' }[search.opportunityType || ''] || 'oportunidade'
 
-  const disciplines = safeArr(search.disciplines).slice(0, 4).join(', ')
-  const countries = (search.selectedCountries || search.countries.split(',')).map((c: string) => c.trim()).filter(Boolean).slice(0, 8).join(', ')
+  // Mapa de labels para cada tipo incluindo venue/festa
+  const typeLabels: Record<string, string> = {
+    residencia: 'residências artísticas',
+    open_call: 'open calls e editais',
+    festival: 'festivais',
+    showcase: 'showcases e showcases profissionais',
+    premio: 'prémios e bolsas',
+    mobilidade: 'programas de mobilidade',
+    financiamento: 'financiamentos culturais',
+    venue: 'venues, clubes e espaços culturais',
+    festa: 'festas, noites e eventos de clube',
+    clube: 'clubes nocturnos e espaços de festa',
+    todos: 'oportunidades culturais',
+  }
 
-  const prompt = `Pesquisa ${typeLabel}s REAIS e ACTUAIS (${year}-${year + 1}) para artistas com prática em: ${disciplines || 'artes performativas, artes visuais'}.
+  const typeLabel = typeLabels[search.opportunityType || 'todos'] || 'oportunidades culturais'
+  const disciplines = safeArr(search.disciplines).slice(0, 5).join(', ') || 'artes performativas'
+  const countries = (search.selectedCountries || search.countries.split(','))
+    .map((c: string) => c.trim()).filter(Boolean).slice(0, 10).join(', ') || 'Europa'
+
+  // Prompt adaptado para incluir venues e festas
+  const isVenueType = ['venue', 'festa', 'clube', 'party'].includes(search.opportunityType || '')
+
+  const prompt = isVenueType
+    ? `Pesquisa ${typeLabel} REAIS e RELEVANTES para artistas com prática em: ${disciplines}.
+
+Contexto: representamos DJs, músicos e artistas da diáspora afro-lusófona, queer e migrantes baseados em Barcelona.
+Países/cidades prioritários: ${countries}
+
+Encontra ${Math.min(search.maxResults || 10, 12)} ${typeLabel} com:
+- Programação regular (noites mensais, residências DJ, ciclos de festas)
+- Perfil afrodiaspórico, queer, experimental ou alternativo
+- Links reais verificáveis (website, redes sociais, Resident Advisor, etc.)
+
+Responde APENAS com JSON:
+{
+  "opportunities": [
+    {
+      "title": "nome do venue/festa/ciclo",
+      "organization": "promotora ou venue",
+      "country": "país em português",
+      "countryCode": "código ISO 2 letras",
+      "city": "cidade",
+      "type": "venue",
+      "deadline": null,
+      "recurrence": "irregular",
+      "coversCosts": false,
+      "summary": "2-3 frases em português — que tipo de programação, qual o perfil do público, como contactar para tocar",
+      "link": "URL oficial ou Resident Advisor",
+      "disciplines": ["música", "dj"],
+      "keywords": ["afrodiaspórico", "queer", "electrónica"]
+    }
+  ]
+}`
+    : `Pesquisa ${typeLabel} REAIS e ACTUAIS (${year}-${year + 1}) para artistas com prática em: ${disciplines}.
 
 Contexto: representamos artistas negros, migrantes e LGBTQIA+ da diáspora afro-lusófona baseados na Europa.
-Países prioritários: ${countries || 'Europa, Brasil'}
+Países prioritários: ${countries}
 Idiomas: PT, EN, ES
 
-Encontra ${Math.min(search.maxResults || 10, 12)} ${typeLabel}s REAIS com:
-- Candidaturas abertas agora OU que abrem regularmente (ciclo anual)
-- Preferência para: custos cobertos, contexto afrodiaspórico/queer/migrante
-- Links verificáveis
+Encontra ${Math.min(search.maxResults || 10, 12)} ${typeLabel} REAIS com candidaturas abertas ou recorrentes.
+Preferência: custos cobertos, contexto afrodiaspórico/queer/migrante, links verificáveis.
 
 Responde APENAS com JSON:
 {
@@ -219,7 +325,7 @@ Responde APENAS com JSON:
       "country": "país em português",
       "countryCode": "código ISO 2 letras",
       "city": "cidade",
-      "type": "residencia|open_call|festival|showcase|premio|mobilidade|financiamento",
+      "type": "${search.opportunityType || 'open_call'}",
       "deadline": "YYYY-MM-DD ou null",
       "openingDate": "YYYY-MM-DD ou null",
       "recurrence": "anual|semestral|irregular|unica",
@@ -232,50 +338,37 @@ Responde APENAS com JSON:
   ]
 }`
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        tools: [{ googleSearch: {} }],
-        generationConfig: { temperature: 0.2, maxOutputTokens: 4096 },
-      }),
-    }
-  )
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`
 
-  const data = await res.json()
-
-  if (!res.ok) {
-    // Fallback sem grounding
-    const res2 = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.3, maxOutputTokens: 4096 },
-        }),
-      }
-    )
-    if (!res2.ok) throw new Error('Gemini indisponível. Tenta novamente.')
-    const d2 = await res2.json()
-    return { results: parseGemini(d2), note: `Gemini (conhecimento interno) · ${disciplines}` }
+  // ✅ FIX: tenta com googleSearch primeiro, fallback sem grounding
+  let data: any
+  try {
+    data = await callGeminiWithRetry(geminiUrl, {
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      tools: [{ googleSearch: {} }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 4096 },
+    })
+  } catch {
+    // ✅ FIX: fallback com delay de 2s antes de tentar sem grounding
+    await new Promise(r => setTimeout(r, 2000))
+    data = await callGeminiWithRetry(geminiUrl, {
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.3, maxOutputTokens: 4096 },
+    })
   }
 
   const results = parseGemini(data)
-  const hasGrounding = !!data.candidates?.[0]?.groundingMetadata?.webSearchQueries
+  const hasGrounding = !!data?.candidates?.[0]?.groundingMetadata?.webSearchQueries
   return {
     results,
-    note: `${results.length} oportunidades${hasGrounding ? ' via Google Search' : ''} · ${disciplines}`,
+    note: `${results.length} ${typeLabel} encontradas${hasGrounding ? ' via Google Search' : ''} · ${disciplines}`,
   }
 }
 
 function parseGemini(data: any): Opportunity[] {
   try {
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
+    if (!text) return []
     const clean = text.replace(/```json/gi, '').replace(/```/g, '').trim()
     const jsonMatch = clean.match(/\{[\s\S]*\}/)
     if (!jsonMatch) return []
@@ -316,7 +409,7 @@ function parseCsv(text: string): Opportunity[] {
       city: get('city', 'cidade'), disciplines: splitTags(get('disciplines', 'disciplinas')),
       deadline: get('deadline', 'prazo'), openingDate: get('openingDate', 'abertura'),
       summary: get('summary', 'resumo'), link: get('link', 'url'),
-      keywords: splitTags(get('keywords', 'tags')),
+      keywords: splitTags(get('keywords', 'tags')), notes: get('notes', 'notas'),
       coversCosts: ['sim', 'yes', 'true', '1'].includes(cleanText(get('coversCosts', 'custos'))),
       recurrence: 'anual' as Recurrence, status: 'open', source: 'csv',
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
@@ -346,9 +439,7 @@ export default function MatchView() {
   const [analysisOp, setAnalysisOp] = useState<Opportunity | null>(null)
   const [analysisArtist, setAnalysisArtist] = useState<ArtistForAnalysis | null>(null)
   const [loadingAnalysis, setLoadingAnalysis] = useState(false)
-
-  // Edição rápida inline
-  const [quickEdit, setQuickEdit] = useState<string | null>(null) // id do card em edição rápida
+  const [quickEdit, setQuickEdit] = useState<string | null>(null)
 
   useEffect(() => {
     setManual(getManualOpportunities())
@@ -388,14 +479,13 @@ export default function MatchView() {
     setWebResults([])
     setWebError('')
     setWebNote('')
-
     setWebLoading(true)
     try {
       const { results, note } = await searchWebWithGemini(savedSearch)
       setWebResults(results)
       setWebNote(note)
     } catch (err: any) {
-      setWebError(err.message || 'Erro ao buscar. Tenta novamente.')
+      setWebError(err.message || 'Erro ao buscar. Tenta novamente em alguns segundos.')
     } finally {
       setWebLoading(false)
     }
@@ -430,7 +520,7 @@ export default function MatchView() {
     try {
       if (activeScout?.artistId) {
         const allArtists = await loadArtistsFromSupabase()
-        const artist = allArtists.find((a: any) => a.id === activeScout.artistId) as any
+        const artist = allArtists.find((a: any) => a.id === (activeScout as any).artistId) as any
         if (artist) {
           setAnalysisArtist({
             name: artist.name || 'Artista',
@@ -438,11 +528,15 @@ export default function MatchView() {
             disciplines: safeArr(artist.disciplines), languages: safeArr(artist.languages),
             keywords: safeArr(artist.keywords), cartografia: artist.cartografia,
           })
+        } else {
+          setAnalysisArtist({ name: activeScout.artistName || 'Artista SOMA' })
         }
       } else {
         setAnalysisArtist({ name: 'Artista SOMA' })
       }
-    } catch { setAnalysisArtist({ name: 'Artista SOMA' }) }
+    } catch {
+      setAnalysisArtist({ name: 'Artista SOMA' })
+    }
     setLoadingAnalysis(false)
   }
 
@@ -459,19 +553,22 @@ export default function MatchView() {
         return op
       })
       .filter(op => {
+        // ✅ FIX: threshold 20 — mostra muito mais resultados relevantes
         if (activeScout && (op._matchScore || 0) < SCORE_THRESHOLD) return false
         if (typeFilter !== 'todos' && op.type !== typeFilter) return false
         if (countryFilter !== 'todos' && (op.countryName || op.country) !== countryFilter) return false
         if (onlyCosts && !op.coversCosts) return false
         if (!showExpired && daysLeft(op.deadline) !== null && (daysLeft(op.deadline) || 0) < 0) return false
         if (!q) return true
-        return cleanText([op.title, op.organization, op.countryName, op.city, op.summary, op.notes, ...safeArr(op.disciplines), ...safeArr(op.keywords)].join(' ')).includes(q)
+        return cleanText([
+          op.title, op.organization, op.countryName, op.city,
+          op.summary, op.notes, ...safeArr(op.disciplines), ...safeArr(op.keywords),
+        ].join(' ')).includes(q)
       })
       .sort((a, b) => {
         if (activeScout) return (b._matchScore || 0) - (a._matchScore || 0)
         const da = daysLeft(a.deadline)
         const db = daysLeft(b.deadline)
-        // Urgentes primeiro, sem deadline no fim
         if (da === null && db === null) return 0
         if (da === null) return 1
         if (db === null) return -1
@@ -482,7 +579,6 @@ export default function MatchView() {
   const types = useMemo(() => Array.from(new Set(allOpportunities.map(o => o.type).filter(Boolean))).sort(), [allOpportunities])
   const countries = useMemo(() => Array.from(new Set(allOpportunities.map(o => o.countryName || o.country).filter(Boolean))).sort(), [allOpportunities])
 
-  // Alertas de prazo
   const urgentCount = useMemo(() => allOpportunities.filter(op => {
     const d = daysLeft(op.deadline)
     return d !== null && d >= 0 && d <= 14
@@ -498,11 +594,9 @@ export default function MatchView() {
     setEditing(null); setQuickEdit(null)
   }
 
-  // Actualização rápida de um campo específico
   function quickUpdate(id: string, field: keyof Opportunity, value: any) {
     const isManual = manual.some(o => o.id === id)
     if (!isManual) {
-      // Promover da base para manual para poder editar
       const op = allOpportunities.find(o => o.id === id)
       if (!op) return
       const promoted = { ...op, [field]: value, source: 'editado', updatedAt: new Date().toISOString() }
@@ -547,7 +641,9 @@ export default function MatchView() {
 
   function exportCsv() {
     const headers = ['title', 'organization', 'type', 'country', 'city', 'deadline', 'openingDate', 'recurrence', 'disciplines', 'keywords', 'coversCosts', 'link', 'summary', 'notes', 'source']
-    const rows = filteredBase.map(op => [op.title, op.organization, op.type, op.countryName, op.city, op.deadline, op.openingDate, op.recurrence, op.disciplines, op.keywords, op.coversCosts ? 'true' : 'false', op.link, op.summary, op.notes, op.source].map(escapeCsv).join(','))
+    const rows = filteredBase.map(op =>
+      [op.title, op.organization, op.type, op.countryName, op.city, op.deadline, op.openingDate, op.recurrence, op.disciplines, op.keywords, op.coversCosts ? 'true' : 'false', op.link, op.summary, op.notes, op.source].map(escapeCsv).join(',')
+    )
     const csv = [headers.join(','), ...rows].join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
@@ -562,137 +658,133 @@ export default function MatchView() {
     const isManual = manual.some(m => m.id === op.id)
     const dl = deadlineLabel(op.deadline)
     const hasScore = !isWeb && activeScout && op._matchScore !== undefined
-    const scoreColor = (op._matchScore || 0) >= 70 ? '#6ef3a5' : (op._matchScore || 0) >= 50 ? '#ffcf5c' : 'rgba(255,255,255,0.4)'
-    const typeColor = TYPE_COLORS[op.type?.toLowerCase() || ''] || 'rgba(255,255,255,0.5)'
+    const scoreColor = (op._matchScore || 0) >= 60 ? '#6ef3a5' : (op._matchScore || 0) >= 35 ? '#ffcf5c' : 'rgba(255,255,255,0.4)'
+    const typeKey = (op.type || '').toLowerCase()
+    const typeColor = TYPE_COLORS[typeKey] || 'rgba(255,255,255,0.5)'
+    const typeIcon = TYPE_ICONS[typeKey] || '📌'
+    const isVenue = ['venue', 'festa', 'clube', 'party'].includes(typeKey)
+    const urgent = dl && (daysLeft(op.deadline) || 999) <= 7 && (daysLeft(op.deadline) || -1) >= 0
     const isQuickEdit = quickEdit === op.id
     const recInfo = RECURRENCE_OPTIONS.find(r => r.value === op.recurrence)
-
-    const urgent = dl && (daysLeft(op.deadline) || 999) <= 7 && (daysLeft(op.deadline) || -1) >= 0
 
     return (
       <article key={op.id} style={{
         ...st.card,
-        borderColor: isWeb ? 'rgba(96,180,232,0.4)' : urgent ? 'rgba(255,138,138,0.5)' : hasScore && (op._matchScore || 0) >= 70 ? 'rgba(110,243,165,0.3)' : 'rgba(255,255,255,0.08)',
+        borderColor: isWeb ? 'rgba(96,180,232,0.4)'
+          : urgent ? 'rgba(255,138,138,0.5)'
+          : hasScore && (op._matchScore || 0) >= 60 ? 'rgba(110,243,165,0.3)'
+          : isVenue ? 'rgba(244,114,182,0.2)'
+          : 'rgba(255,255,255,0.08)',
         background: isWeb ? 'rgba(26,105,148,0.05)' : '#111',
       }}>
 
-        {/* TOP: tipo + deadline */}
+        {/* TOP */}
         <div style={st.cardTop}>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{ ...st.typeTag, color: typeColor, borderColor: `${typeColor}40`, background: `${typeColor}15` }}>
-              {isWeb ? '🌐 ' : ''}{op.type || 'open_call'}
+            <span style={{ ...st.typeTag, color: typeColor, borderColor: `${typeColor}50`, background: `${typeColor}15` }}>
+              {isWeb ? '🌐 ' : `${typeIcon} `}{op.type || 'edital'}
             </span>
             {recInfo && !isWeb && (
-              <span style={{ fontSize: 10, color: recInfo.color, opacity: 0.7 }}>{recInfo.label}</span>
+              <span style={{ fontSize: 10, color: recInfo.color, opacity: 0.8 }}>{recInfo.label}</span>
             )}
             {hasScore && (
               <span style={{ fontSize: 11, fontWeight: 700, color: scoreColor }}>{op._matchScore}%</span>
             )}
           </div>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            {dl && (
-              <span style={{ fontSize: 11, fontWeight: 700, color: dl.color }}>{dl.text}</span>
-            )}
+            {dl && <span style={{ fontSize: 11, fontWeight: 700, color: dl.color }}>{dl.text}</span>}
           </div>
         </div>
 
-        {/* TÍTULO */}
         <h3 style={st.cardTitle}>{op.title}</h3>
         <p style={st.cardMeta}>
           {[op.organization, op.city, op.countryName || op.country].filter(Boolean).join(' · ') || 'Sem entidade'}
         </p>
 
-        {/* ARTISTA ASSOCIADO */}
         {op.assignedArtistName && (
           <div style={st.artistTag}>🎤 {op.assignedArtistName}</div>
         )}
 
-        {/* MATCH REASONS */}
         {hasScore && op._matchReasons && op._matchReasons.length > 0 && (
-          <div style={st.reasons}>
-            {op._matchReasons.map((r, i) => <span key={i}>✓ {r}</span>)}
-          </div>
+          <div style={st.reasons}>{op._matchReasons.map((r, i) => <span key={i}>✓ {r}</span>)}</div>
         )}
 
-        {/* RESUMO */}
         <p style={st.summary}>{op.summary || op.description || 'Sem resumo ainda.'}</p>
 
-        {/* TAGS */}
         <div style={st.tags}>
           {safeArr(op.disciplines).slice(0, 3).map(d => <span key={d} style={st.tag}>{d}</span>)}
           {op.coversCosts && <span style={st.costTag}>custos cobertos</span>}
-          {!activeScout && !isWeb && <span style={st.sourceTag}>{isManual ? op.source || 'manual' : 'base'}</span>}
+          {!activeScout && !isWeb && (
+            <span style={st.sourceTag}>{isManual ? op.source || 'manual' : 'base'}</span>
+          )}
         </div>
+
+        {/* NOTAS */}
+        {op.notes && !isQuickEdit && (
+          <div style={st.notesBox}>📝 {op.notes}</div>
+        )}
 
         {/* EDIÇÃO RÁPIDA INLINE */}
         {isQuickEdit && !isWeb && (
           <div style={st.quickEditBox}>
             <div style={st.quickEditGrid}>
               <div>
-                <label style={st.qLabel}>Deadline</label>
+                <span style={st.qLabel}>Deadline candidatura</span>
                 <input style={st.qInput} type="date" defaultValue={op.deadline || ''}
                   onBlur={e => quickUpdate(op.id, 'deadline', e.target.value)} />
               </div>
               <div>
-                <label style={st.qLabel}>Abertura</label>
+                <span style={st.qLabel}>Data de abertura</span>
                 <input style={st.qInput} type="date" defaultValue={op.openingDate || ''}
                   onBlur={e => quickUpdate(op.id, 'openingDate', e.target.value)} />
               </div>
               <div>
-                <label style={st.qLabel}>Recorrência</label>
+                <span style={st.qLabel}>Recorrência</span>
                 <select style={st.qInput} defaultValue={op.recurrence || 'anual'}
                   onChange={e => quickUpdate(op.id, 'recurrence', e.target.value)}>
                   {RECURRENCE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                 </select>
               </div>
               <div>
-                <label style={st.qLabel}>Link</label>
+                <span style={st.qLabel}>Link oficial</span>
                 <input style={st.qInput} defaultValue={op.link || ''} placeholder="https://..."
                   onBlur={e => quickUpdate(op.id, 'link', e.target.value)} />
               </div>
             </div>
             <div>
-              <label style={st.qLabel}>Notas internas</label>
+              <span style={st.qLabel}>Notas internas</span>
               <textarea style={st.qTextarea} defaultValue={op.notes || ''}
-                placeholder="Notas, estratégia, contexto, histórico..."
+                placeholder="Estratégia, histórico, contactos, como apresentar..."
                 onBlur={e => quickUpdate(op.id, 'notes', e.target.value)} />
             </div>
             <button style={st.qDoneBtn} onClick={() => setQuickEdit(null)}>✓ Fechar edição</button>
           </div>
         )}
 
-        {/* NOTAS (quando não em edição) */}
-        {op.notes && !isQuickEdit && (
-          <div style={st.notesBox}>📝 {op.notes}</div>
-        )}
-
         {/* ACÇÕES */}
         <div style={st.cardActions}>
-          {op.link && <a href={op.link} target="_blank" rel="noopener noreferrer" style={st.link}>ver edital →</a>}
-
+          {op.link && (
+            <a href={op.link} target="_blank" rel="noopener noreferrer" style={st.link}>ver →</a>
+          )}
           {!isWeb && (
-            <button style={st.editQuickBtn} onClick={() => setQuickEdit(isQuickEdit ? null : op.id)}
-              title="Editar deadline, abertura, recorrência e notas">
+            <button style={st.editQuickBtn} onClick={() => setQuickEdit(isQuickEdit ? null : op.id)}>
               {isQuickEdit ? '✓ Fechar' : '✏️ Editar'}
             </button>
           )}
-
-          <button style={st.analysisBtn} onClick={() => openAnalysis(op)} disabled={loadingAnalysis}
-            title="Análise SOMA — Gemini analisa o encaixe com o projecto">
+          <button style={st.analysisBtn} onClick={() => openAnalysis(op)} disabled={loadingAnalysis}>
             🔬 Análise
           </button>
-
           {!isWeb && <ProposeOpportunityButton opportunity={op} />}
-
           <button style={st.secondaryBtn} onClick={() => { setAssigning(op); setSelectedArtistId(op.assignedArtistId || '') }}>
             Associar
           </button>
-
           {isWeb
             ? <button style={st.primaryBtn} onClick={() => saveWebOpportunity(op)}>💾 Guardar</button>
             : <button style={st.secondaryBtn} onClick={() => duplicateToEdit(op)}>{isManual ? 'Editar mais' : 'Duplicar'}</button>
           }
-          {isManual && !isWeb && <button style={st.dangerBtn} onClick={() => deleteOpportunity(op.id)}>✕</button>}
+          {isManual && !isWeb && (
+            <button style={st.dangerBtn} onClick={() => deleteOpportunity(op.id)}>✕</button>
+          )}
         </div>
       </article>
     )
@@ -712,7 +804,9 @@ export default function MatchView() {
               ? `${filteredBase.length} relevantes de ${allOpportunities.length} · Scout: ${activeScout.name}`
               : `${filteredBase.length} de ${allOpportunities.length}`}
             {webResults.length > 0 && ` · ${webResults.length} novas`}
-            {urgentCount > 0 && <span style={{ color: '#ff8a8a', marginLeft: 8 }}>⚠️ {urgentCount} urgentes</span>}
+            {urgentCount > 0 && (
+              <span style={{ color: '#ff8a8a', marginLeft: 8 }}>⚠️ {urgentCount} urgentes</span>
+            )}
           </p>
         </div>
         <div style={st.headerActions}>
@@ -727,22 +821,28 @@ export default function MatchView() {
       <ScoutUrlExtractor onSave={handleScoutSave} />
       <ScoutSavedSearches onSave={handleScoutCallback} />
 
-      {/* BANNER SCOUT */}
+      {/* BANNER SCOUT ACTIVO */}
       {activeScout && (
         <div style={st.scoutBanner}>
           <div>
             <span style={{ color: 'rgba(255,255,255,0.6)' }}>🔍</span>
             <strong> {activeScout.name}</strong>
             {activeScout.selectedDisciplines && activeScout.selectedDisciplines.length > 0 && (
-              <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, marginLeft: 8 }}>
-                [{activeScout.selectedDisciplines.join(', ')}]
+              <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginLeft: 8 }}>
+                [{safeArr(activeScout.selectedDisciplines).join(', ')}]
               </span>
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {webLoading && <span style={{ color: '#60b4e8', fontSize: 12 }}>⟳ A pesquisar...</span>}
-            {webNote && !webLoading && <span style={{ color: '#6ef3a5', fontSize: 12 }}>✓ {webNote}</span>}
-            {webError && !webLoading && <span style={{ color: '#ff8a8a', fontSize: 12 }}>⚠ {webError}</span>}
+            {webLoading && (
+              <span style={{ color: '#60b4e8', fontSize: 12 }}>⟳ A pesquisar...</span>
+            )}
+            {webNote && !webLoading && (
+              <span style={{ color: '#6ef3a5', fontSize: 12 }}>✓ {webNote}</span>
+            )}
+            {webError && !webLoading && (
+              <span style={{ color: '#ff8a8a', fontSize: 12 }}>⚠ {webError}</span>
+            )}
             <button style={st.clearBtn} onClick={clearScout}>× Limpar</button>
           </div>
         </div>
@@ -750,10 +850,13 @@ export default function MatchView() {
 
       {/* FILTROS */}
       <section style={st.toolbar}>
-        <input style={st.input} placeholder="Pesquisar..." value={search} onChange={e => { setSearch(e.target.value); setActiveScout(null) }} />
+        <input style={st.input}
+          placeholder="Pesquisar título, organização, país, disciplina..."
+          value={search}
+          onChange={e => { setSearch(e.target.value); if (activeScout) setActiveScout(null) }} />
         <select style={st.select} value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
           <option value="todos">Todos os tipos</option>
-          {types.map(t => <option key={t} value={t}>{t}</option>)}
+          {types.map(t => <option key={t} value={t}>{TYPE_ICONS[t] || '📌'} {t}</option>)}
         </select>
         <select style={st.select} value={countryFilter} onChange={e => setCountryFilter(e.target.value)}>
           <option value="todos">Todos os países</option>
@@ -773,9 +876,11 @@ export default function MatchView() {
       {webResults.length > 0 && (
         <section style={{ marginBottom: 28 }}>
           <div style={st.sectionHeader}>
-            <h2 style={st.sectionTitle}>🌐 Google Search — {webResults.length} oportunidades encontradas</h2>
+            <h2 style={st.sectionTitle}>
+              🌐 Google Search — {webResults.length} encontradas
+            </h2>
             <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: '4px 0 0' }}>
-              Guarda as relevantes → edita deadline e notas → associa ao artista certo
+              Guarda as relevantes → edita deadline e notas → associa ao artista
             </p>
           </div>
           <div style={st.grid}>{webResults.map(op => renderCard(op, true))}</div>
@@ -788,14 +893,18 @@ export default function MatchView() {
           <div style={st.sectionHeader}>
             <h2 style={st.sectionTitle}>
               📁 Base — {filteredBase.length} relevantes
-              <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginLeft: 8 }}>(≥ {SCORE_THRESHOLD}% match)</span>
+              <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginLeft: 8 }}>
+                (score ≥ {SCORE_THRESHOLD}%)
+              </span>
             </h2>
           </div>
         )}
         {filteredBase.length === 0 && (
           <div style={st.empty}>
-            <p>Nenhuma oportunidade encontrada.</p>
-            <p style={{ opacity: 0.6, fontSize: 12 }}>Usa o Scout para encontrar novas, ou importa CSV.</p>
+            <p>{activeScout
+              ? 'Nenhuma oportunidade relevante na base. Guarda algumas da web primeiro.'
+              : 'Nenhuma oportunidade encontrada.'}</p>
+            <p style={{ opacity: 0.6, fontSize: 12 }}>Usa o Scout, importa CSV ou adiciona manualmente.</p>
           </div>
         )}
         <div style={st.grid}>{filteredBase.map(op => renderCard(op, false))}</div>
@@ -806,11 +915,15 @@ export default function MatchView() {
         <div style={st.overlay}>
           <div style={st.smallModal}>
             <h2 style={st.modalTitle}>Associar artista</h2>
-            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginBottom: 14 }}>{assigning.title}</p>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginBottom: 14 }}>
+              {assigning.title}
+            </p>
             <label style={st.label}>Artista
               <select style={st.input} value={selectedArtistId} onChange={e => setSelectedArtistId(e.target.value)}>
                 <option value="">— Seleccionar —</option>
-                {artists.map(a => <option key={a.id} value={a.id}>{a.artisticName || a.name || 'Artista'}</option>)}
+                {artists.map(a => (
+                  <option key={a.id} value={a.id}>{a.artisticName || a.name || 'Artista'}</option>
+                ))}
               </select>
             </label>
             <div style={st.modalFooter}>
@@ -826,7 +939,9 @@ export default function MatchView() {
         <div style={st.overlay}>
           <div style={st.modal}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 18 }}>
-              <h2 style={st.modalTitle}>{manual.some(o => o.id === editing.id) ? 'Editar' : 'Nova'} oportunidade</h2>
+              <h2 style={st.modalTitle}>
+                {manual.some(o => o.id === editing.id) ? 'Editar' : 'Nova'} oportunidade
+              </h2>
               <button style={st.secondaryBtn} onClick={() => setEditing(null)}>Fechar</button>
             </div>
             <div style={st.formGrid}>
@@ -834,7 +949,7 @@ export default function MatchView() {
                 <input style={st.input} value={editing.title}
                   onChange={e => setEditing({ ...editing, title: e.target.value })} />
               </label>
-              <label style={st.label}>Organização
+              <label style={st.label}>Organização / Venue
                 <input style={st.input} value={editing.organization || ''}
                   onChange={e => setEditing({ ...editing, organization: e.target.value })} />
               </label>
@@ -842,19 +957,24 @@ export default function MatchView() {
                 <select style={st.input} value={editing.type || 'open_call'}
                   onChange={e => setEditing({ ...editing, type: e.target.value })}>
                   <option value="residencia">🏠 Residência</option>
-                  <option value="open_call">📋 Open Call</option>
+                  <option value="open_call">📋 Open Call / Edital</option>
                   <option value="festival">🎪 Festival</option>
                   <option value="showcase">🎤 Showcase</option>
                   <option value="grant">🏆 Prémio / Bolsa</option>
                   <option value="mobilidade">✈️ Mobilidade</option>
                   <option value="financiamento">💰 Financiamento</option>
-                  <option value="venue">🏠 Venue</option>
+                  {/* ✅ NOVO: venue e festa */}
+                  <option value="venue">🏛 Venue / Espaço cultural</option>
+                  <option value="festa">🎉 Festa / Noite / Ciclo</option>
+                  <option value="clube">🎧 Clube nocturno</option>
                 </select>
               </label>
               <label style={st.label}>Recorrência
                 <select style={st.input} value={editing.recurrence || 'anual'}
                   onChange={e => setEditing({ ...editing, recurrence: e.target.value as Recurrence })}>
-                  {RECURRENCE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                  {RECURRENCE_OPTIONS.map(r => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
                 </select>
               </label>
               <label style={st.label}>País
@@ -865,7 +985,7 @@ export default function MatchView() {
                 <input style={st.input} value={editing.city || ''}
                   onChange={e => setEditing({ ...editing, city: e.target.value })} />
               </label>
-              <label style={st.label}>📅 Deadline candidatura
+              <label style={st.label}>📅 Deadline / Candidatura
                 <input style={st.input} type="date" value={editing.deadline || ''}
                   onChange={e => setEditing({ ...editing, deadline: e.target.value })} />
               </label>
@@ -879,7 +999,8 @@ export default function MatchView() {
               </label>
               <label style={st.label}>Disciplinas
                 <input style={st.input} value={joinTags(editing.disciplines)}
-                  onChange={e => setEditing({ ...editing, disciplines: splitTags(e.target.value) })} />
+                  onChange={e => setEditing({ ...editing, disciplines: splitTags(e.target.value) })}
+                  placeholder="performance, música, dj, artes visuais..." />
               </label>
             </div>
             <label style={st.check}>
@@ -891,9 +1012,10 @@ export default function MatchView() {
               <textarea style={st.textarea} value={editing.summary || ''}
                 onChange={e => setEditing({ ...editing, summary: e.target.value, description: e.target.value })} />
             </label>
-            <label style={st.label}>Notas internas (estratégia, histórico, contactos)
+            <label style={st.label}>Notas internas
               <textarea style={st.textarea} value={editing.notes || ''}
-                onChange={e => setEditing({ ...editing, notes: e.target.value })} />
+                onChange={e => setEditing({ ...editing, notes: e.target.value })}
+                placeholder="Estratégia, histórico, como apresentar, contactos..." />
             </label>
             <div style={st.modalFooter}>
               <button style={st.secondaryBtn} onClick={() => setEditing(null)}>Cancelar</button>
@@ -934,7 +1056,12 @@ const st: Record<string, React.CSSProperties> = {
   title: { margin: 0, fontSize: 30, color: '#60b4e8' },
   subtitle: { margin: '5px 0 0', color: 'rgba(255,255,255,0.48)', fontSize: 13 },
 
-  scoutBanner: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, background: 'rgba(26,105,148,0.12)', border: '1px solid rgba(26,105,148,0.3)', borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 13 },
+  scoutBanner: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    flexWrap: 'wrap', gap: 10, background: 'rgba(26,105,148,0.12)',
+    border: '1px solid rgba(26,105,148,0.3)', borderRadius: 10,
+    padding: '12px 16px', marginBottom: 16, fontSize: 13,
+  },
   clearBtn: { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '5px 10px', fontSize: 11, cursor: 'pointer' },
 
   sectionHeader: { marginBottom: 12 },
@@ -946,7 +1073,6 @@ const st: Record<string, React.CSSProperties> = {
   check: { display: 'flex', alignItems: 'center', gap: 7, color: 'rgba(255,255,255,0.65)', fontSize: 13, whiteSpace: 'nowrap' },
 
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14, marginBottom: 28 },
-
   card: { background: '#111', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 16 },
   cardTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   typeTag: { fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 20, border: '1px solid' },
@@ -961,7 +1087,6 @@ const st: Record<string, React.CSSProperties> = {
   sourceTag: { fontSize: 11, background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.3)', padding: '2px 8px', borderRadius: 20 },
   notesBox: { marginTop: 8, fontSize: 12, color: 'rgba(255,255,255,0.5)', background: 'rgba(255,207,92,0.05)', border: '1px solid rgba(255,207,92,0.15)', borderRadius: 6, padding: '6px 10px' },
 
-  // Edição rápida inline
   quickEditBox: { marginTop: 12, padding: 14, background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10 },
   quickEditGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 },
   qLabel: { display: 'block', fontSize: 10, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 },
