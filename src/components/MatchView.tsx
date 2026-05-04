@@ -338,7 +338,7 @@ Responde APENAS com JSON:
   ]
 }`
 
-  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`
 
   // ✅ FIX: tenta com googleSearch primeiro, fallback sem grounding
   let data: any
