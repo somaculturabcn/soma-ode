@@ -38,6 +38,9 @@ type Opportunity = {
   deadline?: string
   openingDate?: string
   recurrence?: Recurrence
+  usualOpeningMonth?: number
+  usualDeadlineMonth?: number
+  recurrenceNotes?: string
   summary?: string
   description?: string
   link?: string
@@ -70,7 +73,6 @@ type SavedSearch = {
   opportunityType?: string
   selectedCountries?: string[]
   selectedDisciplines?: string[]
-  // v6 — Scout multilíngue
   searchQueries?: string[]
   applicantProfile?: string
   recurrenceMode?: 'ativas_agora' | 'recorrentes' | 'ambas'
@@ -82,9 +84,6 @@ type SavedSearch = {
 const STORAGE_KEY = 'soma-manual-opportunities-v1'
 const ARTISTS_KEY = 'soma-artists-v2'
 const SCORE_THRESHOLD = 20
-
-// ─── Modelo Gemini ────────────────────────────────────────
-// gemini-2.5-flash é o modelo actual recomendado
 const GEMINI_MODEL = 'gemini-2.5-flash'
 
 const TYPE_COLORS: Record<string, string> = {
@@ -182,7 +181,6 @@ function scoreOpportunity(op: Opportunity, search: SavedSearch): { score: number
       score += Math.min(40, matches.length * 15)
       reasons.push(`Disciplina: ${matches.slice(0, 2).join(', ')}`)
     }
-    // SEM penalização quando não coincide
   }
 
   const queryWords = cleanText(search.query).split(/\s+/)
@@ -213,11 +211,9 @@ function scoreOpportunity(op: Opportunity, search: SavedSearch): { score: number
 // ─── Gemini API ───────────────────────────────────────────
 
 function buildPrompt(search: SavedSearch): string {
-  // Usa searchQueries do Scout v6 (multilíngue) se disponíveis
-  // Caso contrário, constrói uma query fallback limpa
   const hasMultilingualQueries = safeArr(search.searchQueries).length > 0
   const topQueries = hasMultilingualQueries
-    ? safeArr(search.searchQueries).slice(0, 3) // máximo 3 para não sobrecarregar
+    ? safeArr(search.searchQueries).slice(0, 3)
     : [search.query].filter(Boolean)
 
   const typeLabels: Record<string, string> = {
@@ -245,8 +241,11 @@ function buildPrompt(search: SavedSearch): string {
   const countries = (search.selectedCountries || search.countries.split(','))
     .map((c: string) => c.trim()).filter(Boolean).slice(0, 8).join(', ') || 'Europa'
   const isRecurring = search.recurrenceMode === 'recorrentes'
-
   const isVenueType = ['venue', 'festa', 'clube', 'party'].includes(search.opportunityType || '')
+
+  const queriesBlock = topQueries.length > 0
+    ? 'QUERIES (usa para pesquisar):\n' + topQueries.map((q, i) => `${i + 1}. ${q}`).join('\n')
+    : ''
 
   if (isVenueType) {
     return `Encontra ${Math.min(search.maxResults || 10, 10)} venues, clubes, festas ou espaços culturais reais que programam artistas afrodiaspóricos, queer e migrantes.
@@ -285,9 +284,7 @@ PAÍSES: ${countries}
 PERFIL: ${search.applicantProfile || 'artista individual, coletivo, associação cultural'}
 ${isRecurring ? 'MODO: Inclui oportunidades recorrentes/anuais mesmo sem deadline atual aberto' : ''}
 
-${topQueries.length > 0 ? `QUERIES (usa para pesquisar):
-${topQueries.map((q, i) => `${i + 1}. ${q}`).join('
-')}` : ''}
+${queriesBlock}
 
 REGRAS:
 - Só oportunidades REAIS com links verificáveis
@@ -321,7 +318,6 @@ Responde APENAS com JSON válido:
 }`
 }
 
-// Chama Gemini com retry automático
 async function callGemini(apiKey: string, body: any, retries = 3): Promise<any> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`
 
@@ -339,7 +335,6 @@ async function callGemini(apiKey: string, body: any, retries = 3): Promise<any> 
       const code = err?.error?.code || res.status
       const msg = err?.error?.message || 'erro desconhecido'
 
-      // 503 = sobrecarregado → espera e tenta
       if ((code === 503 || code === 429) && i < retries) {
         console.warn(`[Gemini] ${code} — tentativa ${i + 1}/${retries}, aguarda ${2 * (i + 1)}s...`)
         await new Promise(r => setTimeout(r, 2000 * (i + 1)))
@@ -374,6 +369,9 @@ function parseGeminiResponse(data: any): Opportunity[] {
         disciplines: safeArr(op.disciplines), keywords: safeArr(op.keywords),
         deadline: op.deadline || '', openingDate: op.openingDate || '',
         recurrence: op.recurrence || 'anual',
+        usualOpeningMonth: Number(op.usualOpeningMonth) || undefined,
+        usualDeadlineMonth: Number(op.usualDeadlineMonth) || undefined,
+        recurrenceNotes: op.recurrenceNotes || '',
         summary: op.summary || '', description: op.summary || '',
         link: op.link || '', coversCosts: Boolean(op.coversCosts),
         status: 'open', source: 'gemini_web',
@@ -393,13 +391,11 @@ async function searchWithGemini(search: SavedSearch): Promise<{ results: Opportu
   const prompt = buildPrompt(search)
   const disciplines = safeArr(search.disciplines).slice(0, 3).join(', ') || 'artes'
 
-  // ─── TENTATIVA 1: Gemini + Google Search Grounding ─────
-  // FIX: gemini-2.5-flash usa "google_search" (underscore, não camelCase)
   try {
     console.log('[Scout] Tentativa 1: Gemini + Google Search Grounding...')
     const data = await callGemini(apiKey, {
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      tools: [{ google_search: {} }],  // ✅ CORRECTO para gemini-2.5-flash
+      tools: [{ google_search: {} }],
       generationConfig: { temperature: 0.15, maxOutputTokens: 2048 },
     })
 
@@ -414,17 +410,14 @@ async function searchWithGemini(search: SavedSearch): Promise<{ results: Opportu
         method: hasGrounding ? 'grounding' : 'gemini',
       }
     }
-
     console.warn('[Scout] Google Search Grounding devolveu 0 resultados, tentando fallback...')
   } catch (err: any) {
     console.warn('[Scout] Google Search Grounding falhou:', err.message)
   }
 
-  // ─── TENTATIVA 2: Gemini sem grounding (conhecimento interno) ──
-  // Muito fiável para oportunidades anuais conhecidas
   try {
     console.log('[Scout] Tentativa 2: Gemini conhecimento interno...')
-    await new Promise(r => setTimeout(r, 1000)) // pequeno delay
+    await new Promise(r => setTimeout(r, 1000))
 
     const data = await callGemini(apiKey, {
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -532,8 +525,6 @@ export default function MatchView() {
     })
   }, [manual])
 
-  // ─── Scout ────────────────────────────────────────────
-
   async function handleScoutExecute(savedSearch: SavedSearch) {
     setActiveScout(savedSearch)
     setSearch('')
@@ -545,7 +536,6 @@ export default function MatchView() {
 
     try {
       const { results, note, method } = await searchWithGemini(savedSearch)
-      // Enriquecer resultados com dados de recorrência do Scout se existirem
       const enriched = results.map(op => ({
         ...op,
         usualOpeningMonth: op.usualOpeningMonth || savedSearch.usualOpeningMonth,
@@ -584,8 +574,6 @@ export default function MatchView() {
     setWebResults(prev => prev.filter(w => w.id !== op.id))
   }
 
-  // ─── Análise SOMA ─────────────────────────────────────
-
   async function openAnalysis(op: Opportunity) {
     setAnalysisOp(op)
     setLoadingAnalysis(true)
@@ -611,8 +599,6 @@ export default function MatchView() {
     }
     setLoadingAnalysis(false)
   }
-
-  // ─── Filtros ──────────────────────────────────────────
 
   const filteredBase: Opportunity[] = useMemo(() => {
     const q = cleanText(search)
@@ -722,8 +708,6 @@ export default function MatchView() {
     a.click(); URL.revokeObjectURL(url)
   }
 
-  // ─── CARD ─────────────────────────────────────────────
-
   function renderCard(op: Opportunity, isWeb = false) {
     const isManual = manual.some(m => m.id === op.id)
     const dl = deadlineLabel(op.deadline)
@@ -745,7 +729,6 @@ export default function MatchView() {
           : 'rgba(255,255,255,0.08)',
         background: isWeb ? 'rgba(26,105,148,0.05)' : '#111',
       }}>
-
         <div style={st.cardTop}>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
             <span style={{ ...st.typeTag, color: typeColor, borderColor: `${typeColor}50`, background: `${typeColor}15` }}>
@@ -850,11 +833,8 @@ export default function MatchView() {
     )
   }
 
-  // ─── RENDER ──────────────────────────────────────────────
-
   return (
     <div style={st.wrap}>
-
       <header style={st.header}>
         <div>
           <h1 style={st.title}>Oportunidades</h1>
@@ -1083,8 +1063,6 @@ export default function MatchView() {
     </div>
   )
 }
-
-// ─── Styles ───────────────────────────────────────────────
 
 const st: Record<string, React.CSSProperties> = {
   wrap: { maxWidth: 1180, margin: '0 auto', padding: '28px 22px', color: '#fff' },
