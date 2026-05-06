@@ -11,6 +11,8 @@ import {
   saveArtistToSupabase,
   deleteArtistFromSupabase,
 } from '../data/artistsSupabaseStore'
+import ProjectDossierUpload from './ProjectDossierUpload'
+import type { ExtractedDossier } from '../services/pdfExtractor'
 
 // ─── Helper: garante sempre array ────────────────────────
 // Corrige o erro quando campos vêm como string do Supabase
@@ -273,7 +275,7 @@ export default function ArtistManager() {
         {section === '04' && <Section04 a={editing} update={update} />}
         {section === '05' && <Section05 a={editing} update={update} />}
         {section === '06' && <Section06 a={editing} update={update} />}
-        {section === '07' && <Section07 a={editing} update={update} />}
+        {section === '07' && <Section07 a={editing} update={update} artistId={editing.id} />}
         {section === '08' && <Section08 a={editing} update={update} />}
         {section === '09' && <Section09 a={editing} update={update} />}
       </div>
@@ -617,7 +619,7 @@ function Section06({ a, update }: SecProps) {
 
 // ─── SECÇÃO 07: PROJECTOS ─────────────────────────────────
 
-function Section07({ a, update }: SecProps) {
+function Section07({ a, update, artistId }: SecProps & { artistId: string }) {
   const projects = (a as any).projects || []
   const [expanded, setExpanded] = useState<string | null>(null)
 
@@ -643,6 +645,30 @@ function Section07({ a, update }: SecProps) {
       update('projects' as any, projects.filter((p: any) => p.id !== id))
       if (expanded === id) setExpanded(null)
     }
+  }
+
+  // Callback do upload de dossier — actualiza o projecto com os dados extraídos
+  function handleDossierExtracted(projectId: string, dossier: ExtractedDossier) {
+    update('projects' as any, projects.map((p: any) =>
+      p.id === projectId
+        ? {
+            ...p,
+            dossierUrl: dossier.dossierUrl,
+            dossierFileName: dossier.dossierFileName,
+            dossierUploadedAt: dossier.dossierUploadedAt,
+            dossierWordCount: dossier.dossierWordCount,
+            dossierText: dossier.dossierText,
+            methodology: dossier.methodology,
+            references: dossier.references,
+            communities: dossier.communities,
+            highlights: dossier.highlights,
+            // Enriquece campos vazios com os dados extraídos do PDF
+            projectFormat: p.projectFormat || dossier.format,
+            projectKeywords: safeArr(p.projectKeywords).length ? p.projectKeywords : dossier.keywords,
+            summary: p.summary || dossier.summary,
+          }
+        : p
+    ))
   }
 
   return (
@@ -735,6 +761,24 @@ function Section07({ a, update }: SecProps) {
               )}
               <div style={{ marginTop: 16 }}>
                 <button style={s.danger} onClick={() => removeProject(p.id)}>🗑 Remover projeto</button>
+              </div>
+
+              {/* ─── Upload Dossier PDF ─── */}
+              <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                <h4 style={{ color: '#60b4e8', marginBottom: 8 }}>📄 Dossier PDF</h4>
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>
+                  O dossier fica guardado no Supabase e o texto é extraído para melhorar o match com oportunidades.
+                </p>
+                <ProjectDossierUpload
+                  projectId={p.id}
+                  projectName={p.name || 'Projecto'}
+                  artistId={artistId}
+                  dossierFileName={p.dossierFileName}
+                  dossierUrl={p.dossierUrl}
+                  dossierUploadedAt={p.dossierUploadedAt}
+                  dossierWordCount={p.dossierWordCount}
+                  onExtracted={handleDossierExtracted}
+                />
               </div>
             </div>
           )}

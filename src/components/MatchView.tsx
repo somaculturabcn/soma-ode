@@ -10,6 +10,7 @@ import ScoutUrlExtractor from './ScoutUrlExtractor'
 import ScoutSavedSearches from './ScoutSavedSearches'
 import ProposeOpportunityButton from './ProposeOpportunityButton'
 import SomaAnalysisModal, { type ArtistForAnalysis } from './SomaAnalysisModal'
+import ContextualMatchPanel from './ContextualMatchPanel'
 import { mockOpportunities } from '../data/mockOpportunities'
 import { realOpportunities } from '../data/realOpportunities'
 import { loadArtistsFromSupabase } from '../data/artistsSupabaseStore'
@@ -494,10 +495,14 @@ export default function MatchView() {
   const [analysisArtist, setAnalysisArtist] = useState<ArtistForAnalysis | null>(null)
   const [loadingAnalysis, setLoadingAnalysis] = useState(false)
   const [quickEdit, setQuickEdit] = useState<string | null>(null)
+  const [matchArtists, setMatchArtists] = useState<any[]>([])
 
   useEffect(() => {
     setManual(getManualOpportunities())
     setArtists(getArtists())
+    loadArtistsFromSupabase()
+      .then(data => setMatchArtists(data || []))
+      .catch(console.error)
   }, [])
 
   const allOpportunities: Opportunity[] = useMemo(() => {
@@ -857,6 +862,11 @@ export default function MatchView() {
 
       <ScoutUrlExtractor onSave={handleScoutSave} />
       <ScoutSavedSearches onSave={handleScoutCallback} />
+
+      <ContextualMatchPanel
+        artists={matchArtists}
+        opportunities={allOpportunities}
+      />
 
       {activeScout && (
         <div style={st.scoutBanner}>

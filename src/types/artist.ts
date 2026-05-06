@@ -1,6 +1,7 @@
 // src/types/artist.ts
 // SOMA ODÉ — Artist type completo com Google Drive + Cartografia + Portal do Artista
 // v2: Inclui legacyOfResistance, carePractices, ethicalAlliances, invisibleWorkNotes (Angela Davis)
+// v3: Inclui dossierUrl, dossierText e campos extraídos do PDF (Supabase Storage + Gemini)
 
 // ─── Sub-tipos ─────────────────────────────────────────────
 
@@ -25,6 +26,19 @@ export type Project = {
   driveLink?: string
   dossierLink?: string
   language?: string
+
+  // ─── Dossier PDF (Supabase Storage) ──────────────────────
+  dossierUrl?: string          // URL para descarregar o PDF original
+  dossierFileName?: string     // nome do ficheiro: "PICUMÃ_ES.pdf"
+  dossierUploadedAt?: string   // ISO timestamp do upload
+  dossierWordCount?: number    // número de palavras extraídas
+
+  // ─── Dados extraídos do PDF (para match contextual) ──────
+  dossierText?: string         // texto completo extraído pelo Gemini
+  methodology?: string         // metodologia descrita no dossier
+  references?: string[]        // referências artísticas mencionadas
+  communities?: string[]       // comunidades envolvidas (ballroom, trans, afro, etc.)
+  highlights?: string          // aspectos únicos para candidaturas europeias
 }
 
 export type ArtistMaterials = {
