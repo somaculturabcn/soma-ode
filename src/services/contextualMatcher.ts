@@ -129,7 +129,7 @@ function preFilter(opportunities: any[], artist: any, project: any): any[] {
 
   return scored
     .sort((a, b) => b.preScore - a.preScore)
-    .slice(0, 15)  // máximo 15 para não exceder tokens
+    .slice(0, 10)  // máximo 10 — garante resposta completa do Gemini
     .map(s => s.op)
 }
 
@@ -172,7 +172,11 @@ Responde com JSON válido e completo — analisa TODAS as ${filtered.length} opo
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 4096 },
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 8192,
+        responseMimeType: 'application/json',  // força JSON puro — sem markdown
+      },
     }),
   })
 
@@ -185,24 +189,25 @@ Responde com JSON válido e completo — analisa TODAS as ${filtered.length} opo
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
   if (!text) throw new Error('Gemini não devolveu análise')
 
-  // Extracção robusta — tenta múltiplas estratégias
-  const clean = text.replace(/```json/gi, '').replace(/```/g, '').trim()
-
-  // Estratégia 1: JSON completo
+  // Com responseMimeType: 'application/json', o Gemini devolve JSON puro
   let parsed: any = null
-  const fullMatch = clean.match(/\{[\s\S]*\}/)
-  if (fullMatch) {
-    try { parsed = JSON.parse(fullMatch[0]) } catch {}
-  }
-
-  // Estratégia 2: Extrair matches individuais mesmo de JSON incompleto
-  if (!parsed?.matches?.length) {
-    const matchesSection = clean.match(/"matches"\s*:\s*\[([\s\S]*?)(?:\]\s*\}|$)/)
-    if (matchesSection) {
-      try {
-        const partial = JSON.parse(`{"matches":[${matchesSection[1].replace(/,\s*$/, '')}]}`)
-        parsed = partial
-      } catch {}
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    // Fallback: tenta extrair JSON do texto
+    const clean = text.replace(/```json/gi, '').replace(/```/g, '').trim()
+    const jsonMatch = clean.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      try { parsed = JSON.parse(jsonMatch[0]) } catch {}
+    }
+    // Tenta extrair matches parciais
+    if (!parsed?.matches?.length) {
+      const partial = text.match(/"matches"\s*:\s*\[([\s\S]*?)(?:\]\s*\}|$)/)
+      if (partial) {
+        try {
+          parsed = JSON.parse(`{"matches":[${partial[1].replace(/,\s*$/, '')}]}`)
+        } catch {}
+      }
     }
   }
 
