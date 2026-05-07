@@ -1,5 +1,5 @@
 // src/App.tsx — SOMA ODÉ
-// Login + Roles + Portal do Artista + Logout funcional
+// Login + Roles + Portal do Artista + Logout funcional + Módulo Eventos
 import { useState } from 'react'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
 import LoginScreen from './auth/LoginScreen'
@@ -12,6 +12,7 @@ import ContractManager from './components/ContractManager'
 import PipelineView from './components/PipelineView'
 import DocumentsView from './components/DocumentsView'
 import ArtistPortal from './components/ArtistPortal'
+import EventManager from './components/EventManager'
 
 type Tab =
   | 'ARTISTAS'
@@ -20,14 +21,16 @@ type Tab =
   | 'CONTRATOS'
   | 'PIPELINE'
   | 'DOCUMENTOS'
+  | 'EVENTOS'
 
 const tabs: { id: Tab; label: string; permission: string }[] = [
-  { id: 'ARTISTAS', label: 'Artistas', permission: 'artists' },
-  { id: 'OPORTUNIDADES', label: 'Oportunidades', permission: 'opportunities' },
-  { id: 'CONTACTOS', label: 'Contactos', permission: 'contacts' },
-  { id: 'CONTRATOS', label: 'Contratos', permission: 'contracts' },
-  { id: 'PIPELINE', label: 'Pipeline', permission: 'pipeline' },
-  { id: 'DOCUMENTOS', label: 'Documentos', permission: 'documents' },
+  { id: 'ARTISTAS',     label: 'Artistas',      permission: 'artists' },
+  { id: 'OPORTUNIDADES',label: 'Oportunidades', permission: 'opportunities' },
+  { id: 'EVENTOS',      label: 'Eventos',       permission: 'contracts' },
+  { id: 'CONTACTOS',   label: 'Contactos',     permission: 'contacts' },
+  { id: 'CONTRATOS',   label: 'Contratos',     permission: 'contracts' },
+  { id: 'PIPELINE',    label: 'Pipeline',      permission: 'pipeline' },
+  { id: 'DOCUMENTOS',  label: 'Documentos',    permission: 'documents' },
 ]
 
 function AppContent() {
@@ -53,13 +56,8 @@ function AppContent() {
           </div>
           <div style={styles.userBox}>
             <span style={styles.userText}>{user.email}</span>
-            <button 
-              style={styles.logoutBtn} 
-              onClick={async () => {
-                await signOut()
-                window.location.reload()
-              }}
-            >
+            <button style={styles.logoutBtn}
+              onClick={async () => { await signOut(); window.location.reload() }}>
               Sair
             </button>
           </div>
@@ -72,10 +70,7 @@ function AppContent() {
   }
 
   // INTERFACE ADMIN/MANAGER/PRODUCER/VIEWER
-  const visibleTabs = tabs.filter(tab =>
-    hasAccess(user.role as any, tab.permission)
-  )
-
+  const visibleTabs = tabs.filter(tab => hasAccess(user.role as any, tab.permission))
   const safeTab = visibleTabs.find(t => t.id === activeTab)
     ? activeTab
     : visibleTabs[0]?.id
@@ -90,42 +85,31 @@ function AppContent() {
 
         <nav style={styles.nav}>
           {visibleTabs.map(tab => (
-            <button
-              key={tab.id}
-              style={{
-                ...styles.navButton,
-                ...(safeTab === tab.id ? styles.navButtonActive : {}),
-              }}
-              onClick={() => setActiveTab(tab.id)}
-            >
+            <button key={tab.id}
+              style={{ ...styles.navButton, ...(safeTab === tab.id ? styles.navButtonActive : {}) }}
+              onClick={() => setActiveTab(tab.id)}>
               {tab.label}
             </button>
           ))}
         </nav>
 
         <div style={styles.userBox}>
-          <span style={styles.userText}>
-            {user.email} · {user.role}
-          </span>
-          <button 
-            style={styles.logoutBtn} 
-            onClick={async () => {
-              await signOut()
-              window.location.reload()
-            }}
-          >
+          <span style={styles.userText}>{user.email} · {user.role}</span>
+          <button style={styles.logoutBtn}
+            onClick={async () => { await signOut(); window.location.reload() }}>
             Sair
           </button>
         </div>
       </header>
 
       <main style={styles.main}>
-        {safeTab === 'ARTISTAS' && hasAccess(user.role as any, 'artists') && <ArtistManager />}
+        {safeTab === 'ARTISTAS'      && hasAccess(user.role as any, 'artists')       && <ArtistManager />}
         {safeTab === 'OPORTUNIDADES' && hasAccess(user.role as any, 'opportunities') && <MatchView />}
-        {safeTab === 'CONTACTOS' && hasAccess(user.role as any, 'contacts') && <ContactsView />}
-        {safeTab === 'CONTRATOS' && hasAccess(user.role as any, 'contracts') && <ContractManager />}
-        {safeTab === 'PIPELINE' && hasAccess(user.role as any, 'pipeline') && <PipelineView />}
-        {safeTab === 'DOCUMENTOS' && hasAccess(user.role as any, 'documents') && <DocumentsView />}
+        {safeTab === 'EVENTOS'       && hasAccess(user.role as any, 'contracts')     && <EventManager />}
+        {safeTab === 'CONTACTOS'     && hasAccess(user.role as any, 'contacts')      && <ContactsView />}
+        {safeTab === 'CONTRATOS'     && hasAccess(user.role as any, 'contracts')     && <ContractManager />}
+        {safeTab === 'PIPELINE'      && hasAccess(user.role as any, 'pipeline')      && <PipelineView />}
+        {safeTab === 'DOCUMENTOS'    && hasAccess(user.role as any, 'documents')     && <DocumentsView />}
       </main>
     </div>
   )
