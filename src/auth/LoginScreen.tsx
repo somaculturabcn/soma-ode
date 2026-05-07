@@ -1,5 +1,6 @@
 // src/auth/LoginScreen.tsx
 // SOMA ODÉ — Login + Registo Artista + Registo Produtor Independente
+// A organização do produtor é criada no AuthProvider no primeiro login
 
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
@@ -14,99 +15,62 @@ export default function LoginScreen() {
   const [message, setMessage] = useState('')
   const [mode, setMode] = useState<Mode>('login')
 
-  // ── Login ─────────────────────────────────────────────
-
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true); setMessage('')
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      setMessage(error.message.includes('Invalid login credentials')
-        ? 'Email ou senha incorretos.' : error.message)
-    }
+    if (error) setMessage(error.message.includes('Invalid login credentials') ? 'Email ou senha incorretos.' : error.message)
     setLoading(false)
   }
-
-  // ── Registo Artista ───────────────────────────────────
 
   async function handleRegisterArtist(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true); setMessage('')
-
     const { data, error } = await supabase.auth.signUp({
       email, password,
       options: { data: { role: 'artist' } },
     })
-
     if (error) { setMessage(error.message); setLoading(false); return }
-
     if (data?.user) {
-      const { error: insertError } = await supabase.from('artists').insert({
+      await supabase.from('artists').insert({
         id: crypto.randomUUID(),
         user_id: data.user.id,
-        artistic_name: '',
-        email,
-        disciplines: [], languages: [], keywords: [],
-        target_countries: [], materials: {}, mobility: {},
-        projects: [], cartografia: {}, crm: {},
+        artistic_name: '', email,
+        disciplines: [], languages: [], keywords: [], target_countries: [],
+        materials: {}, mobility: {}, projects: [], cartografia: {}, crm: {},
         payload: { name: '', email },
         organization_id: '00000000-0000-0000-0000-000000000001',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      if (insertError) console.error('Erro ao criar perfil artista:', insertError)
-      setMessage('Conta criada! Verifica o teu email e depois faz login.')
+      setMessage('Conta criada! Verifica o teu email para confirmar e depois faz login.')
     }
     setLoading(false)
   }
-
-  // ── Registo Produtor ──────────────────────────────────
 
   async function handleRegisterProducer(e: React.FormEvent) {
     e.preventDefault()
     if (!orgName.trim()) { setMessage('Indica o nome da tua agência ou organização.'); return }
     setLoading(true); setMessage('')
 
-    // 1. Cria utilizador
+    // Cria o utilizador — a organização é criada no AuthProvider no primeiro login
     const { data, error } = await supabase.auth.signUp({
       email, password,
-      options: { data: { role: 'producer' } },
+      options: {
+        data: {
+          role: 'producer',
+          pending_org_name: orgName.trim(), // guardado para criar org no primeiro login
+        },
+      },
     })
 
     if (error) { setMessage(error.message); setLoading(false); return }
 
     if (data?.user) {
-      // 2. Cria organização
-      const orgId = crypto.randomUUID()
-      const slug = orgName.toLowerCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-
-      const { error: orgError } = await supabase.from('organizations').insert({
-        id: orgId,
-        name: orgName.trim(),
-        slug,
-        owner_id: data.user.id,
-        plan: 'free',
-      })
-
-      if (orgError) {
-        console.error('Erro ao criar organização:', orgError)
-        setMessage('Conta criada mas houve um erro na configuração. Contacta a SOMA.')
-        setLoading(false); return
-      }
-
-      // 3. Guarda organization_id no metadata do user
-      await supabase.auth.updateUser({
-        data: { role: 'producer', organization_id: orgId },
-      })
-
-      setMessage(`Conta de produtor criada para "${orgName.trim()}"! Verifica o teu email e depois faz login.`)
+      setMessage(`Conta criada para "${orgName.trim()}"! Confirma o email e depois faz login — o teu workspace estará pronto.`)
     }
     setLoading(false)
   }
-
-  // ── Recuperar senha ───────────────────────────────────
 
   async function handleForgot(e: React.FormEvent) {
     e.preventDefault()
@@ -125,19 +89,16 @@ export default function LoginScreen() {
     return handleForgot(e)
   }
 
-  const isSuccess = message.includes('criada') || message.includes('enviado')
+  const isSuccess = message.includes('criada') || message.includes('enviado') || message.includes('pronto')
 
   return (
     <div style={st.container}>
       <div style={st.card}>
-
-        {/* Logo */}
         <div style={st.header}>
           <h1 style={st.logo}>SOMA</h1>
           <p style={st.tagline}>CULTURA · ODÉ</p>
         </div>
 
-        {/* Título */}
         <div style={st.welcome}>
           <h2 style={st.welcomeTitle}>
             {mode === 'login' && 'Bem-vinda de volta'}
@@ -153,21 +114,16 @@ export default function LoginScreen() {
           </p>
         </div>
 
-        {/* Mensagem */}
         {message && (
           <div style={{
             ...st.message,
             background: isSuccess ? 'rgba(110,243,165,0.1)' : 'rgba(255,207,92,0.1)',
             border: isSuccess ? '1px solid rgba(110,243,165,0.3)' : '1px solid rgba(255,207,92,0.3)',
             color: isSuccess ? '#6ef3a5' : '#ffcf5c',
-          }}>
-            {message}
-          </div>
+          }}>{message}</div>
         )}
 
-        {/* Formulário */}
         <form onSubmit={submit} style={st.form}>
-
           {mode === 'register_producer' && (
             <label style={st.label}>
               Nome da agência / organização
@@ -175,13 +131,11 @@ export default function LoginScreen() {
                 required placeholder="Ex: Baile Total Produções" />
             </label>
           )}
-
           <label style={st.label}>
             Email
             <input type="email" style={st.input} value={email}
               onChange={e => setEmail(e.target.value)} required placeholder="o teu@email.com" />
           </label>
-
           {mode !== 'forgot' && (
             <label style={st.label}>
               Senha
@@ -189,7 +143,6 @@ export default function LoginScreen() {
                 onChange={e => setPassword(e.target.value)} required placeholder="••••••••" minLength={6} />
             </label>
           )}
-
           <button type="submit" style={st.button} disabled={loading}>
             {loading ? '⏳ A processar...'
               : mode === 'login' ? 'Entrar'
@@ -199,49 +152,29 @@ export default function LoginScreen() {
           </button>
         </form>
 
-        {/* Seleção de tipo de conta (só no login) */}
         {mode === 'login' && (
           <div style={st.registerOptions}>
             <p style={st.registerLabel}>Ainda não tens conta?</p>
             <div style={st.registerBtns}>
-              <button style={st.registerBtn}
-                onClick={() => { setMode('register_artist'); setMessage('') }}>
+              <button style={st.registerBtn} onClick={() => { setMode('register_artist'); setMessage('') }}>
                 🎤 Sou artista
               </button>
-              <button style={st.registerBtnProducer}
-                onClick={() => { setMode('register_producer'); setMessage('') }}>
+              <button style={st.registerBtnProducer} onClick={() => { setMode('register_producer'); setMessage('') }}>
                 🎪 Sou produtor/a
               </button>
             </div>
           </div>
         )}
 
-        {/* Links de volta */}
-        {mode !== 'login' && (
-          <div style={st.links}>
-            <button style={st.link}
-              onClick={() => { setMode('login'); setMessage('') }}>
-              ← Voltar ao login
-            </button>
-            {mode === 'login' && (
-              <button style={st.link}
-                onClick={() => { setMode('forgot'); setMessage('') }}>
-                Esqueci a senha
-              </button>
-            )}
-          </div>
-        )}
-
-        {mode === 'login' && (
-          <div style={{ textAlign: 'center', marginTop: 10 }}>
-            <button style={st.link}
-              onClick={() => { setMode('forgot'); setMessage('') }}>
-              Esqueci a senha
-            </button>
-          </div>
-        )}
+        <div style={{ textAlign: 'center', marginTop: 16 }}>
+          {mode !== 'login' && (
+            <button style={st.link} onClick={() => { setMode('login'); setMessage('') }}>← Voltar ao login</button>
+          )}
+          {mode === 'login' && (
+            <button style={st.link} onClick={() => { setMode('forgot'); setMessage('') }}>Esqueci a senha</button>
+          )}
+        </div>
       </div>
-
       <p style={st.footer}>SOMA ODÉ — Plataforma de Inteligência Curatorial</p>
     </div>
   )
@@ -266,7 +199,6 @@ const st: Record<string, React.CSSProperties> = {
   registerBtns: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 },
   registerBtn: { background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '12px 8px', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' },
   registerBtnProducer: { background: 'rgba(26,105,148,0.15)', color: '#60b4e8', border: '1px solid rgba(26,105,148,0.3)', borderRadius: 8, padding: '12px 8px', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' },
-  links: { display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, marginTop: 20 },
   link: { background: 'none', border: 'none', color: '#60b4e8', fontSize: 13, cursor: 'pointer', padding: 0 },
   footer: { marginTop: 20, fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'center' },
 }
