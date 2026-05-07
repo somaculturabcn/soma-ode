@@ -107,7 +107,12 @@ export default function ContextualMatchPanel({ artists, opportunities }: Props) 
   const selectedArtist = artists.find(a => a.id === artistId) || null
   const projects = safeArr((selectedArtist as any)?.projects)
   const selectedProject = projects.find((p: any) => p.id === projectId) || null
-  const hasDossier = Boolean(selectedProject?.dossierText)
+  const hasDossier = Boolean(
+    (selectedProject?.dossierText && selectedProject.dossierText.length > 50) ||
+    selectedProject?.highlights ||
+    selectedProject?.methodology ||
+    selectedProject?.references?.length
+  )
 
   function handleArtistChange(id: string) {
     setArtistId(id); setProjectId(''); setResults([]); setHasRun(false)
@@ -216,7 +221,7 @@ export default function ContextualMatchPanel({ artists, opportunities }: Props) 
               </span>
               {selectedProject && (
                 <span style={hasDossier ? s.badgeGreen : s.badgeGray}>
-                  {hasDossier ? '📄 Dossier incluído' : `📁 ${selectedProject.name}`}
+                  {hasDossier ? '📄 Dados do dossier incluídos' : `📁 ${selectedProject.name}`}
                 </span>
               )}
               <span style={s.badgeGray}>{opportunities.length} oportunidades na base</span>
