@@ -596,6 +596,8 @@ ${editing.postEventNotes ? `<h2>Recap pós-evento</h2><p>${editing.postEventNote
                 onChange={v => updNested('campaign', 'ticketsSoldOnline', v ? Number(v) : 0)} />
               <F label="Impressões totais" v={String(camp.impressions || '')} type="number"
                 onChange={v => updNested('campaign', 'impressions', v ? Number(v) : 0)} />
+              <F label="Views TikTok" v={String((camp as any).tiktokViews || '')} type="number"
+                onChange={v => updNested('campaign', 'tiktokViews', v ? Number(v) : 0)} />
               <F label="Alcance orgânico estimado" v={String(camp.organicReach || '')} type="number"
                 onChange={v => updNested('campaign', 'organicReach', v ? Number(v) : 0)} />
               <F label="Cliques no link" v={String(camp.clicks || '')} type="number"
@@ -605,8 +607,12 @@ ${editing.postEventNotes ? `<h2>Recap pós-evento</h2><p>${editing.postEventNote
             </div>
             <FA label="Conceito / copy principal da campanha" v={camp.concept || ''}
               onChange={v => updNested('campaign', 'concept', v)} placeholder="SE JOGA NA LUA 🌙..." />
-            <F label="Link do post principal" v={camp.mainPostLink || ''}
+            <F label="Link post Instagram" v={camp.mainPostLink || ''}
               onChange={v => updNested('campaign', 'mainPostLink', v)} placeholder="https://instagram.com/p/..." />
+            {(camp.platforms || []).some(p => p.includes('tiktok')) && (
+              <F label="🎵 Link vídeo TikTok" v={camp.tikTokLink || ''}
+                onChange={v => updNested('campaign', 'tikTokLink', v)} placeholder="https://tiktok.com/@elbailetodobcn/video/..." />
+            )}
             <FA label="Resultado da campanha (pós-evento)" v={camp.result || ''}
               onChange={v => updNested('campaign', 'result', v)} />
           </>
