@@ -81,22 +81,16 @@ function buildOpportunitiesBlock(opportunities: any[]): string {
   return opportunities.map((op, i) => [
     `[${i + 1}] ID:${op.id}`,
     `Título: ${op.title}`,
-    op.organization ? `Organização: ${op.organization}` : '',
+    op.organization ? `Org: ${op.organization}` : '',
     op.type ? `Tipo: ${op.type}` : '',
     `País: ${op.countryName || op.country || ''}`,
-    op.city ? `Cidade: ${op.city}` : '',
-    (op.disciplines || []).length ? `Disciplinas aceites: ${op.disciplines.join(', ')}` : '',
-    (op.keywords || []).length ? `Keywords: ${op.keywords.join(', ')}` : '',
-    `Cobre custos: ${op.coversCosts ? 'Sim' : 'Não'}`,
-    op.deadline ? `Deadline: ${op.deadline}` : '',
-    op.summary ? `Descrição: ${op.summary.substring(0, 300)}` : '',
-  ].filter(Boolean).join('\n')).join('\n\n---\n\n')
+    (op.disciplines || []).length ? `Disc: ${op.disciplines.slice(0, 3).join(', ')}` : '',
+    op.coversCosts ? `Custos: Sim` : '',
+    op.summary ? `Info: ${op.summary.substring(0, 150)}` : '',
+  ].filter(Boolean).join('\n')).join('\n\n')
 }
 
-// ─── Pre-filtragem inteligente ────────────────────────────
-// Selecciona as 25 mais prometedoras antes de enviar à IA
-// (economiza tokens e foca em candidatas reais)
-
+// Pre-filtragem inteligente — máximo 15 para não exceder tokens do Gemini
 function preFilter(opportunities: any[], artist: any, project: any): any[] {
   const artistCountries = [
     ...(artist.targetCountries || []),
@@ -135,7 +129,7 @@ function preFilter(opportunities: any[], artist: any, project: any): any[] {
 
   return scored
     .sort((a, b) => b.preScore - a.preScore)
-    .slice(0, 25)
+    .slice(0, 15)  // máximo 15 para não exceder tokens
     .map(s => s.op)
 }
 
@@ -158,37 +152,18 @@ export async function runContextualMatch(
 
   const hasDossier = Boolean(project.dossierText)
 
-  const prompt = `És um curador especializado em arte contemporânea afro-diaspórica e gestor cultural da SOMA Cultura (Barcelona).
-Trabalhas com artistas negros, migrantes e LGBTQIA+.
+  const prompt = `És um curador especializado em arte contemporânea afro-diaspórica da SOMA Cultura (Barcelona).
 
-Analisa o encaixe real entre este perfil artístico e cada oportunidade listada.
-${hasDossier ? 'O dossier completo do projecto está incluído — usa-o para uma análise profunda.' : 'Usa a Cartografia SOMA e os dados do projecto para inferir o encaixe.'}
-
-Sê honesto e específico. Evita análises genéricas.
-Score: 0-100 (encaixe real com ESTA oportunidade)
-Verdict: "forte" (>75), "bom" (55-75), "possivel" (35-55), "fraco" (<35)
+Analisa o encaixe REAL entre este projecto e cada oportunidade. Sê específico e honesto.
+Score: 0-100 | Verdict: "forte" (>75), "bom" (55-75), "possivel" (35-55), "fraco" (<35)
 
 ${artistContext}
 
-═══════════════════════════════
-OPORTUNIDADES PARA ANALISAR (${filtered.length}):
-═══════════════════════════════
+OPORTUNIDADES (${filtered.length}):
 ${opBlock}
 
-Responde APENAS com JSON válido. Analisa TODAS as ${filtered.length} oportunidades:
-{
-  "matches": [
-    {
-      "opportunityId": "id exacto da oportunidade listada",
-      "score": número 0-100,
-      "verdict": "forte|bom|possivel|fraco",
-      "mainReason": "razão principal em 1 frase curta e específica — menciona aspectos concretos do projecto e da oportunidade",
-      "strengths": ["ponto forte concreto 1", "ponto forte concreto 2"],
-      "challenges": ["desafio ou ponto fraco honesto"],
-      "angle": "ângulo concreto de candidatura — o que enfatizar nesta candidatura específica"
-    }
-  ]
-}`
+Responde com JSON válido e completo — analisa TODAS as ${filtered.length} oportunidades:
+{"matches":[{"opportunityId":"id","score":0,"verdict":"forte|bom|possivel|fraco","mainReason":"1 frase específica","strengths":["ponto 1"],"challenges":["desafio"],"angle":"ângulo de candidatura"}]}`
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`
 
@@ -210,11 +185,30 @@ Responde APENAS com JSON válido. Analisa TODAS as ${filtered.length} oportunida
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
   if (!text) throw new Error('Gemini não devolveu análise')
 
+  // Extracção robusta — tenta múltiplas estratégias
   const clean = text.replace(/```json/gi, '').replace(/```/g, '').trim()
-  const jsonMatch = clean.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new Error('Resposta sem JSON válido')
 
-  const parsed = JSON.parse(jsonMatch[0])
+  // Estratégia 1: JSON completo
+  let parsed: any = null
+  const fullMatch = clean.match(/\{[\s\S]*\}/)
+  if (fullMatch) {
+    try { parsed = JSON.parse(fullMatch[0]) } catch {}
+  }
+
+  // Estratégia 2: Extrair matches individuais mesmo de JSON incompleto
+  if (!parsed?.matches?.length) {
+    const matchesSection = clean.match(/"matches"\s*:\s*\[([\s\S]*?)(?:\]\s*\}|$)/)
+    if (matchesSection) {
+      try {
+        const partial = JSON.parse(`{"matches":[${matchesSection[1].replace(/,\s*$/, '')}]}`)
+        parsed = partial
+      } catch {}
+    }
+  }
+
+  if (!parsed?.matches?.length) {
+    throw new Error('Resposta sem JSON válido — tenta novamente')
+  }
 
   const matches: ContextualMatch[] = (parsed.matches || [])
     .filter((m: any) => m.opportunityId && typeof m.score === 'number')
