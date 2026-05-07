@@ -1,422 +1,246 @@
-// src/components/ContextualMatchPanel.tsx
-// SOMA ODÉ — Match contextual on-demand
-// Scoring LOCAL (instantâneo) + Análise SOMA individual (IA)
-// Fechado por defeito — clica no header para abrir
+// src/services/contextualMatcher.ts
+// SOMA ODÉ — Match contextual artista × oportunidades
+// Usa campos estruturados do dossier (highlights, methodology, references, communities)
+// quando dossierText está vazio — extracção robusta do PDF
 
-import { useState } from 'react'
-import SomaAnalysisModal, { type ArtistForAnalysis, type OpportunityForAnalysis } from './SomaAnalysisModal'
+const GEMINI_MODEL = 'gemini-2.5-flash'
 
-interface Props {
-  artists: any[]
-  opportunities: any[]
+// ─── Tipos ────────────────────────────────────────────────
+
+export interface ContextualMatch {
+  opportunityId: string
+  score: number
+  verdict: 'forte' | 'bom' | 'possivel' | 'fraco'
+  mainReason: string
+  strengths: string[]
+  challenges: string[]
+  angle: string
 }
 
-// ─── Scoring local ────────────────────────────────
-// Sem API — corre no browser, resultado instantâneo
+export interface MatchResults {
+  artistName: string
+  projectName: string
+  projectId: string
+  totalAnalyzed: number
+  matches: ContextualMatch[]
+  runAt: string
+}
+
+// ─── Contexto do artista ──────────────────────────────────
+
+function buildArtistContext(artist: any, project: any): string {
+  const c = artist.cartografia || {}
+  const raiz = c.raiz || {}
+  const campo = c.campo || {}
+  const teia = c.teia || {}
+  const rota = c.rota || {}
+
+  // Usa dossierText se existir; senão usa campos estruturados extraídos do PDF
+  const hasDossierText = project?.dossierText && project.dossierText.length > 50
+  const hasStructuredData = project?.highlights || project?.methodology || project?.references?.length
+
+  let dossierContext = ''
+  if (hasDossierText) {
+    dossierContext = `\nDOSSIER (excerto):\n${project.dossierText.substring(0, 2000)}`
+  } else if (hasStructuredData) {
+    const parts: string[] = []
+    if (project.methodology) parts.push(`Metodologia: ${project.methodology}`)
+    if (project.highlights) parts.push(`Destaques: ${project.highlights}`)
+    if (Array.isArray(project.references) && project.references.length) {
+      parts.push(`Referências: ${project.references.join(', ')}`)
+    }
+    if (Array.isArray(project.communities) && project.communities.length) {
+      parts.push(`Comunidades: ${project.communities.join(', ')}`)
+    }
+    if (parts.length) {
+      dossierContext = `\nDADOS DO DOSSIER (extraídos do PDF):\n${parts.join('\n')}`
+    }
+  }
+
+  const lines: string[] = [
+    `ARTISTA: ${artist.name || ''}`,
+    artist.bio ? `Bio: ${artist.bio}` : '',
+    artist.origin ? `Origem: ${artist.origin}` : '',
+    artist.base ? `Base: ${artist.base}` : '',
+    (artist.languages || []).length ? `Idiomas: ${(artist.languages || []).join(', ')}` : '',
+
+    `\nPROJECTO: ${project?.name || ''}`,
+    project?.projectFormat ? `Formato: ${project.projectFormat}` : '',
+    project?.summary ? `Resumo: ${project.summary}` : '',
+    (project?.projectKeywords || []).length
+      ? `Keywords: ${(project.projectKeywords || []).join(', ')}` : '',
+
+    dossierContext,
+
+    `\nCARTOGRAFIA SOMA:`,
+    raiz.vocabulario?.length ? `Vocabulário: ${raiz.vocabulario.join(', ')}` : '',
+    raiz.tensions ? `Tensões: ${raiz.tensions}` : '',
+    raiz.legacyOfResistance ? `Legado: ${raiz.legacyOfResistance}` : '',
+    raiz.carePractices ? `Cuidado: ${raiz.carePractices}` : '',
+    campo.audienceProfiles ? `Públicos: ${campo.audienceProfiles}` : '',
+    teia.ethicalAlliances ? `Alianças: ${teia.ethicalAlliances}` : '',
+    rota.corredores?.length ? `Corredores: ${rota.corredores.join(', ')}` : '',
+    c.somaPositioning ? `Posicionamento SOMA: ${c.somaPositioning}` : '',
+  ]
+
+  return lines.filter(Boolean).join('\n')
+}
+
+// ─── Bloco de oportunidades ───────────────────────────────
+
+function buildOpportunitiesBlock(opportunities: any[]): string {
+  return opportunities.map((op, i) => [
+    `[${i + 1}] ID:${op.id}`,
+    `Título: ${op.title}`,
+    op.organization ? `Org: ${op.organization}` : '',
+    op.type ? `Tipo: ${op.type}` : '',
+    `País: ${op.countryName || op.country || ''}`,
+    (op.disciplines || []).length ? `Disc: ${(op.disciplines as string[]).slice(0, 3).join(', ')}` : '',
+    op.coversCosts ? `Custos: Sim` : '',
+    op.summary ? `Info: ${op.summary.substring(0, 150)}` : '',
+  ].filter(Boolean).join('\n')).join('\n\n')
+}
+
+// ─── Pré-filtragem ────────────────────────────────────────
 
 function safeArr(v: any): string[] {
   if (Array.isArray(v)) return v
-  if (typeof v === 'string' && v.trim()) return v.split(',').map((s: string) => s.trim()).filter(Boolean)
+  if (typeof v === 'string' && v.trim()) return v.split(',').map(s => s.trim()).filter(Boolean)
   return []
 }
 
-function scoreOpportunity(op: any, artist: any, project: any): number {
-  let score = 0
-
+function preFilter(opportunities: any[], artist: any, project: any): any[] {
   const artistCountries = [
     ...safeArr(artist.targetCountries),
     ...safeArr(artist.cartografia?.rota?.corredores),
-  ].map((c: string) => c.toLowerCase())
+  ].map(c => c.toLowerCase())
 
-  const artistKeywords = [
+  const projectKeywords = [
     ...safeArr(artist.disciplines),
     ...safeArr(artist.keywords),
     ...safeArr(artist.cartografia?.raiz?.vocabulario),
     ...safeArr(project?.projectKeywords),
     project?.projectFormat || '',
-  ].map((k: string) => k.toLowerCase()).filter(Boolean)
+    project?.highlights || '',
+  ].map(k => k.toLowerCase()).filter(Boolean)
 
-  const opText = [
-    op.title, op.summary, op.organization,
-    ...safeArr(op.disciplines),
-    ...safeArr(op.keywords),
-    op.type || '',
-  ].join(' ').toLowerCase()
+  const scored = opportunities.map(op => {
+    let preScore = 0
+    const opText = [
+      op.title, op.summary, op.organization,
+      ...safeArr(op.disciplines), ...safeArr(op.keywords),
+    ].join(' ').toLowerCase()
 
-  const opCountry = (op.countryName || op.country || '').toLowerCase()
+    const opCountry = (op.countryName || op.country || '').toLowerCase()
+    if (artistCountries.some(c => c.length > 2 && (opCountry.includes(c) || c.includes(opCountry)))) {
+      preScore += 30
+    }
 
-  // País: 30 pontos
-  if (artistCountries.some(c => c.length > 2 && (opCountry.includes(c) || c.includes(opCountry)))) {
-    score += 30
-  }
+    const kwMatches = projectKeywords.filter(k => k.length > 3 && opText.includes(k))
+    preScore += Math.min(40, kwMatches.length * 8)
 
-  // Keywords: até 40 pontos
-  const kwMatches = artistKeywords.filter(k => k.length > 3 && opText.includes(k))
-  score += Math.min(40, kwMatches.length * 8)
+    if (op.coversCosts) preScore += 10
+    if (op.type === 'residencia' || op.type === 'residency') preScore += 10
 
-  // Disciplina directa: 15 pontos
-  const opDisciplines = safeArr(op.disciplines).map((d: string) => d.toLowerCase())
-  const artistDisc = safeArr(artist.disciplines).map((d: string) => d.toLowerCase())
-  if (opDisciplines.some(d => artistDisc.some(a => a.includes(d) || d.includes(a)))) {
-    score += 15
-  }
+    const days = op.deadline
+      ? Math.ceil((new Date(op.deadline).getTime() - Date.now()) / 86400000)
+      : null
+    if (days !== null && days < 0) preScore -= 20
 
-  // Custos cobertos: 10 pontos
-  if (op.coversCosts) score += 10
+    return { op, preScore }
+  })
 
-  // Residência: bónus 5 pontos
-  if (op.type === 'residencia' || op.type === 'residency') score += 5
-
-  // Penalização: deadline passada
-  if (op.deadline) {
-    const days = Math.ceil((new Date(op.deadline).getTime() - Date.now()) / 86400000)
-    if (days < 0) score -= 25
-    else if (days < 30) score += 5 // urgente mas aberta: bónus
-  }
-
-  return Math.max(0, Math.min(100, score))
+  return scored
+    .sort((a, b) => b.preScore - a.preScore)
+    .slice(0, 10)
+    .map(s => s.op)
 }
 
-function getVerdict(score: number): string {
-  if (score >= 75) return 'forte'
-  if (score >= 55) return 'bom'
-  if (score >= 35) return 'possivel'
-  return 'fraco'
-}
+// ─── Match principal ──────────────────────────────────────
 
-const VERDICT_COLORS: Record<string, string> = {
-  forte: '#6ef3a5', bom: '#60b4e8', possivel: '#ffcf5c', fraco: 'rgba(255,255,255,0.3)',
-}
-const VERDICT_LABELS: Record<string, string> = {
-  forte: '🔥 Forte', bom: '✅ Bom', possivel: '⚡ Possível', fraco: '— Fraco',
-}
+export async function runContextualMatch(
+  artist: any,
+  project: any,
+  opportunities: any[],
+): Promise<MatchResults> {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY
+  if (!apiKey) throw new Error('VITE_GEMINI_API_KEY não configurada')
+  if (!artist) throw new Error('Artista não encontrado')
+  if (!project) throw new Error('Projecto não encontrado')
+  if (!opportunities.length) throw new Error('Sem oportunidades na base')
 
-// ─── Componente ───────────────────────────────────
-
-export default function ContextualMatchPanel({ artists, opportunities }: Props) {
-  const [open, setOpen] = useState(false)
-  const [artistId, setArtistId] = useState('')
-  const [projectId, setProjectId] = useState('')
-  const [results, setResults] = useState<any[]>([])
-  const [hasRun, setHasRun] = useState(false)
-  const [analysisOp, setAnalysisOp] = useState<any>(null)
-  const [showAnalysis, setShowAnalysis] = useState(false)
-
-  const [expandedId, setExpandedId] = useState<string | null>(null)
-
-  const selectedArtist = artists.find(a => a.id === artistId) || null
-  const projects = safeArr((selectedArtist as any)?.projects)
-  const selectedProject = projects.find((p: any) => p.id === projectId) || null
   const hasDossier = Boolean(
-    (selectedProject?.dossierText && selectedProject.dossierText.length > 50) ||
-    selectedProject?.highlights ||
-    selectedProject?.methodology ||
-    selectedProject?.references?.length
+    (project.dossierText && project.dossierText.length > 50) ||
+    project.highlights || project.methodology ||
+    (Array.isArray(project.references) && project.references.length)
   )
 
-  function handleArtistChange(id: string) {
-    setArtistId(id); setProjectId(''); setResults([]); setHasRun(false)
+  const filtered = preFilter(opportunities, artist, project)
+  const artistContext = buildArtistContext(artist, project)
+  const opBlock = buildOpportunitiesBlock(filtered)
+
+  const prompt = `És um curador especializado em arte contemporânea afro-diaspórica da SOMA Cultura (Barcelona).
+
+Analisa o encaixe REAL entre este perfil artístico e cada oportunidade. Sê específico e honesto.
+Score: 0-100 | Verdict: "forte" (>75), "bom" (55-75), "possivel" (35-55), "fraco" (<35)
+
+${artistContext}
+
+OPORTUNIDADES (${filtered.length}):
+${opBlock}
+
+Responde com JSON válido — analisa TODAS as ${filtered.length} oportunidades:
+{"matches":[{"opportunityId":"id","score":0,"verdict":"forte|bom|possivel|fraco","mainReason":"1 frase específica","strengths":["ponto 1"],"challenges":["desafio"],"angle":"ângulo de candidatura"}]}`
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 8192,
+        responseMimeType: 'application/json',
+      },
+    }),
+  })
+
+  if (!res.ok) {
+    const err = await res.json()
+    throw new Error(`Gemini ${res.status}: ${err?.error?.message || 'erro'}`)
   }
 
-  function runMatch() {
-    if (!selectedArtist) return
-    const scored = opportunities
-      .map(op => ({ op, score: scoreOpportunity(op, selectedArtist, selectedProject) }))
-      .filter(r => r.score >= 20)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 20)
-    setResults(scored)
-    setHasRun(true)
+  const data = await res.json()
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
+  if (!text) throw new Error('Gemini não devolveu análise')
+
+  let parsed: any = null
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    const clean = text.replace(/```json/gi, '').replace(/```/g, '').trim()
+    const jsonMatch = clean.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      try { parsed = JSON.parse(jsonMatch[0]) } catch {}
+    }
   }
 
-  // Prepara o artista no formato exacto que SomaAnalysisModal espera
-  const artistForAnalysis: ArtistForAnalysis | null = selectedArtist ? {
-    name: selectedArtist.name || '',
-    bio: selectedArtist.bio || '',
-    origin: selectedArtist.origin || '',
-    base: selectedArtist.base || '',
-    disciplines: safeArr(selectedArtist.disciplines),
-    languages: safeArr(selectedArtist.languages),
-    keywords: safeArr(selectedArtist.keywords),
-    themes: safeArr(selectedArtist.themes),
-    cartografia: selectedArtist.cartografia || {},
-    project: selectedProject ? {
-      name: selectedProject.name || '',
-      format: selectedProject.projectFormat || selectedProject.format || '',
-      summary: selectedProject.summary || '',
-      keywords: safeArr(selectedProject.projectKeywords),
-      territories: selectedProject.projectTerritories || '',
-      targetAudience: selectedProject.projectTargetAudience || '',
-    } : undefined,
-  } : null
+  if (!parsed?.matches?.length) {
+    throw new Error('Resposta sem JSON válido — tenta novamente')
+  }
 
-  const verdictCounts = results.reduce((acc, r) => {
-    const v = getVerdict(r.score)
-    acc[v] = (acc[v] || 0) + 1
-    return acc
-  }, {} as Record<string, number>)
+  const matches: ContextualMatch[] = (parsed.matches || [])
+    .filter((m: any) => m.opportunityId && typeof m.score === 'number')
+    .sort((a: ContextualMatch, b: ContextualMatch) => b.score - a.score)
 
-  return (
-    <div style={s.wrap}>
-
-      {/* Header toggle */}
-      <div style={s.header} onClick={() => setOpen(o => !o)}>
-        <div style={s.headerLeft}>
-          <span>🎯</span>
-          <div>
-            <span style={s.title}>Match Contextual</span>
-            <span style={s.subtitle}>
-              {open
-                ? ' — selecciona artista + projecto e clica Encontrar'
-                : ' — encontra oportunidades por perfil de artista'}
-            </span>
-          </div>
-        </div>
-        <span style={s.chevron}>{open ? '▲' : '▼'}</span>
-      </div>
-
-      {open && (
-        <div style={s.body}>
-
-          {/* Selectors */}
-          <div style={s.selectors}>
-            <div style={s.group}>
-              <label style={s.label}>Artista</label>
-              <select style={s.select} value={artistId} onChange={e => handleArtistChange(e.target.value)}>
-                <option value="">— Seleccionar —</option>
-                {artists.map(a => (
-                  <option key={a.id} value={a.id}>{a.name || 'Artista'}</option>
-                ))}
-              </select>
-            </div>
-
-            <div style={s.group}>
-              <label style={s.label}>Projecto (opcional)</label>
-              <select style={s.select} value={projectId}
-                onChange={e => { setProjectId(e.target.value); setResults([]); setHasRun(false) }}
-                disabled={!artistId}>
-                <option value="">— Sem projecto específico —</option>
-                {projects.map((p: any) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name || 'Projecto'}{p.dossierText ? ' 📄' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <button
-              style={{ ...s.runBtn, opacity: !artistId ? 0.5 : 1 }}
-              onClick={runMatch}
-              disabled={!artistId}
-            >
-              🔍 Encontrar
-            </button>
-          </div>
-
-          {/* Contexto usado */}
-          {selectedArtist && (
-            <div style={s.contextBar}>
-              <span style={s.badgeBlue}>
-                📊 {safeArr(selectedArtist.disciplines).join(', ') || 'disciplinas'} · {safeArr(selectedArtist.targetCountries).slice(0, 4).join(', ') || 'países'}
-              </span>
-              {selectedProject && (
-                <span style={hasDossier ? s.badgeGreen : s.badgeGray}>
-                  {hasDossier ? '📄 Dados do dossier incluídos' : `📁 ${selectedProject.name}`}
-                </span>
-              )}
-              <span style={s.badgeGray}>{opportunities.length} oportunidades na base</span>
-            </div>
-          )}
-
-          {/* Resultados */}
-          {hasRun && (
-            <div style={{ marginTop: 14 }}>
-              <div style={s.resultsHeader}>
-                <strong style={{ color: '#fff', fontSize: 13 }}>
-                  {results.length} oportunidades relevantes encontradas
-                </strong>
-                <div style={{ display: 'flex', gap: 10, marginTop: 6, flexWrap: 'wrap' as const }}>
-                  {['forte', 'bom', 'possivel'].map(v =>
-                    verdictCounts[v] ? (
-                      <span key={v} style={{ fontSize: 11, color: VERDICT_COLORS[v], fontWeight: 700 }}>
-                        {VERDICT_LABELS[v]} ({verdictCounts[v]})
-                      </span>
-                    ) : null
-                  )}
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
-                {results.map(({ op, score }) => {
-                  const verdict = getVerdict(score)
-                  const vc = VERDICT_COLORS[verdict]
-                  const days = op.deadline
-                    ? Math.ceil((new Date(op.deadline).getTime() - Date.now()) / 86400000)
-                    : null
-
-                  return (
-                    <div key={op.id} style={{ ...s.card, borderColor: `${vc}35`, flexDirection: 'column', alignItems: 'stretch' }}>
-                      {/* ── Linha principal ── */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                        <div style={s.cardLeft}
-                          onClick={() => setExpandedId(expandedId === op.id ? null : op.id)}
-                          role="button" tabIndex={0}
-                        >
-                          <span style={{ fontSize: 22, fontWeight: 900, color: vc, minWidth: 38, textAlign: 'center' as const }}>
-                            {score}
-                          </span>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{op.title}</div>
-                            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
-                              {[op.organization, op.city, op.countryName || op.country].filter(Boolean).join(' · ')}
-                              {days !== null && days >= 0 && (
-                                <span style={{ color: days < 30 ? '#ff8a8a' : '#ffcf5c', marginLeft: 8 }}>
-                                  ⏱ {days}d
-                                </span>
-                              )}
-                            </div>
-                            <span style={{ fontSize: 10, color: vc, fontWeight: 700 }}>{VERDICT_LABELS[verdict]}</span>
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
-                          {artistForAnalysis && (
-                            <button style={s.analysisBtn}
-                              onClick={() => { setAnalysisOp(op); setShowAnalysis(true) }}>
-                              🔬 Análise
-                            </button>
-                          )}
-                          <button
-                            style={{ ...s.expandBtn, color: expandedId === op.id ? '#60b4e8' : 'rgba(255,255,255,0.4)' }}
-                            onClick={() => setExpandedId(expandedId === op.id ? null : op.id)}
-                          >
-                            {expandedId === op.id ? '▲' : '▼'}
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* ── Detalhes expandidos ── */}
-                      {expandedId === op.id && (
-                        <div style={s.details}>
-                          {/* Tags */}
-                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const, marginBottom: 10 }}>
-                            {op.type && <span style={s.tag}>{op.type}</span>}
-                            {op.coversCosts && <span style={{ ...s.tag, color: '#6ef3a5', borderColor: 'rgba(110,243,165,0.3)' }}>✅ Custos cobertos</span>}
-                            {op.deadline && (
-                              <span style={{ ...s.tag, color: days !== null && days < 30 ? '#ff8a8a' : '#ffcf5c' }}>
-                                📅 Deadline: {new Date(op.deadline).toLocaleDateString('pt-PT')}
-                                {days !== null && days >= 0 && ` (${days} dias)`}
-                              </span>
-                            )}
-                            {op.openingDate && (
-                              <span style={s.tag}>🗓 Abertura: {new Date(op.openingDate).toLocaleDateString('pt-PT')}</span>
-                            )}
-                          </div>
-
-                          {/* Descrição */}
-                          {(op.summary || op.description) && (
-                            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 1.55, marginBottom: 12 }}>
-                              {op.summary || op.description}
-                            </p>
-                          )}
-
-                          {/* Notas internas */}
-                          {op.notes && (
-                            <div style={{ fontSize: 11, color: 'rgba(255,207,92,0.8)', background: 'rgba(255,207,92,0.06)', border: '1px solid rgba(255,207,92,0.2)', borderRadius: 6, padding: '6px 10px', marginBottom: 10 }}>
-                              📝 {op.notes}
-                            </div>
-                          )}
-
-                          {/* Acções */}
-                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' as const }}>
-                            {op.link && (
-                              <a
-                                href={op.link.startsWith('http') ? op.link : `https://${op.link}`}
-                                target="_blank" rel="noopener noreferrer"
-                                style={s.detailLink}
-                              >
-                                🔗 Ver edital completo
-                              </a>
-                            )}
-                            <button
-                              style={s.pipelineBtn}
-                              onClick={() => {
-                                const key = 'soma-pipeline-proposals'
-                                const existing = JSON.parse(localStorage.getItem(key) || '[]')
-                                const already = existing.find((p: any) => p.opId === op.id && p.artistId === artistId)
-                                if (already) { alert('Esta oportunidade já está no pipeline para este artista.'); return }
-                                const proposal = {
-                                  id: crypto.randomUUID(),
-                                  opId: op.id,
-                                  opTitle: op.title,
-                                  artistId,
-                                  artistName: selectedArtist?.name || '',
-                                  score,
-                                  status: 'a_candidatar',
-                                  addedAt: new Date().toISOString(),
-                                }
-                                localStorage.setItem(key, JSON.stringify([...existing, proposal]))
-                                alert(`✅ "${op.title}" adicionada ao pipeline para ${selectedArtist?.name}`)
-                              }}
-                            >
-                              ➕ Adicionar ao pipeline
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-
-              {results.length === 0 && (
-                <div style={{ padding: '20px', textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>
-                  Sem oportunidades relevantes. Verifica as disciplinas e países do artista.
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Modal de análise individual */}
-      {showAnalysis && analysisOp && artistForAnalysis && (
-        <SomaAnalysisModal
-          opportunity={analysisOp}
-          artist={artistForAnalysis}
-          onClose={() => { setShowAnalysis(false); setAnalysisOp(null) }}
-        />
-      )}
-    </div>
-  )
-}
-
-// ─── Styles ───────────────────────────────────────
-
-const s: Record<string, React.CSSProperties> = {
-  wrap: { background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, marginBottom: 16, overflow: 'hidden' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px', cursor: 'pointer', userSelect: 'none' },
-  headerLeft: { display: 'flex', alignItems: 'center', gap: 10 },
-  title: { fontSize: 14, fontWeight: 700, color: '#60b4e8' },
-  subtitle: { fontSize: 11, color: 'rgba(255,255,255,0.4)' },
-  chevron: { fontSize: 11, color: 'rgba(255,255,255,0.4)' },
-  body: { padding: '0 18px 18px', borderTop: '1px solid rgba(255,255,255,0.06)' },
-  selectors: { display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 10, paddingTop: 14, marginBottom: 10 },
-  group: { display: 'flex', flexDirection: 'column', gap: 4 },
-  label: { fontSize: 10, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em' },
-  select: { background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '9px 12px', fontSize: 13, outline: 'none', cursor: 'pointer' },
-  runBtn: { background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8, padding: '0 18px', fontSize: 13, fontWeight: 800, alignSelf: 'flex-end', height: 40, cursor: 'pointer', whiteSpace: 'nowrap' },
-  contextBar: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 },
-  badgeBlue: { fontSize: 11, color: '#60b4e8', background: 'rgba(26,105,148,0.1)', border: '1px solid rgba(26,105,148,0.2)', borderRadius: 6, padding: '3px 9px' },
-  badgeGreen: { fontSize: 11, color: '#6ef3a5', background: 'rgba(110,243,165,0.08)', border: '1px solid rgba(110,243,165,0.2)', borderRadius: 6, padding: '3px 9px' },
-  badgeGray: { fontSize: 11, color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '3px 9px' },
-  resultsHeader: { marginBottom: 4 },
-  card: { background: '#111', border: '1px solid', borderRadius: 8, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
-  cardLeft: { display: 'flex', gap: 12, alignItems: 'center', flex: 1, minWidth: 0, cursor: 'pointer' },
-  linkBtn: { color: '#60b4e8', textDecoration: 'none', fontSize: 11, padding: '4px 8px', border: '1px solid rgba(96,180,232,0.3)', borderRadius: 6, whiteSpace: 'nowrap' },
-  analysisBtn: { background: 'rgba(26,105,148,0.15)', color: '#60b4e8', border: '1px solid rgba(26,105,148,0.3)', borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' },
-  expandBtn: { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer' },
-  details: { borderTop: '1px solid rgba(255,255,255,0.07)', marginTop: 10, paddingTop: 12 },
-  tag: { fontSize: 11, color: 'rgba(255,255,255,0.55)', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '2px 8px' },
-  detailLink: { display: 'inline-flex', alignItems: 'center', gap: 4, color: '#60b4e8', textDecoration: 'none', fontSize: 12, padding: '6px 12px', border: '1px solid rgba(96,180,232,0.3)', borderRadius: 6, fontWeight: 600 },
-  pipelineBtn: { background: 'rgba(110,243,165,0.1)', color: '#6ef3a5', border: '1px solid rgba(110,243,165,0.3)', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 700, fontFamily: 'inherit' },
+  return {
+    artistName: artist.name || 'Artista',
+    projectName: project.name || 'Projecto',
+    projectId: project.id || '',
+    totalAnalyzed: filtered.length,
+    matches,
+    runAt: new Date().toISOString(),
+  }
 }
