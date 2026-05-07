@@ -1,13 +1,16 @@
 // src/auth/AuthProvider.tsx
-// SOMA ODÉ — Auth Provider (VERSÃO FINAL — sem locks, sem timeouts)
+// SOMA ODÉ — Auth Provider com suporte a multi-organização
+
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Role } from './permissions'
+import { SOMA_ORG_ID } from '../types/organization'
 
 type AuthUser = {
   id: string
   email: string
   role: Role
+  organizationId: string       // ID da organização do produtor
   artistId?: string
 }
 
@@ -30,15 +33,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true
 
-    // Verificar sessão atual UMA ÚNICA VEZ
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(async ({ data }) => {
       if (!mounted) return
-      
+
       if (data.session?.user) {
         const u = data.session.user
         const role = (u.user_metadata?.role || 'viewer') as Role
-        let artistId: string | undefined
 
+        // Admin e manager usam sempre a org SOMA
+        let organizationId = SOMA_ORG_ID
+
+        if (role !== 'admin' && role !== 'manager') {
+          // Para outros roles, busca a org do user na tabela organizations
+          // Primeiro tenta org_id guardado no metadata (mais rápido)
+          if (u.user_metadata?.organization_id) {
+            organizationId = u.user_metadata.organization_id
+          } else {
+            // Busca na tabela
+            const { data: orgData } = await supabase
+              .from('organizations')
+              .select('id')
+              .eq('owner_id', u.id)
+              .maybeSingle()
+            if (orgData) organizationId = orgData.id
+          }
+        }
+
+        const baseUser: AuthUser = {
+          id: u.id,
+          email: u.email || '',
+          role,
+          organizationId,
+        }
+
+        setUser(baseUser)
+
+        // Para artistas, busca o artistId em paralelo
         if (role === 'artist') {
           supabase
             .from('artists')
@@ -52,17 +82,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             })
             .catch(console.error)
         }
-
-        setUser({ id: u.id, email: u.email || '', role, artistId })
       }
-      setLoading(false)
+
+      if (mounted) setLoading(false)
     }).catch(() => {
       if (mounted) setLoading(false)
     })
 
-    return () => {
-      mounted = false
-    }
+    return () => { mounted = false }
   }, [])
 
   async function signOut() {
