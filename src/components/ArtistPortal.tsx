@@ -12,6 +12,8 @@ import type { Proposal } from '../types/proposal'
 import { PROPOSAL_STATUSES } from '../types/proposal'
 import { materialsCount, cartografiaCount } from '../types/artist'
 import CountryPicker from './CountryPicker'
+import ProjectDossierUpload from './ProjectDossierUpload'
+import type { ExtractedDossier } from '../services/pdfExtractor'
 
 const SECTIONS = [
   { id: '01', label: 'Identidade' },
@@ -192,7 +194,14 @@ export default function ArtistPortal() {
             {section === '04' && <Section04 data={artist} onChange={update} />}
             {section === '05' && <Section05 data={artist} onChange={update} />}
             {section === '06' && <Section06 data={artist} onChange={update} />}
-            {section === '07' && <Section07 data={artist} onChange={update} onSave={saveProfile} />}
+            {section === '07' && (
+              <Section07
+                data={artist}
+                onChange={update}
+                onSave={saveProfile}
+                artistId={artist.id}
+              />
+            )}
             {section === '09' && <Section09 data={artist} onChange={update} />}
           </div>
 
@@ -426,8 +435,8 @@ function Section06({ data, onChange }: { data: any; onChange: (f: string, v: any
   )
 }
 
-function Section07({ data, onChange, onSave }: {
-  data: any; onChange: (f: string, v: any) => void; onSave: () => Promise<void>
+function Section07({ data, onChange, onSave, artistId }: {
+  data: any; onChange: (f: string, v: any) => void; onSave: () => Promise<void>; artistId: string
 }) {
   const projects = data.projects || []
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -454,6 +463,32 @@ function Section07({ data, onChange, onSave }: {
     }
   }
 
+  // Callback quando o dossier é extraído — actualiza o projecto e guarda automaticamente
+  function handleDossierExtracted(projectId: string, dossier: ExtractedDossier) {
+    const updatedProjects = projects.map((p: any) =>
+      p.id === projectId
+        ? {
+            ...p,
+            dossierUrl: dossier.dossierUrl,
+            dossierFileName: dossier.dossierFileName,
+            dossierUploadedAt: dossier.dossierUploadedAt,
+            dossierWordCount: dossier.dossierWordCount,
+            dossierText: dossier.dossierText,
+            methodology: dossier.methodology,
+            references: dossier.references,
+            communities: dossier.communities,
+            highlights: dossier.highlights,
+            projectFormat: p.projectFormat || dossier.format,
+            projectKeywords: (p.projectKeywords || []).length ? p.projectKeywords : dossier.keywords,
+            summary: p.summary || dossier.summary,
+          }
+        : p
+    )
+    onChange('projects', updatedProjects)
+    // Guarda automaticamente após o upload
+    onSave()
+  }
+
   return (
     <div>
       <h2 style={pt.h2}>07 · Projectos</h2>
@@ -463,6 +498,9 @@ function Section07({ data, onChange, onSave }: {
             onClick={() => setExpanded(expanded === p.id ? null : p.id)}>
             <div>
               <strong>Projeto {i + 1}: {p.name || 'Sem nome'}</strong>
+              {p.dossierFileName && (
+                <span style={{ fontSize: 11, color: '#6ef3a5', marginLeft: 8 }}>📄 {p.dossierFileName}</span>
+              )}
               {p.projectKeywords && p.projectKeywords.length > 0 && (
                 <div style={{ fontSize: 11, color: '#ffcf5c', marginTop: 4 }}>
                   {Array.isArray(p.projectKeywords) ? p.projectKeywords.join(', ') : p.projectKeywords}
@@ -504,6 +542,25 @@ function Section07({ data, onChange, onSave }: {
                 <FA label="Histórico de circulação" v={p.circulationHistory || ''}
                   onChange={v => upd(p.id, 'circulationHistory', v)} helper="Onde já foi apresentado? Em que contexto?" />
               )}
+
+              {/* ─── Dossier PDF ─── */}
+              <div style={pt.dossierSection}>
+                <div style={pt.dossierTitle}>📄 Dossier do projecto</div>
+                <p style={pt.hint}>
+                  Faz upload do teu dossier em PDF. Fica guardado de forma segura e é usado para melhorar o matching com oportunidades.
+                </p>
+                <ProjectDossierUpload
+                  projectId={p.id}
+                  projectName={p.name || 'Projecto'}
+                  artistId={artistId}
+                  dossierFileName={p.dossierFileName}
+                  dossierUrl={p.dossierUrl}
+                  dossierUploadedAt={p.dossierUploadedAt}
+                  dossierWordCount={p.dossierWordCount}
+                  onExtracted={handleDossierExtracted}
+                />
+              </div>
+
               <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
                 <button style={pt.primaryBtn} onClick={onSave}>💾 Guardar Projeto</button>
                 <button style={pt.dangerBtn} onClick={() => del(p.id)}>🗑 Remover</button>
@@ -596,7 +653,6 @@ function Section09({ data, onChange }: { data: any; onChange: (f: string, v: any
           helper="Onde gostarias de estar nos próximos 12–24 meses? Fala de países, formatos, colaborações e ambições reais." />
       </details>
 
-      {/* POSICIONAMENTO SOMA — só leitura, só aparece se preenchido */}
       {c.somaPositioning && (
         <div style={pt.somaBox}>
           <div style={pt.somaLabel}>
@@ -647,7 +703,6 @@ function C({ label, checked, onChange }: {
 }
 
 // ─── Styles ───────────────────────────────────────────────
-// `pt` = portal styles (nunca `s` para evitar colisões com arrow functions)
 
 const pt: Record<string, React.CSSProperties> = {
   center: { padding: 60, textAlign: 'center', color: '#fff' },
@@ -735,7 +790,6 @@ const pt: Record<string, React.CSSProperties> = {
   detail: { background: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 14, marginBottom: 12 },
   summary: { fontSize: 14, fontWeight: 600, color: '#fff', cursor: 'pointer', marginBottom: 14 },
 
-  // Posicionamento SOMA (só leitura)
   somaBox: {
     marginTop: 20, padding: 18,
     background: 'rgba(26,105,148,0.07)',
@@ -753,6 +807,19 @@ const pt: Record<string, React.CSSProperties> = {
   somaText: { margin: 0, color: 'rgba(255,255,255,0.85)', fontSize: 14, lineHeight: 1.7, fontStyle: 'italic' },
 
   projectCard: { background: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 16, marginTop: 14 },
+
+  // Dossier section
+  dossierSection: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTop: '1px solid rgba(255,255,255,0.07)',
+  },
+  dossierTitle: {
+    fontSize: 13,
+    fontWeight: 700,
+    color: '#60b4e8',
+    marginBottom: 8,
+  },
 
   proposalsList: { display: 'grid', gap: 14 },
   proposalCard: { background: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 18 },
