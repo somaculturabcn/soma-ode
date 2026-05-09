@@ -1,9 +1,6 @@
 // src/components/MatchView.tsx
-// SOMA ODÉ — Oportunidades
-// FIX: google_search (não googleSearch) para gemini-2.5-flash
-// FIX: fallback robusto quando grounding falha
-// FIX: threshold 20, sem penalização disciplina, retry automático
-// NOVO: venue, festa, clube incluídos como tipos
+// SOMA ODÉ — Oportunidades multi-tenant
+// Produtores: Supabase isolado | SOMA: localStorage + partilha com produtores
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ScoutUrlExtractor from './ScoutUrlExtractor'
@@ -14,6 +11,16 @@ import ContextualMatchPanel from './ContextualMatchPanel'
 import { mockOpportunities } from '../data/mockOpportunities'
 import { realOpportunities } from '../data/realOpportunities'
 import { loadArtistsFromSupabase } from '../data/artistsSupabaseStore'
+import { useAuth } from '../auth/AuthProvider'
+import {
+  loadOpportunitiesFromSupabase,
+  saveOpportunityToSupabase,
+  saveOpportunitiesBatch,
+  deleteOpportunityFromSupabase,
+  shareOpportunityWithProducer,
+  loadProducerOrgs,
+} from '../data/opportunitiesSupabaseStore'
+import { SOMA_ORG_ID } from '../types/organization'
 
 // ─── Helper ───────────────────────────────────────────────
 function safeArr(val: any): string[] {
@@ -56,9 +63,12 @@ type Opportunity = {
   notes?: string
   createdAt?: string
   updatedAt?: string
+  sharedWith?: string[]
+  organizationId?: string
   _matchScore?: number
   _matchReasons?: string[]
   _fromWeb?: boolean
+  _fromSupabase?: boolean
 }
 
 type ArtistLite = { id: string; artisticName?: string; name?: string; legalName?: string }
@@ -202,7 +212,6 @@ function scoreOpportunity(op: Opportunity, search: SavedSearch): { score: number
   }
 
   if (op.coversCosts) { score += 10; reasons.push('Cobre custos') }
-
   const dias = daysLeft(op.deadline)
   if (dias !== null && dias < 0) score -= 10
 
@@ -218,22 +227,14 @@ function buildPrompt(search: SavedSearch): string {
     : [search.query].filter(Boolean)
 
   const typeLabels: Record<string, string> = {
-    residencia: 'residências artísticas',
-    open_call: 'open calls e editais',
-    festival: 'festivais',
-    showcase: 'showcases profissionais',
-    premio: 'prémios e bolsas',
-    beca: 'becas e bolsas de criação',
-    mobilidade: 'programas de mobilidade',
-    financiamento: 'financiamentos culturais',
-    subvencao: 'subvenções culturais',
-    associacao: 'editais para associações',
-    projeto_social: 'projetos sociais e comunitários',
-    educacao: 'projetos de educação artística',
-    mediacao: 'mediação cultural',
-    venue: 'venues e espaços culturais',
-    festa: 'festas, noites e ciclos',
-    clube: 'clubes nocturnos e espaços de festa',
+    residencia: 'residências artísticas', open_call: 'open calls e editais',
+    festival: 'festivais', showcase: 'showcases profissionais',
+    premio: 'prémios e bolsas', beca: 'becas e bolsas de criação',
+    mobilidade: 'programas de mobilidade', financiamento: 'financiamentos culturais',
+    subvencao: 'subvenções culturais', associacao: 'editais para associações',
+    projeto_social: 'projetos sociais e comunitários', educacao: 'projetos de educação artística',
+    mediacao: 'mediação cultural', venue: 'venues e espaços culturais',
+    festa: 'festas, noites e ciclos', clube: 'clubes nocturnos e espaços de festa',
     todos: 'oportunidades culturais',
   }
 
@@ -243,7 +244,6 @@ function buildPrompt(search: SavedSearch): string {
     .map((c: string) => c.trim()).filter(Boolean).slice(0, 8).join(', ') || 'Europa'
   const isRecurring = search.recurrenceMode === 'recorrentes'
   const isVenueType = ['venue', 'festa', 'clube', 'party'].includes(search.opportunityType || '')
-
   const queriesBlock = topQueries.length > 0
     ? 'QUERIES (usa para pesquisar):\n' + topQueries.map((q, i) => `${i + 1}. ${q}`).join('\n')
     : ''
@@ -321,27 +321,16 @@ Responde APENAS com JSON válido:
 
 async function callGemini(apiKey: string, body: any, retries = 3): Promise<any> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`
-
   for (let i = 0; i <= retries; i++) {
     try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-
+      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       if (res.ok) return await res.json()
-
       const err = await res.json()
       const code = err?.error?.code || res.status
       const msg = err?.error?.message || 'erro desconhecido'
-
       if ((code === 503 || code === 429) && i < retries) {
-        console.warn(`[Gemini] ${code} — tentativa ${i + 1}/${retries}, aguarda ${2 * (i + 1)}s...`)
-        await new Promise(r => setTimeout(r, 2000 * (i + 1)))
-        continue
+        await new Promise(r => setTimeout(r, 2000 * (i + 1))); continue
       }
-
       throw new Error(`Gemini ${code}: ${msg}`)
     } catch (err: any) {
       if (i === retries) throw err
@@ -388,54 +377,34 @@ function parseGeminiResponse(data: any): Opportunity[] {
 async function searchWithGemini(search: SavedSearch): Promise<{ results: Opportunity[]; note: string; method: string }> {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY
   if (!apiKey) throw new Error('VITE_GEMINI_API_KEY não configurada no .env')
-
   const prompt = buildPrompt(search)
   const disciplines = safeArr(search.disciplines).slice(0, 3).join(', ') || 'artes'
 
   try {
-    console.log('[Scout] Tentativa 1: Gemini + Google Search Grounding...')
     const data = await callGemini(apiKey, {
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       tools: [{ google_search: {} }],
       generationConfig: { temperature: 0.15, maxOutputTokens: 2048 },
     })
-
     const results = parseGeminiResponse(data)
     const hasGrounding = !!data?.candidates?.[0]?.groundingMetadata?.webSearchQueries
-
     if (results.length > 0) {
-      console.log(`[Scout] ✅ Google Search Grounding: ${results.length} resultados`)
-      return {
-        results,
-        note: `${results.length} encontradas${hasGrounding ? ' via Google Search' : ''} · ${disciplines}`,
-        method: hasGrounding ? 'grounding' : 'gemini',
-      }
+      return { results, note: `${results.length} encontradas${hasGrounding ? ' via Google Search' : ''} · ${disciplines}`, method: hasGrounding ? 'grounding' : 'gemini' }
     }
-    console.warn('[Scout] Google Search Grounding devolveu 0 resultados, tentando fallback...')
   } catch (err: any) {
     console.warn('[Scout] Google Search Grounding falhou:', err.message)
   }
 
   try {
-    console.log('[Scout] Tentativa 2: Gemini conhecimento interno...')
     await new Promise(r => setTimeout(r, 1000))
-
     const data = await callGemini(apiKey, {
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       generationConfig: { temperature: 0.3, maxOutputTokens: 2048 },
     })
-
     const results = parseGeminiResponse(data)
-
     if (results.length > 0) {
-      console.log(`[Scout] ✅ Gemini interno: ${results.length} resultados`)
-      return {
-        results,
-        note: `${results.length} sugestões Gemini (base de conhecimento) · ${disciplines}`,
-        method: 'internal',
-      }
+      return { results, note: `${results.length} sugestões Gemini (base de conhecimento) · ${disciplines}`, method: 'internal' }
     }
-
     throw new Error('Gemini não encontrou resultados')
   } catch (err: any) {
     throw new Error(`Scout falhou: ${err.message}`)
@@ -474,8 +443,14 @@ function parseCsv(text: string): Opportunity[] {
 // ─── Componente principal ─────────────────────────────────
 
 export default function MatchView() {
+  const { user } = useAuth()
+  const isProducer = user?.role === 'producer'
+  const isAdmin = user?.role === 'admin' || user?.role === 'manager'
+  const orgId = user?.organizationId || SOMA_ORG_ID
+
   const fileRef = useRef<HTMLInputElement | null>(null)
   const [manual, setManual] = useState<Opportunity[]>([])
+  const [supabaseOps, setSupabaseOps] = useState<Opportunity[]>([])
   const [artists, setArtists] = useState<ArtistLite[]>([])
   const [editing, setEditing] = useState<Opportunity | null>(null)
   const [assigning, setAssigning] = useState<Opportunity | null>(null)
@@ -497,18 +472,44 @@ export default function MatchView() {
   const [quickEdit, setQuickEdit] = useState<string | null>(null)
   const [matchArtists, setMatchArtists] = useState<any[]>([])
 
+  // ── Partilha com produtor (apenas admin) ──
+  const [shareOp, setShareOp] = useState<Opportunity | null>(null)
+  const [producerOrgs, setProducerOrgs] = useState<{ id: string; name: string }[]>([])
+  const [shareTargetOrgId, setShareTargetOrgId] = useState('')
+  const [sharing, setSharing] = useState(false)
+
   useEffect(() => {
-    setManual(getManualOpportunities())
+    if (!isProducer) setManual(getManualOpportunities())
     setArtists(getArtists())
     loadArtistsFromSupabase()
       .then(data => setMatchArtists(data || []))
       .catch(console.error)
-  }, [])
+    // Carrega do Supabase (produtores: as suas; admins: as partilhadas)
+    loadOpportunitiesFromSupabase()
+      .then(ops => setSupabaseOps(ops as Opportunity[]))
+      .catch(console.error)
+    if (isAdmin) {
+      loadProducerOrgs().then(setProducerOrgs).catch(console.error)
+    }
+  }, [isProducer, isAdmin])
 
   const allOpportunities: Opportunity[] = useMemo(() => {
+    // Produtores: APENAS as suas oportunidades do Supabase
+    if (isProducer) {
+      return supabaseOps.map((op: any) => ({
+        ...op,
+        id: op.id || crypto.randomUUID(),
+        title: op.title || 'Sem título',
+        disciplines: safeArr(op.disciplines),
+        keywords: safeArr(op.keywords),
+        status: op.status || 'open',
+        recurrence: op.recurrence || 'anual',
+      }))
+    }
+    // SOMA admin/manager: localStorage + static + Supabase
     const real = Array.isArray(realOpportunities) ? realOpportunities : []
     const mock = Array.isArray(mockOpportunities) ? mockOpportunities : []
-    const normalized = [...manual, ...real, ...mock].map((op: any) => ({
+    const normalized = [...manual, ...supabaseOps, ...real, ...mock].map((op: any) => ({
       ...op,
       id: op.id || crypto.randomUUID(),
       title: op.title || op.name || 'Sem título',
@@ -528,17 +529,11 @@ export default function MatchView() {
       seen.add(key)
       return true
     })
-  }, [manual])
+  }, [manual, supabaseOps, isProducer])
 
   async function handleScoutExecute(savedSearch: SavedSearch) {
-    setActiveScout(savedSearch)
-    setSearch('')
-    setWebResults([])
-    setWebError('')
-    setWebNote('')
-    setWebMethod('')
-    setWebLoading(true)
-
+    setActiveScout(savedSearch); setSearch(''); setWebResults([])
+    setWebError(''); setWebNote(''); setWebMethod(''); setWebLoading(true)
     try {
       const { results, note, method } = await searchWithGemini(savedSearch)
       const enriched = results.map(op => ({
@@ -547,15 +542,10 @@ export default function MatchView() {
         usualDeadlineMonth: op.usualDeadlineMonth || savedSearch.usualDeadlineMonth,
         recurrenceNotes: op.recurrenceNotes || savedSearch.recurrenceNotes || '',
       }))
-      setWebResults(enriched)
-      setWebNote(note)
-      setWebMethod(method)
+      setWebResults(enriched); setWebNote(note); setWebMethod(method)
     } catch (err: any) {
-      console.error('[Scout] Erro final:', err)
       setWebError(err.message || 'Erro ao buscar. Verifica a API key e tenta de novo.')
-    } finally {
-      setWebLoading(false)
-    }
+    } finally { setWebLoading(false) }
   }
 
   function handleScoutCallback(data: any) {
@@ -580,28 +570,20 @@ export default function MatchView() {
   }
 
   async function openAnalysis(op: Opportunity) {
-    setAnalysisOp(op)
-    setLoadingAnalysis(true)
+    setAnalysisOp(op); setLoadingAnalysis(true)
     try {
       if ((activeScout as any)?.artistId) {
         const allArtists = await loadArtistsFromSupabase()
         const artist = allArtists.find((a: any) => a.id === (activeScout as any).artistId) as any
         if (artist) {
           setAnalysisArtist({
-            name: artist.name || 'Artista',
-            bio: artist.bio, origin: artist.origin, base: artist.base,
+            name: artist.name || 'Artista', bio: artist.bio, origin: artist.origin, base: artist.base,
             disciplines: safeArr(artist.disciplines), languages: safeArr(artist.languages),
             keywords: safeArr(artist.keywords), cartografia: artist.cartografia,
           })
-        } else {
-          setAnalysisArtist({ name: (activeScout as any)?.artistName || 'Artista SOMA' })
-        }
-      } else {
-        setAnalysisArtist({ name: 'Artista SOMA' })
-      }
-    } catch {
-      setAnalysisArtist({ name: 'Artista SOMA' })
-    }
+        } else { setAnalysisArtist({ name: (activeScout as any)?.artistName || 'Artista SOMA' }) }
+      } else { setAnalysisArtist({ name: 'Artista SOMA' }) }
+    } catch { setAnalysisArtist({ name: 'Artista SOMA' }) }
     setLoadingAnalysis(false)
   }
 
@@ -622,61 +604,77 @@ export default function MatchView() {
         if (onlyCosts && !op.coversCosts) return false
         if (!showExpired && daysLeft(op.deadline) !== null && (daysLeft(op.deadline) || 0) < 0) return false
         if (!q) return true
-        return cleanText([
-          op.title, op.organization, op.countryName, op.city,
-          op.summary, op.notes, ...safeArr(op.disciplines), ...safeArr(op.keywords),
-        ].join(' ')).includes(q)
+        return cleanText([op.title, op.organization, op.countryName, op.city, op.summary, op.notes, ...safeArr(op.disciplines), ...safeArr(op.keywords)].join(' ')).includes(q)
       })
       .sort((a, b) => {
         if (activeScout) return (b._matchScore || 0) - (a._matchScore || 0)
-        const da = daysLeft(a.deadline)
-        const db = daysLeft(b.deadline)
+        const da = daysLeft(a.deadline), db = daysLeft(b.deadline)
         if (da === null && db === null) return 0
-        if (da === null) return 1
-        if (db === null) return -1
+        if (da === null) return 1; if (db === null) return -1
         return da - db
       })
   }, [allOpportunities, search, typeFilter, countryFilter, onlyCosts, showExpired, activeScout])
 
   const types = useMemo(() => Array.from(new Set(allOpportunities.map(o => o.type).filter(Boolean))).sort(), [allOpportunities])
   const countries = useMemo(() => Array.from(new Set(allOpportunities.map(o => o.countryName || o.country).filter(Boolean))).sort(), [allOpportunities])
+  const urgentCount = useMemo(() => allOpportunities.filter(op => { const d = daysLeft(op.deadline); return d !== null && d >= 0 && d <= 14 }).length, [allOpportunities])
 
-  const urgentCount = useMemo(() => allOpportunities.filter(op => {
-    const d = daysLeft(op.deadline)
-    return d !== null && d >= 0 && d <= 14
-  }).length, [allOpportunities])
-
-  function persist(next: Opportunity[]) { setManual(next); saveManualOpportunities(next) }
+  function persist(next: Opportunity[]) {
+    if (isProducer) {
+      setSupabaseOps(next)
+      next.forEach(op => saveOpportunityToSupabase(op, orgId).catch(console.error))
+    } else {
+      setManual(next)
+      saveManualOpportunities(next)
+    }
+  }
 
   function saveOpportunity(op: Opportunity) {
     if (!op.title.trim()) { alert('Título obrigatório.'); return }
     const updated = { ...op, updatedAt: new Date().toISOString() }
-    const exists = manual.some(o => o.id === updated.id)
-    persist(exists ? manual.map(o => o.id === updated.id ? updated : o) : [updated, ...manual])
+    if (isProducer) {
+      saveOpportunityToSupabase(updated, orgId)
+        .then(() => loadOpportunitiesFromSupabase().then(ops => setSupabaseOps(ops as Opportunity[])))
+        .catch(console.error)
+    } else {
+      const exists = manual.some(o => o.id === updated.id)
+      persist(exists ? manual.map(o => o.id === updated.id ? updated : o) : [updated, ...manual])
+    }
     setEditing(null); setQuickEdit(null)
   }
 
   function quickUpdate(id: string, field: keyof Opportunity, value: any) {
-    const isManual = manual.some(o => o.id === id)
-    if (!isManual) {
-      const op = allOpportunities.find(o => o.id === id)
-      if (!op) return
-      persist([{ ...op, [field]: value, source: 'editado', updatedAt: new Date().toISOString() }, ...manual])
+    if (isProducer) {
+      setSupabaseOps(prev => prev.map((o: any) => o.id === id ? { ...o, [field]: value } : o))
+      const op = supabaseOps.find((o: any) => o.id === id)
+      if (op) saveOpportunityToSupabase({ ...op, [field]: value }, orgId).catch(console.error)
     } else {
-      persist(manual.map(o => o.id === id ? { ...o, [field]: value, updatedAt: new Date().toISOString() } : o))
+      const isManual = manual.some(o => o.id === id)
+      if (!isManual) {
+        const op = allOpportunities.find(o => o.id === id)
+        if (!op) return
+        persist([{ ...op, [field]: value, source: 'editado', updatedAt: new Date().toISOString() }, ...manual])
+      } else {
+        persist(manual.map(o => o.id === id ? { ...o, [field]: value, updatedAt: new Date().toISOString() } : o))
+      }
     }
   }
 
   function deleteOpportunity(id: string) {
     if (!confirm('Apagar esta oportunidade?')) return
-    persist(manual.filter(o => o.id !== id))
+    if (isProducer || supabaseOps.some((o: any) => o.id === id)) {
+      deleteOpportunityFromSupabase(id).catch(console.error)
+      setSupabaseOps(prev => prev.filter((o: any) => o.id !== id))
+    } else {
+      persist(manual.filter(o => o.id !== id))
+    }
     setEditing(null)
   }
 
   function duplicateToEdit(op: Opportunity) {
     setEditing({
       ...emptyOpportunity(), ...op,
-      id: manual.some(o => o.id === op.id) ? op.id : crypto.randomUUID(),
+      id: (isProducer ? supabaseOps : manual).some((o: any) => o.id === op.id) ? op.id : crypto.randomUUID(),
       _fromWeb: undefined, _matchScore: undefined, _matchReasons: undefined,
       updatedAt: new Date().toISOString(),
     })
@@ -695,7 +693,13 @@ export default function MatchView() {
   async function handleCsv(file: File) {
     const text = await file.text()
     const parsed = parseCsv(text)
-    persist([...parsed, ...manual])
+    if (isProducer) {
+      await saveOpportunitiesBatch(parsed, orgId)
+      const updated = await loadOpportunitiesFromSupabase()
+      setSupabaseOps(updated as Opportunity[])
+    } else {
+      persist([...parsed, ...manual])
+    }
     alert(`${parsed.length} oportunidades importadas.`)
     if (fileRef.current) fileRef.current.value = ''
   }
@@ -714,7 +718,7 @@ export default function MatchView() {
   }
 
   function renderCard(op: Opportunity, isWeb = false) {
-    const isManual = manual.some(m => m.id === op.id)
+    const isManualOp = manual.some(m => m.id === op.id) || isProducer
     const dl = deadlineLabel(op.deadline)
     const hasScore = !isWeb && activeScout && op._matchScore !== undefined
     const scoreColor = (op._matchScore || 0) >= 60 ? '#6ef3a5' : (op._matchScore || 0) >= 35 ? '#ffcf5c' : 'rgba(255,255,255,0.4)'
@@ -724,6 +728,7 @@ export default function MatchView() {
     const urgent = dl && (daysLeft(op.deadline) || 999) <= 7 && (daysLeft(op.deadline) || -1) >= 0
     const isQuickEdit = quickEdit === op.id
     const recInfo = RECURRENCE_OPTIONS.find(r => r.value === op.recurrence)
+    const isShared = (op.sharedWith || []).length > 0
 
     return (
       <article key={op.id} style={{
@@ -739,12 +744,9 @@ export default function MatchView() {
             <span style={{ ...st.typeTag, color: typeColor, borderColor: `${typeColor}50`, background: `${typeColor}15` }}>
               {isWeb ? '🌐 ' : `${typeIcon} `}{op.type || 'edital'}
             </span>
-            {recInfo && !isWeb && (
-              <span style={{ fontSize: 10, color: recInfo.color, opacity: 0.8 }}>{recInfo.label}</span>
-            )}
-            {hasScore && (
-              <span style={{ fontSize: 11, fontWeight: 700, color: scoreColor }}>{op._matchScore}%</span>
-            )}
+            {recInfo && !isWeb && <span style={{ fontSize: 10, color: recInfo.color, opacity: 0.8 }}>{recInfo.label}</span>}
+            {hasScore && <span style={{ fontSize: 11, fontWeight: 700, color: scoreColor }}>{op._matchScore}%</span>}
+            {isShared && !isWeb && <span style={{ fontSize: 10, color: '#60b4e8' }}>🔗 partilhada</span>}
           </div>
           {dl && <span style={{ fontSize: 11, fontWeight: 700, color: dl.color }}>{dl.text}</span>}
         </div>
@@ -754,27 +756,18 @@ export default function MatchView() {
           {[op.organization, op.city, op.countryName || op.country].filter(Boolean).join(' · ') || 'Sem entidade'}
         </p>
 
-        {op.assignedArtistName && (
-          <div style={st.artistTag}>🎤 {op.assignedArtistName}</div>
-        )}
-
+        {op.assignedArtistName && <div style={st.artistTag}>🎤 {op.assignedArtistName}</div>}
         {hasScore && op._matchReasons && op._matchReasons.length > 0 && (
           <div style={st.reasons}>{op._matchReasons.map((r, i) => <span key={i}>✓ {r}</span>)}</div>
         )}
-
         <p style={st.summary}>{op.summary || op.description || 'Sem resumo ainda.'}</p>
-
         <div style={st.tags}>
           {safeArr(op.disciplines).slice(0, 3).map(d => <span key={d} style={st.tag}>{d}</span>)}
           {op.coversCosts && <span style={st.costTag}>custos cobertos</span>}
-          {!activeScout && !isWeb && (
-            <span style={st.sourceTag}>{isManual ? op.source || 'manual' : 'base'}</span>
-          )}
+          {!activeScout && !isWeb && <span style={st.sourceTag}>{op.source || 'manual'}</span>}
         </div>
 
-        {op.notes && !isQuickEdit && (
-          <div style={st.notesBox}>📝 {op.notes}</div>
-        )}
+        {op.notes && !isQuickEdit && <div style={st.notesBox}>📝 {op.notes}</div>}
 
         {isQuickEdit && !isWeb && (
           <div style={st.quickEditBox}>
@@ -811,26 +804,23 @@ export default function MatchView() {
         )}
 
         <div style={st.cardActions}>
-          {op.link && (
-            <a href={op.link} target="_blank" rel="noopener noreferrer" style={st.link}>ver →</a>
-          )}
+          {op.link && <a href={op.link} target="_blank" rel="noopener noreferrer" style={st.link}>ver →</a>}
           {!isWeb && (
             <button style={st.editQuickBtn} onClick={() => setQuickEdit(isQuickEdit ? null : op.id)}>
               {isQuickEdit ? '✓ Fechar' : '✏️ Editar'}
             </button>
           )}
-          <button style={st.analysisBtn} onClick={() => openAnalysis(op)} disabled={loadingAnalysis}>
-            🔬 Análise
-          </button>
-          {!isWeb && <ProposeOpportunityButton opportunity={op} />}
-          <button style={st.secondaryBtn} onClick={() => { setAssigning(op); setSelectedArtistId(op.assignedArtistId || '') }}>
-            Associar
-          </button>
+          <button style={st.analysisBtn} onClick={() => openAnalysis(op)} disabled={loadingAnalysis}>🔬 Análise</button>
+          {!isProducer && !isWeb && <ProposeOpportunityButton opportunity={op} />}
+          <button style={st.secondaryBtn} onClick={() => { setAssigning(op); setSelectedArtistId(op.assignedArtistId || '') }}>Associar</button>
+          {isAdmin && !isWeb && (
+            <button style={st.shareBtn} onClick={() => { setShareOp(op); setShareTargetOrgId('') }}>🔗 Partilhar</button>
+          )}
           {isWeb
             ? <button style={st.primaryBtn} onClick={() => saveWebOpportunity(op)}>💾 Guardar</button>
-            : <button style={st.secondaryBtn} onClick={() => duplicateToEdit(op)}>{isManual ? 'Editar mais' : 'Duplicar'}</button>
+            : <button style={st.secondaryBtn} onClick={() => duplicateToEdit(op)}>{isManualOp ? 'Editar mais' : 'Duplicar'}</button>
           }
-          {isManual && !isWeb && (
+          {isManualOp && !isWeb && (
             <button style={st.dangerBtn} onClick={() => deleteOpportunity(op.id)}>✕</button>
           )}
         </div>
@@ -849,6 +839,7 @@ export default function MatchView() {
               : `${filteredBase.length} de ${allOpportunities.length}`}
             {webResults.length > 0 && ` · ${webResults.length} novas`}
             {urgentCount > 0 && <span style={{ color: '#ff8a8a', marginLeft: 8 }}>⚠️ {urgentCount} urgentes</span>}
+            {isProducer && <span style={{ color: '#60b4e8', marginLeft: 8, fontSize: 11 }}>· workspace pessoal</span>}
           </p>
         </div>
         <div style={st.headerActions}>
@@ -860,13 +851,9 @@ export default function MatchView() {
         </div>
       </header>
 
-      <ScoutUrlExtractor onSave={handleScoutSave} />
-      <ScoutSavedSearches onSave={handleScoutCallback} />
-
-      <ContextualMatchPanel
-        artists={matchArtists}
-        opportunities={allOpportunities}
-      />
+      {!isProducer && <ScoutUrlExtractor onSave={handleScoutSave} />}
+      {!isProducer && <ScoutSavedSearches onSave={handleScoutCallback} />}
+      <ContextualMatchPanel artists={matchArtists} opportunities={allOpportunities} />
 
       {activeScout && (
         <div style={st.scoutBanner}>
@@ -934,21 +921,20 @@ export default function MatchView() {
           <div style={st.sectionHeader}>
             <h2 style={st.sectionTitle}>
               📁 Base — {filteredBase.length} relevantes
-              <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginLeft: 8 }}>
-                (score ≥ {SCORE_THRESHOLD}%)
-              </span>
+              <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginLeft: 8 }}>(score ≥ {SCORE_THRESHOLD}%)</span>
             </h2>
           </div>
         )}
         {filteredBase.length === 0 && (
           <div style={st.empty}>
-            <p>{activeScout ? 'Nenhuma oportunidade relevante na base.' : 'Nenhuma oportunidade encontrada.'}</p>
-            <p style={{ opacity: 0.6, fontSize: 12 }}>Usa o Scout, importa CSV ou adiciona manualmente.</p>
+            <p>{isProducer ? 'Ainda não tens oportunidades. Adiciona manualmente ou importa via CSV.' : activeScout ? 'Nenhuma oportunidade relevante na base.' : 'Nenhuma oportunidade encontrada.'}</p>
+            {isProducer && <p style={{ opacity: 0.6, fontSize: 12, marginTop: 8 }}>A SOMA também pode partilhar oportunidades contigo.</p>}
           </div>
         )}
         <div style={st.grid}>{filteredBase.map(op => renderCard(op, false))}</div>
       </section>
 
+      {/* Modal associar artista */}
       {assigning && (
         <div style={st.overlay}>
           <div style={st.smallModal}>
@@ -968,25 +954,61 @@ export default function MatchView() {
         </div>
       )}
 
+      {/* Modal partilhar com produtor */}
+      {shareOp && (
+        <div style={st.overlay}>
+          <div style={st.smallModal}>
+            <h2 style={st.modalTitle}>🔗 Partilhar com produtor</h2>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginBottom: 14 }}>{shareOp.title}</p>
+            {producerOrgs.length === 0 ? (
+              <p style={{ color: '#ffcf5c', fontSize: 13 }}>Ainda não há produtores registados no sistema.</p>
+            ) : (
+              <label style={st.label}>Produtor
+                <select style={st.input} value={shareTargetOrgId} onChange={e => setShareTargetOrgId(e.target.value)}>
+                  <option value="">— Seleccionar produtor —</option>
+                  {producerOrgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                </select>
+              </label>
+            )}
+            <div style={st.modalFooter}>
+              <button style={st.secondaryBtn} onClick={() => { setShareOp(null); setShareTargetOrgId('') }}>Cancelar</button>
+              <button style={{ ...st.primaryBtn, opacity: (!shareTargetOrgId || sharing) ? 0.5 : 1 }}
+                disabled={!shareTargetOrgId || sharing}
+                onClick={async () => {
+                  if (!shareTargetOrgId || !shareOp) return
+                  setSharing(true)
+                  try {
+                    await shareOpportunityWithProducer(shareOp.id, shareTargetOrgId, orgId, shareOp)
+                    alert(`✅ "${shareOp.title}" partilhada com sucesso!`)
+                    setShareOp(null); setShareTargetOrgId('')
+                  } catch (err: any) {
+                    alert('Erro ao partilhar: ' + err.message)
+                  } finally { setSharing(false) }
+                }}>
+                {sharing ? '⟳ A partilhar...' : '🔗 Partilhar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal editar oportunidade */}
       {editing && (
         <div style={st.overlay}>
           <div style={st.modal}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 18 }}>
-              <h2 style={st.modalTitle}>{manual.some(o => o.id === editing.id) ? 'Editar' : 'Nova'} oportunidade</h2>
+              <h2 style={st.modalTitle}>{(isProducer ? supabaseOps : manual).some((o: any) => o.id === editing.id) ? 'Editar' : 'Nova'} oportunidade</h2>
               <button style={st.secondaryBtn} onClick={() => setEditing(null)}>Fechar</button>
             </div>
             <div style={st.formGrid}>
               <label style={st.label}>Título *
-                <input style={st.input} value={editing.title}
-                  onChange={e => setEditing({ ...editing, title: e.target.value })} />
+                <input style={st.input} value={editing.title} onChange={e => setEditing({ ...editing, title: e.target.value })} />
               </label>
               <label style={st.label}>Organização / Venue
-                <input style={st.input} value={editing.organization || ''}
-                  onChange={e => setEditing({ ...editing, organization: e.target.value })} />
+                <input style={st.input} value={editing.organization || ''} onChange={e => setEditing({ ...editing, organization: e.target.value })} />
               </label>
               <label style={st.label}>Tipo
-                <select style={st.input} value={editing.type || 'open_call'}
-                  onChange={e => setEditing({ ...editing, type: e.target.value })}>
+                <select style={st.input} value={editing.type || 'open_call'} onChange={e => setEditing({ ...editing, type: e.target.value })}>
                   <option value="residencia">🏠 Residência</option>
                   <option value="open_call">📋 Open Call / Edital</option>
                   <option value="festival">🎪 Festival</option>
@@ -1000,30 +1022,24 @@ export default function MatchView() {
                 </select>
               </label>
               <label style={st.label}>Recorrência
-                <select style={st.input} value={editing.recurrence || 'anual'}
-                  onChange={e => setEditing({ ...editing, recurrence: e.target.value as Recurrence })}>
+                <select style={st.input} value={editing.recurrence || 'anual'} onChange={e => setEditing({ ...editing, recurrence: e.target.value as Recurrence })}>
                   {RECURRENCE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                 </select>
               </label>
               <label style={st.label}>País
-                <input style={st.input} value={editing.countryName || editing.country || ''}
-                  onChange={e => setEditing({ ...editing, countryName: e.target.value, country: e.target.value })} />
+                <input style={st.input} value={editing.countryName || editing.country || ''} onChange={e => setEditing({ ...editing, countryName: e.target.value, country: e.target.value })} />
               </label>
               <label style={st.label}>Cidade
-                <input style={st.input} value={editing.city || ''}
-                  onChange={e => setEditing({ ...editing, city: e.target.value })} />
+                <input style={st.input} value={editing.city || ''} onChange={e => setEditing({ ...editing, city: e.target.value })} />
               </label>
               <label style={st.label}>📅 Deadline
-                <input style={st.input} type="date" value={editing.deadline || ''}
-                  onChange={e => setEditing({ ...editing, deadline: e.target.value })} />
+                <input style={st.input} type="date" value={editing.deadline || ''} onChange={e => setEditing({ ...editing, deadline: e.target.value })} />
               </label>
               <label style={st.label}>🔓 Data de abertura
-                <input style={st.input} type="date" value={editing.openingDate || ''}
-                  onChange={e => setEditing({ ...editing, openingDate: e.target.value })} />
+                <input style={st.input} type="date" value={editing.openingDate || ''} onChange={e => setEditing({ ...editing, openingDate: e.target.value })} />
               </label>
               <label style={st.label}>Link oficial
-                <input style={st.input} value={editing.link || ''}
-                  onChange={e => setEditing({ ...editing, link: e.target.value })} />
+                <input style={st.input} value={editing.link || ''} onChange={e => setEditing({ ...editing, link: e.target.value })} />
               </label>
               <label style={st.label}>Disciplinas
                 <input style={st.input} value={joinTags(editing.disciplines)}
@@ -1032,22 +1048,18 @@ export default function MatchView() {
               </label>
             </div>
             <label style={st.check}>
-              <input type="checkbox" checked={Boolean(editing.coversCosts)}
-                onChange={e => setEditing({ ...editing, coversCosts: e.target.checked })} />
+              <input type="checkbox" checked={Boolean(editing.coversCosts)} onChange={e => setEditing({ ...editing, coversCosts: e.target.checked })} />
               Cobre custos
             </label>
             <label style={{ ...st.label, marginTop: 12 }}>Resumo / Descrição
-              <textarea style={st.textarea} value={editing.summary || ''}
-                onChange={e => setEditing({ ...editing, summary: e.target.value, description: e.target.value })} />
+              <textarea style={st.textarea} value={editing.summary || ''} onChange={e => setEditing({ ...editing, summary: e.target.value, description: e.target.value })} />
             </label>
             <label style={st.label}>Notas internas
-              <textarea style={st.textarea} value={editing.notes || ''}
-                onChange={e => setEditing({ ...editing, notes: e.target.value })}
-                placeholder="Estratégia, histórico, contactos, como apresentar..." />
+              <textarea style={st.textarea} value={editing.notes || ''} onChange={e => setEditing({ ...editing, notes: e.target.value })} placeholder="Estratégia, histórico, contactos, como apresentar..." />
             </label>
             <div style={st.modalFooter}>
               <button style={st.secondaryBtn} onClick={() => setEditing(null)}>Cancelar</button>
-              {manual.some(o => o.id === editing.id) && (
+              {(isProducer ? supabaseOps : manual).some((o: any) => o.id === editing.id) && (
                 <button style={st.dangerBtn} onClick={() => deleteOpportunity(editing.id)}>Apagar</button>
               )}
               <button style={st.primaryBtn} onClick={() => saveOpportunity(editing)}>💾 Guardar</button>
@@ -1112,6 +1124,7 @@ const st: Record<string, React.CSSProperties> = {
   link: { color: '#60b4e8', textDecoration: 'none', fontSize: 12, alignSelf: 'center' },
   editQuickBtn: { background: 'rgba(255,207,92,0.1)', color: '#ffcf5c', border: '1px solid rgba(255,207,92,0.25)', borderRadius: 7, padding: '6px 10px', fontSize: 11, cursor: 'pointer' },
   analysisBtn: { background: 'rgba(192,132,252,0.1)', color: '#c084fc', border: '1px solid rgba(192,132,252,0.25)', borderRadius: 7, padding: '6px 10px', fontSize: 11, cursor: 'pointer' },
+  shareBtn: { background: 'rgba(96,180,232,0.1)', color: '#60b4e8', border: '1px solid rgba(96,180,232,0.25)', borderRadius: 7, padding: '6px 10px', fontSize: 11, cursor: 'pointer' },
   empty: { textAlign: 'center', color: 'rgba(255,255,255,0.45)', padding: 40, border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 12 },
   primaryBtn: { background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 13px', fontSize: 12, fontWeight: 800, cursor: 'pointer' },
   secondaryBtn: { background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '7px 11px', fontSize: 12, cursor: 'pointer' },
