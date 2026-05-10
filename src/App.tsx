@@ -1,6 +1,7 @@
 // src/App.tsx — SOMA ODÉ
 import { useState } from 'react'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
+import { LanguageProvider, useLanguage, LANG_FLAGS, type Lang } from './i18n/LanguageContext'
 import LoginScreen from './auth/LoginScreen'
 import { hasAccess } from './auth/permissions'
 
@@ -35,6 +36,25 @@ const tabs: { id: Tab; label: string; permission?: string; producerOnly?: boolea
   { id: 'DOCUMENTOS', label: 'Documentos', permission: 'documents' },
 ]
 
+// Selector de idioma — aparece no header
+function LangSwitcher() {
+  const { lang, setLang } = useLanguage()
+  return (
+    <div style={{ display: 'flex', gap: 4 }}>
+      {(['pt', 'es', 'en'] as Lang[]).map(l => (
+        <button key={l} onClick={() => setLang(l)} style={{
+          background: lang === l ? 'rgba(255,255,255,0.2)' : 'transparent',
+          border: '1px solid rgba(255,255,255,0.15)',
+          borderRadius: 5, color: '#fff', padding: '3px 7px',
+          fontSize: 11, cursor: 'pointer',
+        }}>
+          {LANG_FLAGS[l]}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function AppContent() {
   const { user, loading, signOut } = useAuth()
   const [activeTab, setActiveTab] = useState<Tab>('PERFIL')
@@ -56,6 +76,7 @@ function AppContent() {
             <span style={styles.logoSub}>CULTURA · ODÉ · PORTAL</span>
           </div>
           <div style={styles.userBox}>
+            <LangSwitcher />
             <span style={styles.userText}>{user.email}</span>
             <button style={styles.logoutBtn} onClick={async () => { await signOut(); window.location.reload() }}>
               Sair
@@ -100,6 +121,7 @@ function AppContent() {
         </nav>
 
         <div style={styles.userBox}>
+          <LangSwitcher />
           <span style={styles.userText}>{user.email} · {user.role}</span>
           <button style={styles.logoutBtn} onClick={async () => { await signOut(); window.location.reload() }}>
             Sair
@@ -121,11 +143,14 @@ function AppContent() {
   )
 }
 
+// LanguageProvider envolve tudo — única mudança estrutural
 export default function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </LanguageProvider>
   )
 }
 
