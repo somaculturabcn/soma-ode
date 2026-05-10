@@ -21,14 +21,20 @@ export default function LoginScreen() {
   const [message, setMessage] = useState('')
   const [isError, setIsError] = useState(false)
 
-  // Detecta link de recovery do Supabase (type=recovery na hash da URL)
+  // Detecta link de recovery — extrai tokens ANTES de limpar o hash
   useEffect(() => {
     const hash = window.location.hash
-    if (hash.includes('type=recovery') || hash.includes('access_token')) {
-      // Supabase já fez o parse da sessão via a hash, só precisamos ir para new_password
-      if (hash.includes('type=recovery')) {
+    if (hash.includes('type=recovery')) {
+      const params = new URLSearchParams(hash.substring(1))
+      const access_token = params.get('access_token')
+      const refresh_token = params.get('refresh_token')
+      if (access_token && refresh_token) {
+        supabase.auth.setSession({ access_token, refresh_token }).then(() => {
+          setMode('new_password')
+          window.history.replaceState({}, '', window.location.pathname)
+        })
+      } else {
         setMode('new_password')
-        // Limpa a URL sem recarregar
         window.history.replaceState({}, '', window.location.pathname)
       }
     }
@@ -39,19 +45,13 @@ export default function LoginScreen() {
     setIsError(error)
   }
 
-  // ── Login com email/senha ──────────────────────────────
-
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true); msg('')
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      msg(t.wrong_credentials, true)
-    }
+    if (error) msg(t.wrong_credentials, true)
     setLoading(false)
   }
-
-  // ── Google OAuth ───────────────────────────────────────
 
   async function handleGoogle() {
     setLoading(true); msg('')
@@ -61,8 +61,6 @@ export default function LoginScreen() {
     })
     setLoading(false)
   }
-
-  // ── Signup artista ─────────────────────────────────────
 
   async function handleSignupArtist(e: React.FormEvent) {
     e.preventDefault()
@@ -87,8 +85,6 @@ export default function LoginScreen() {
     setLoading(false)
   }
 
-  // ── Signup produtor ────────────────────────────────────
-
   async function handleSignupProducer(e: React.FormEvent) {
     e.preventDefault()
     if (!orgName.trim()) { msg(t.org_name + ' é obrigatório.', true); return }
@@ -102,19 +98,15 @@ export default function LoginScreen() {
     setLoading(false)
   }
 
-  // ── Forgot password ────────────────────────────────────
-
   async function handleForgot(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true); msg('')
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/#type=recovery`,
+      redirectTo: window.location.origin,
     })
     msg(error ? error.message : t.recovery_sent, !!error)
     setLoading(false)
   }
-
-  // ── Nova senha (via link de recovery) ─────────────────
 
   async function handleNewPassword(e: React.FormEvent) {
     e.preventDefault()
@@ -129,8 +121,6 @@ export default function LoginScreen() {
     }
     setLoading(false)
   }
-
-  // ── Títulos e subtítulos por modo ─────────────────────
 
   const titles: Record<Mode, string> = {
     login: t.welcome_back,
@@ -151,7 +141,6 @@ export default function LoginScreen() {
     <div style={s.page}>
       <div style={s.card}>
 
-        {/* Idiomas */}
         <div style={s.langRow}>
           {(['pt', 'es', 'en'] as Lang[]).map(l => (
             <button key={l} onClick={() => setLang(l)}
@@ -161,22 +150,18 @@ export default function LoginScreen() {
           ))}
         </div>
 
-        {/* Logo */}
         <div style={s.logo}>SOMA</div>
         <div style={s.logoSub}>CULTURA · ODÉ</div>
 
-        {/* Título */}
         <h1 style={s.title}>{titles[mode]}</h1>
         <p style={s.subtitle}>{subtitles[mode]}</p>
 
-        {/* Mensagem */}
         {message && (
           <div style={{ ...s.message, borderColor: isError ? 'rgba(255,100,100,0.3)' : 'rgba(110,243,165,0.3)', color: isError ? '#ff8a8a' : '#6ef3a5', background: isError ? 'rgba(255,100,100,0.08)' : 'rgba(110,243,165,0.08)' }}>
             {message}
           </div>
         )}
 
-        {/* ── MODO LOGIN ── */}
         {mode === 'login' && (
           <>
             <form onSubmit={handleLogin} style={s.form}>
@@ -223,7 +208,6 @@ export default function LoginScreen() {
           </>
         )}
 
-        {/* ── MODO ARTISTA ── */}
         {mode === 'artist' && (
           <form onSubmit={handleSignupArtist} style={s.form}>
             <label style={s.label}>{t.email}</label>
@@ -241,7 +225,6 @@ export default function LoginScreen() {
           </form>
         )}
 
-        {/* ── MODO PRODUTOR ── */}
         {mode === 'producer' && (
           <form onSubmit={handleSignupProducer} style={s.form}>
             <label style={s.label}>{t.org_name}</label>
@@ -262,7 +245,6 @@ export default function LoginScreen() {
           </form>
         )}
 
-        {/* ── MODO FORGOT ── */}
         {mode === 'forgot' && (
           <form onSubmit={handleForgot} style={s.form}>
             <label style={s.label}>{t.email}</label>
@@ -277,7 +259,6 @@ export default function LoginScreen() {
           </form>
         )}
 
-        {/* ── MODO NOVA SENHA ── */}
         {mode === 'new_password' && (
           <form onSubmit={handleNewPassword} style={s.form}>
             <label style={s.label}>{t.new_password}</label>
