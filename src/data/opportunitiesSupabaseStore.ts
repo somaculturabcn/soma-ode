@@ -1,8 +1,15 @@
 // src/data/opportunitiesSupabaseStore.ts
-// SOMA ODÉ — Store Supabase para Oportunidades (multi-tenant)
-// UPDATE: is_private mapeado em rowToOp e opToRow
+// SOMA ODÉ — Store Supabase para Oportunidades
+// Pública = todos vêem | Privada = criador + admins
 
 import { supabase } from '../lib/supabase'
+
+// ─── Auth helper ──────────────────────────────────────────
+
+async function getCurrentUserId(): Promise<string | null> {
+  const { data } = await supabase.auth.getUser()
+  return data.user?.id || null
+}
 
 // ─── Load ─────────────────────────────────────────────────
 
@@ -16,25 +23,32 @@ export async function loadOpportunitiesFromSupabase(): Promise<any[]> {
     console.error('Erro ao carregar oportunidades:', error)
     return []
   }
+
   return (data || []).map(rowToOp)
 }
 
-// ─── Save ──────────────────────────────────────────────────
+// ─── Save ─────────────────────────────────────────────────
 
 export async function saveOpportunityToSupabase(op: any, organizationId: string): Promise<void> {
+  const currentUserId = await getCurrentUserId()
+
   const { error } = await supabase
     .from('opportunities')
-    .upsert(opToRow(op, organizationId), { onConflict: 'id' })
+    .upsert(opToRow(op, organizationId, currentUserId), { onConflict: 'id' })
+
   if (error) throw error
 }
 
-// ─── Batch save (CSV import) ───────────────────────────────
+// ─── Batch save ───────────────────────────────────────────
 
 export async function saveOpportunitiesBatch(ops: any[], organizationId: string): Promise<void> {
-  const rows = ops.map(op => opToRow(op, organizationId))
+  const currentUserId = await getCurrentUserId()
+  const rows = ops.map(op => opToRow(op, organizationId, currentUserId))
+
   const { error } = await supabase
     .from('opportunities')
     .upsert(rows, { onConflict: 'id' })
+
   if (error) throw error
 }
 
@@ -45,6 +59,7 @@ export async function deleteOpportunityFromSupabase(id: string): Promise<void> {
     .from('opportunities')
     .delete()
     .eq('id', id)
+
   if (error) throw error
 }
 
@@ -56,6 +71,8 @@ export async function shareOpportunityWithProducer(
   somaOrgId: string,
   opportunity: any,
 ): Promise<void> {
+  const currentUserId = await getCurrentUserId()
+
   const { data: existing } = await supabase
     .from('opportunities')
     .select('id, shared_with')
@@ -64,19 +81,23 @@ export async function shareOpportunityWithProducer(
 
   if (existing) {
     const current = existing.shared_with || []
+
     if (current.includes(targetOrgId)) return
+
     const { error } = await supabase
       .from('opportunities')
       .update({ shared_with: [...current, targetOrgId] })
       .eq('id', opportunityId)
+
     if (error) throw error
   } else {
     const { error } = await supabase
       .from('opportunities')
       .insert({
-        ...opToRow(opportunity, somaOrgId),
+        ...opToRow(opportunity, somaOrgId, currentUserId),
         shared_with: [targetOrgId],
       })
+
     if (error) throw error
   }
 }
@@ -90,7 +111,11 @@ export async function loadProducerOrgs(): Promise<{ id: string; name: string }[]
     .neq('id', '00000000-0000-0000-0000-000000000001')
     .order('name')
 
-  if (error) { console.error(error); return [] }
+  if (error) {
+    console.error(error)
+    return []
+  }
+
   return data || []
 }
 
@@ -100,6 +125,7 @@ function rowToOp(row: any): any {
   return {
     id: row.id,
     organizationId: row.organization_id,
+    createdBy: row.created_by || '',
     title: row.title || '',
     organization: row.organization_name || '',
     organizationName: row.organization_name || '',
@@ -119,7 +145,7 @@ function rowToOp(row: any): any {
     description: row.description || '',
     link: row.link || '',
     coversCosts: Boolean(row.covers_costs),
-    isPrivate: Boolean(row.is_private),   // ← NOVO
+    isPrivate: Boolean(row.is_private),
     status: row.status || 'open',
     source: row.source || 'supabase',
     notes: row.notes || '',
@@ -132,10 +158,11 @@ function rowToOp(row: any): any {
   }
 }
 
-function opToRow(op: any, organizationId: string): any {
+function opToRow(op: any, organizationId: string, currentUserId: string | null): any {
   return {
     id: op.id,
     organization_id: organizationId,
+    created_by: op.createdBy || op.created_by || currentUserId,
     title: op.title || '',
     organization_name: op.organization || op.organizationName || '',
     type: op.type || 'open_call',
@@ -154,7 +181,7 @@ function opToRow(op: any, organizationId: string): any {
     description: op.description || null,
     link: op.link || null,
     covers_costs: Boolean(op.coversCosts),
-    is_private: Boolean(op.isPrivate),    // ← NOVO
+    is_private: Boolean(op.isPrivate),
     status: op.status || 'open',
     source: op.source || 'manual',
     notes: op.notes || null,
