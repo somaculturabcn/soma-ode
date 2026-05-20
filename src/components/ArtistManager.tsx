@@ -2,7 +2,7 @@
 // SOMA ODÉ — Artist Manager v2 (9 secções + Cartografia Davis v2 + Supabase)
 // BUG FIX 1: findIndex(sec => sec.id) — evita colisão com objecto de estilos `s`
 // BUG FIX 2: Array.isArray(a.disciplines) — disciplines pode vir como string do Supabase
-// UPDATE v3: producer_id gravado ao guardar; isOwner usa app_metadata
+// UPDATE v4: producer_id gravado ao guardar; isAdmin usa user.role do AuthProvider
 
 import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthProvider'
@@ -136,12 +136,8 @@ export default function ArtistManager() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  // ─── Determina o role do utilizador actual ───────────────
-  // Lê de app_metadata (definido via SQL, não modificável pelo utilizador)
-  const userRole: string = (user as any)?.app_metadata?.role
-    ?? (user as any)?.user_metadata?.role
-    ?? 'producer'
-  const isAdmin = userRole === 'admin'
+  // ─── Role vem directamente do AuthProvider (user.role) ───
+  const isAdmin = user?.role === 'admin'
 
   useEffect(() => { load() }, [])
 
