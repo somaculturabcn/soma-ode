@@ -1,6 +1,7 @@
 // src/components/ContactsView.tsx
 // SOMA ODÉ — Contactos
 // Ver + adicionar manual + editar + apagar + importar CSV + limpar CSV + enviar ao pipeline
+// UPDATE: removido badge MIL, removido botão "Duplicar/editar" dos contactos de base, subtítulo simplificado
 
 import { useMemo, useRef, useState } from 'react'
 import { contactsSOMA } from '../data/contactsSOMA'
@@ -126,35 +127,19 @@ function parseContactsCsv(text: string): Contact[] {
       })
 
       const disciplinesRaw = getValue(row, [
-        'disciplinas',
-        'disciplines',
-        'area',
-        'área',
-        'areas',
-        'áreas',
+        'disciplinas', 'disciplines', 'area', 'área', 'areas', 'áreas',
       ])
 
       return {
         id: crypto.randomUUID(),
         name: getValue(row, ['name', 'nome', 'nombre', 'contacto', 'contato', 'persona']),
         organization: getValue(row, [
-          'organization',
-          'organização',
-          'organizacao',
-          'organizacion',
-          'empresa',
-          'entidade',
+          'organization', 'organização', 'organizacao', 'organizacion', 'empresa', 'entidade',
         ]),
         role: getValue(row, ['role', 'cargo', 'função', 'funcao', 'funcion', 'puesto']),
         email: getValue(row, ['email', 'e-mail', 'mail', 'correo']),
         phone: getValue(row, [
-          'phone',
-          'telefone',
-          'telefono',
-          'teléfono',
-          'telemovel',
-          'móvil',
-          'movil',
+          'phone', 'telefone', 'telefono', 'teléfono', 'telemovel', 'móvil', 'movil',
         ]),
         country: getValue(row, ['country', 'pais', 'país']),
         city: getValue(row, ['city', 'cidade', 'ciudad']),
@@ -226,12 +211,10 @@ export default function ContactsView() {
 
   const roles = useMemo(() => {
     const counts = new Map<string, number>()
-
     for (const c of allContacts) {
       const role = c.role || 'Outro'
       counts.set(role, (counts.get(role) || 0) + 1)
     }
-
     return Array.from(counts.entries()).sort((a, b) => b[1] - a[1])
   }, [allContacts])
 
@@ -244,19 +227,9 @@ export default function ContactsView() {
 
       return cleanText(
         [
-          c.name,
-          c.organization,
-          c.role,
-          c.email,
-          c.phone,
-          c.country,
-          c.city,
-          c.website,
-          c.instagram,
-          c.linkedin,
-          c.tiktok,
-          c.notes,
-          ...(c.disciplines || []),
+          c.name, c.organization, c.role, c.email, c.phone,
+          c.country, c.city, c.website, c.instagram, c.linkedin,
+          c.tiktok, c.notes, ...(c.disciplines || []),
         ].join(' ')
       ).includes(q)
     })
@@ -275,7 +248,7 @@ export default function ContactsView() {
 
   function startEditContact(contact: ContactWithOrigin) {
     setEditing({
-      id: contact.origin === 'mil' ? crypto.randomUUID() : contact.id,
+      id: contact.id,
       name: contact.name,
       organization: contact.organization,
       role: contact.role,
@@ -289,10 +262,9 @@ export default function ContactsView() {
       tiktok: contact.tiktok,
       disciplines: contact.disciplines || [],
       notes: contact.notes,
-      source: contact.origin === 'mil' ? 'MIL duplicado/editado' : contact.source || 'manual',
+      source: contact.source || 'manual',
     })
-
-    setIsNew(contact.origin === 'mil')
+    setIsNew(false)
   }
 
   function saveContact() {
@@ -324,9 +296,7 @@ export default function ContactsView() {
     const duplicated = isDuplicate(cleanContact, allContacts)
 
     if (duplicated) {
-      const ok = confirm(
-        'Este contacto parece duplicado por email ou telefone. Queres guardar mesmo assim?'
-      )
+      const ok = confirm('Este contacto parece duplicado por email ou telefone. Queres guardar mesmo assim?')
       if (!ok) return
     }
 
@@ -339,8 +309,7 @@ export default function ContactsView() {
   }
 
   function removeContact(id: string) {
-    if (!confirm('Apagar este contacto manual?')) return
-
+    if (!confirm('Apagar este contacto?')) return
     deleteManualContact(id)
     refresh()
     setEditing(null)
@@ -403,18 +372,12 @@ export default function ContactsView() {
       return
     }
 
-    if (
-      !confirm(
-        `ATENÇÃO: apagar TODOS os ${current.length} contactos manuais? Isto mantém só os contactos MIL.`
-      )
-    ) {
-      return
-    }
+    if (!confirm(`ATENÇÃO: apagar TODOS os ${current.length} contactos manuais?`)) return
 
     saveManualContacts([])
     refresh()
 
-    const summary = `${current.length} contactos manuais apagados. Ficaram apenas os contactos MIL.`
+    const summary = `${current.length} contactos manuais apagados.`
     setImportSummary(summary)
     alert(summary)
   }
@@ -435,22 +398,12 @@ export default function ContactsView() {
     let currentAll: ContactWithOrigin[] = [
       ...existingManualWithoutCsv.map(c => ({ ...c, origin: 'manual' as const })),
       ...contactsSOMA.map((c: any) => ({
-        id: c.id,
-        name: c.name || '',
-        organization: c.organization || '',
-        role: c.role || 'Outro',
-        email: c.email || '',
-        phone: c.phone || '',
-        country: c.country || '',
-        city: c.city || '',
-        website: c.website || '',
-        instagram: c.instagram || '',
-        linkedin: c.linkedin || '',
-        tiktok: c.tiktok || '',
-        disciplines: c.disciplines || [],
-        notes: c.notes || '',
-        source: 'MIL',
-        origin: 'mil' as const,
+        id: c.id, name: c.name || '', organization: c.organization || '',
+        role: c.role || 'Outro', email: c.email || '', phone: c.phone || '',
+        country: c.country || '', city: c.city || '', website: c.website || '',
+        instagram: c.instagram || '', linkedin: c.linkedin || '', tiktok: c.tiktok || '',
+        disciplines: c.disciplines || [], notes: c.notes || '',
+        source: 'MIL', origin: 'mil' as const,
       })),
     ]
 
@@ -475,7 +428,7 @@ export default function ContactsView() {
     saveManualContacts(sortContacts(toSave))
     refresh()
 
-    const summary = `${parsed.length} contactos lidos · ${imported} importados · ${duplicated} duplicados saltados · ${incomplete} incompletos · CSV anterior substituído`
+    const summary = `${parsed.length} lidos · ${imported} importados · ${duplicated} duplicados saltados · ${incomplete} incompletos`
     setImportSummary(summary)
     alert(summary)
 
@@ -487,9 +440,9 @@ export default function ContactsView() {
       <header style={styles.header}>
         <div>
           <h2 style={styles.title}>Contactos</h2>
+          {/* ← MUDANÇA 1: subtítulo simplificado, sem "MIL" e "manuais" */}
           <p style={styles.subtitle}>
-            {filtered.length} de {allContacts.length} contactos · {contactsSOMA.length} MIL ·{' '}
-            {manualContacts.length} manuais
+            {filtered.length} de {allContacts.length} contactos
           </p>
           {importSummary && <p style={styles.importSummary}>{importSummary}</p>}
         </div>
@@ -523,11 +476,6 @@ export default function ContactsView() {
           </button>
         </div>
       </header>
-
-      <div style={styles.importHelp}>
-        A lista está em ordem alfabética. <b>Limpar CSV</b> apaga só contactos importados por CSV.
-        <b> Limpar manuais</b> apaga todos os contactos manuais e deixa apenas os contactos MIL.
-      </div>
 
       <div style={styles.toolbar}>
         <input
@@ -566,25 +514,20 @@ export default function ContactsView() {
                 <div style={styles.badges}>
                   {duplicated && <span style={styles.duplicateBadge}>duplicado</span>}
                   {c.role && <span style={styles.role}>{c.role}</span>}
-                  <span style={c.origin === 'manual' ? styles.manualBadge : styles.milBadge}>
-                    {c.origin === 'manual' ? 'manual' : 'MIL'}
-                  </span>
+                  {/* ← MUDANÇA 2: badge só aparece para contactos manuais, sem "MIL" */}
+                  {c.origin === 'manual' && (
+                    <span style={styles.manualBadge}>manual</span>
+                  )}
                 </div>
               </div>
 
               <div style={styles.contactLines}>
                 {c.email && (
-                  <a href={`mailto:${c.email}`} style={styles.link}>
-                    ✉ {c.email}
-                  </a>
+                  <a href={`mailto:${c.email}`} style={styles.link}>✉ {c.email}</a>
                 )}
-
                 {c.phone && (
-                  <a href={`tel:${c.phone}`} style={styles.link}>
-                    ☎ {c.phone}
-                  </a>
+                  <a href={`tel:${c.phone}`} style={styles.link}>☎ {c.phone}</a>
                 )}
-
                 {(c.city || c.country) && (
                   <span style={styles.meta}>
                     📍 {[c.country, c.city].filter(Boolean).join(' · ')}
@@ -599,9 +542,12 @@ export default function ContactsView() {
                   ➤ Enviar a pipeline
                 </button>
 
-                <button style={styles.secondaryBtn} onClick={() => startEditContact(c)}>
-                  {c.origin === 'mil' ? 'Duplicar / editar' : 'Editar'}
-                </button>
+                {/* ← MUDANÇA 3: "Editar" só para contactos manuais, não para os de base */}
+                {c.origin === 'manual' && (
+                  <button style={styles.secondaryBtn} onClick={() => startEditContact(c)}>
+                    Editar
+                  </button>
+                )}
 
                 {c.origin === 'manual' && (
                   <button style={styles.dangerBtn} onClick={() => removeContact(c.id)}>
@@ -620,121 +566,60 @@ export default function ContactsView() {
             <h3 style={styles.modalTitle}>{isNew ? 'Novo contacto' : 'Editar contacto'}</h3>
 
             <div style={styles.formGrid}>
-              <input
-                style={styles.input}
-                placeholder="Nome"
+              <input style={styles.input} placeholder="Nome"
                 value={editing.name}
-                onChange={e => setEditing({ ...editing, name: e.target.value })}
-              />
-
-              <input
-                style={styles.input}
-                placeholder="Organização"
+                onChange={e => setEditing({ ...editing, name: e.target.value })} />
+              <input style={styles.input} placeholder="Organização"
                 value={editing.organization || ''}
-                onChange={e => setEditing({ ...editing, organization: e.target.value })}
-              />
-
-              <input
-                style={styles.input}
-                placeholder="Cargo / função"
+                onChange={e => setEditing({ ...editing, organization: e.target.value })} />
+              <input style={styles.input} placeholder="Cargo / função"
                 value={editing.role || ''}
-                onChange={e => setEditing({ ...editing, role: e.target.value })}
-              />
-
-              <input
-                style={styles.input}
-                placeholder="Email"
+                onChange={e => setEditing({ ...editing, role: e.target.value })} />
+              <input style={styles.input} placeholder="Email"
                 value={editing.email || ''}
-                onChange={e => setEditing({ ...editing, email: e.target.value })}
-              />
-
-              <input
-                style={styles.input}
-                placeholder="Telefone"
+                onChange={e => setEditing({ ...editing, email: e.target.value })} />
+              <input style={styles.input} placeholder="Telefone"
                 value={editing.phone || ''}
-                onChange={e => setEditing({ ...editing, phone: e.target.value })}
-              />
-
-              <input
-                style={styles.input}
-                placeholder="País"
+                onChange={e => setEditing({ ...editing, phone: e.target.value })} />
+              <input style={styles.input} placeholder="País"
                 value={editing.country || ''}
-                onChange={e => setEditing({ ...editing, country: e.target.value })}
-              />
-
-              <input
-                style={styles.input}
-                placeholder="Cidade"
+                onChange={e => setEditing({ ...editing, country: e.target.value })} />
+              <input style={styles.input} placeholder="Cidade"
                 value={editing.city || ''}
-                onChange={e => setEditing({ ...editing, city: e.target.value })}
-              />
-
-              <input
-                style={styles.input}
-                placeholder="Website"
+                onChange={e => setEditing({ ...editing, city: e.target.value })} />
+              <input style={styles.input} placeholder="Website"
                 value={editing.website || ''}
-                onChange={e => setEditing({ ...editing, website: e.target.value })}
-              />
-
-              <input
-                style={styles.input}
-                placeholder="Instagram"
+                onChange={e => setEditing({ ...editing, website: e.target.value })} />
+              <input style={styles.input} placeholder="Instagram"
                 value={editing.instagram || ''}
-                onChange={e => setEditing({ ...editing, instagram: e.target.value })}
-              />
-
-              <input
-                style={styles.input}
-                placeholder="LinkedIn"
+                onChange={e => setEditing({ ...editing, instagram: e.target.value })} />
+              <input style={styles.input} placeholder="LinkedIn"
                 value={editing.linkedin || ''}
-                onChange={e => setEditing({ ...editing, linkedin: e.target.value })}
-              />
-
-              <input
-                style={styles.input}
-                placeholder="TikTok"
+                onChange={e => setEditing({ ...editing, linkedin: e.target.value })} />
+              <input style={styles.input} placeholder="TikTok"
                 value={editing.tiktok || ''}
-                onChange={e => setEditing({ ...editing, tiktok: e.target.value })}
-              />
-
-              <input
-                style={styles.input}
-                placeholder="Disciplinas separadas por vírgula"
+                onChange={e => setEditing({ ...editing, tiktok: e.target.value })} />
+              <input style={styles.input} placeholder="Disciplinas separadas por vírgula"
                 value={(editing.disciplines || []).join(', ')}
-                onChange={e =>
-                  setEditing({
-                    ...editing,
-                    disciplines: e.target.value.split(',').map(x => x.trim()).filter(Boolean),
-                  })
-                }
-              />
-
-              <input
-                style={styles.input}
-                placeholder="Fonte"
-                value={editing.source || ''}
-                onChange={e => setEditing({ ...editing, source: e.target.value })}
-              />
+                onChange={e => setEditing({
+                  ...editing,
+                  disciplines: e.target.value.split(',').map(x => x.trim()).filter(Boolean),
+                })} />
             </div>
 
-            <textarea
-              style={styles.textarea}
-              placeholder="Notas internas"
+            <textarea style={styles.textarea} placeholder="Notas internas"
               value={editing.notes || ''}
-              onChange={e => setEditing({ ...editing, notes: e.target.value })}
-            />
+              onChange={e => setEditing({ ...editing, notes: e.target.value })} />
 
             <div style={styles.modalActions}>
               <button style={styles.secondaryBtn} onClick={() => setEditing(null)}>
                 Cancelar
               </button>
-
               {!isNew && (
                 <button style={styles.dangerBtn} onClick={() => removeContact(editing.id)}>
                   Apagar
                 </button>
               )}
-
               <button style={styles.primaryBtn} onClick={saveContact}>
                 Guardar contacto
               </button>
@@ -753,36 +638,14 @@ const styles: Record<string, React.CSSProperties> = {
   title: { margin: 0, fontSize: 24, color: '#fff' },
   subtitle: { margin: '4px 0 0', color: '#bbb', fontSize: 14 },
   importSummary: { margin: '4px 0 0', color: '#6ef3a5', fontSize: 12 },
-  importHelp: {
-    marginBottom: 18,
-    background: 'rgba(255,255,255,0.04)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: 10,
-    padding: 10,
-    color: 'rgba(255,255,255,0.55)',
-    fontSize: 12,
-    lineHeight: 1.5,
-  },
   toolbar: { display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' },
   search: {
-    flex: '1 1 300px',
-    padding: '10px 14px',
-    background: '#0a0a0a',
-    color: '#fff',
-    border: '0.5px solid rgba(255,255,255,0.12)',
-    borderRadius: 8,
-    fontSize: 13,
-    outline: 'none',
+    flex: '1 1 300px', padding: '10px 14px', background: '#0a0a0a', color: '#fff',
+    border: '0.5px solid rgba(255,255,255,0.12)', borderRadius: 8, fontSize: 13, outline: 'none',
   },
   select: {
-    padding: '10px 14px',
-    background: '#0a0a0a',
-    color: '#fff',
-    border: '0.5px solid rgba(255,255,255,0.12)',
-    borderRadius: 8,
-    fontSize: 13,
-    outline: 'none',
-    cursor: 'pointer',
+    padding: '10px 14px', background: '#0a0a0a', color: '#fff',
+    border: '0.5px solid rgba(255,255,255,0.12)', borderRadius: 8, fontSize: 13, outline: 'none', cursor: 'pointer',
   },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 },
   card: { background: '#111', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '14px 16px' },
@@ -793,114 +656,63 @@ const styles: Record<string, React.CSSProperties> = {
   role: { fontSize: 10, padding: '2px 8px', background: 'rgba(26,105,148,0.15)', color: '#60b4e8', borderRadius: 10, whiteSpace: 'nowrap' },
   duplicateBadge: { fontSize: 10, padding: '2px 8px', background: 'rgba(255,80,80,0.16)', color: '#ff8a8a', borderRadius: 10 },
   manualBadge: { fontSize: 10, padding: '2px 8px', background: 'rgba(110,243,165,0.12)', color: '#6ef3a5', borderRadius: 10 },
-  milBadge: { fontSize: 10, padding: '2px 8px', background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.45)', borderRadius: 10 },
   contactLines: { display: 'flex', flexDirection: 'column', gap: 5, marginTop: 8 },
   link: { fontSize: 12, color: '#7ab6ff', textDecoration: 'none', wordBreak: 'break-all' },
   meta: { fontSize: 12, color: 'rgba(255,255,255,0.55)' },
   notes: { fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 10, lineHeight: 1.5 },
   actions: { display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12, flexWrap: 'wrap' },
   pipelineBtn: {
-    background: 'rgba(110,243,165,0.08)',
-    border: '1px solid rgba(110,243,165,0.25)',
-    color: '#6ef3a5',
-    padding: '8px 12px',
-    borderRadius: 8,
-    fontSize: 12,
-    cursor: 'pointer',
+    background: 'rgba(110,243,165,0.08)', border: '1px solid rgba(110,243,165,0.25)',
+    color: '#6ef3a5', padding: '8px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer',
   },
   importBtn: {
-    background: 'rgba(255,207,92,0.10)',
-    color: '#ffcf5c',
-    border: '1px solid rgba(255,207,92,0.30)',
-    borderRadius: 8,
-    padding: '9px 14px',
-    fontSize: 13,
-    fontWeight: 700,
-    cursor: 'pointer',
+    background: 'rgba(255,207,92,0.10)', color: '#ffcf5c',
+    border: '1px solid rgba(255,207,92,0.30)', borderRadius: 8,
+    padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
   },
   clearBtn: {
-    background: 'rgba(255,80,80,0.10)',
-    color: '#ff8a8a',
-    border: '1px solid rgba(255,80,80,0.25)',
-    borderRadius: 8,
-    padding: '9px 14px',
-    fontSize: 13,
-    fontWeight: 700,
-    cursor: 'pointer',
+    background: 'rgba(255,80,80,0.10)', color: '#ff8a8a',
+    border: '1px solid rgba(255,80,80,0.25)', borderRadius: 8,
+    padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
   },
   clearAllBtn: {
-    background: 'rgba(255,255,255,0.06)',
-    color: '#ddd',
-    border: '1px solid rgba(255,255,255,0.18)',
-    borderRadius: 8,
-    padding: '9px 14px',
-    fontSize: 13,
-    fontWeight: 700,
-    cursor: 'pointer',
+    background: 'rgba(255,255,255,0.06)', color: '#ddd',
+    border: '1px solid rgba(255,255,255,0.18)', borderRadius: 8,
+    padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
   },
   primaryBtn: {
-    background: '#1676a3',
-    color: '#fff',
-    border: '1px solid rgba(255,255,255,0.15)',
-    borderRadius: 8,
-    padding: '9px 14px',
-    fontSize: 13,
-    fontWeight: 700,
-    cursor: 'pointer',
+    background: '#1676a3', color: '#fff',
+    border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8,
+    padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
   },
   secondaryBtn: {
-    background: 'rgba(255,255,255,0.06)',
-    color: '#fff',
-    border: '1px solid rgba(255,255,255,0.12)',
-    borderRadius: 8,
-    padding: '8px 12px',
-    fontSize: 12,
-    cursor: 'pointer',
+    background: 'rgba(255,255,255,0.06)', color: '#fff',
+    border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8,
+    padding: '8px 12px', fontSize: 12, cursor: 'pointer',
   },
   dangerBtn: {
-    background: 'rgba(255,70,70,0.12)',
-    color: '#ff8a8a',
-    border: '1px solid rgba(255,70,70,0.25)',
-    borderRadius: 8,
-    padding: '8px 12px',
-    fontSize: 12,
-    cursor: 'pointer',
+    background: 'rgba(255,70,70,0.12)', color: '#ff8a8a',
+    border: '1px solid rgba(255,70,70,0.25)', borderRadius: 8,
+    padding: '8px 12px', fontSize: 12, cursor: 'pointer',
   },
   overlay: {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(0,0,0,0.75)',
-    zIndex: 100,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
+    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+    zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
   },
   modal: {
-    width: 'min(820px, 100%)',
-    maxHeight: '90vh',
-    overflowY: 'auto',
-    background: '#050505',
-    border: '1px solid #1676a3',
-    borderRadius: 14,
-    padding: 22,
+    width: 'min(820px, 100%)', maxHeight: '90vh', overflowY: 'auto',
+    background: '#050505', border: '1px solid #1676a3', borderRadius: 14, padding: 22,
   },
   modalTitle: { margin: '0 0 18px', color: '#fff', fontSize: 22 },
   formGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 },
-  input: { background: '#111', color: '#fff', border: '1px solid #1676a3', borderRadius: 8, padding: '11px 12px', fontSize: 13, outline: 'none' },
+  input: {
+    background: '#111', color: '#fff', border: '1px solid #1676a3',
+    borderRadius: 8, padding: '11px 12px', fontSize: 13, outline: 'none',
+  },
   textarea: {
-    width: '100%',
-    minHeight: 110,
-    marginTop: 10,
-    background: '#111',
-    color: '#fff',
-    border: '1px solid #1676a3',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 13,
-    outline: 'none',
-    resize: 'vertical',
-    boxSizing: 'border-box',
+    width: '100%', minHeight: 110, marginTop: 10, background: '#111', color: '#fff',
+    border: '1px solid #1676a3', borderRadius: 8, padding: 12, fontSize: 13,
+    outline: 'none', resize: 'vertical', boxSizing: 'border-box',
   },
   modalActions: { display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 },
 }
