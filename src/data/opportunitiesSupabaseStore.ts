@@ -1,10 +1,10 @@
 // src/data/opportunitiesSupabaseStore.ts
 // SOMA ODÉ — Store Supabase para Oportunidades (multi-tenant)
+// UPDATE: is_private mapeado em rowToOp e opToRow
 
 import { supabase } from '../lib/supabase'
 
 // ─── Load ─────────────────────────────────────────────────
-// RLS filtra automaticamente por org + shared_with
 
 export async function loadOpportunitiesFromSupabase(): Promise<any[]> {
   const { data, error } = await supabase
@@ -56,7 +56,6 @@ export async function shareOpportunityWithProducer(
   somaOrgId: string,
   opportunity: any,
 ): Promise<void> {
-  // Verifica se já existe no Supabase
   const { data: existing } = await supabase
     .from('opportunities')
     .select('id, shared_with')
@@ -64,7 +63,6 @@ export async function shareOpportunityWithProducer(
     .maybeSingle()
 
   if (existing) {
-    // Actualiza shared_with
     const current = existing.shared_with || []
     if (current.includes(targetOrgId)) return
     const { error } = await supabase
@@ -73,7 +71,6 @@ export async function shareOpportunityWithProducer(
       .eq('id', opportunityId)
     if (error) throw error
   } else {
-    // Cria no Supabase com shared_with
     const { error } = await supabase
       .from('opportunities')
       .insert({
@@ -84,7 +81,7 @@ export async function shareOpportunityWithProducer(
   }
 }
 
-// ─── Carregar orgs de produtores (para modal de partilha) ──
+// ─── Carregar orgs de produtores ──────────────────────────
 
 export async function loadProducerOrgs(): Promise<{ id: string; name: string }[]> {
   const { data, error } = await supabase
@@ -122,6 +119,7 @@ function rowToOp(row: any): any {
     description: row.description || '',
     link: row.link || '',
     coversCosts: Boolean(row.covers_costs),
+    isPrivate: Boolean(row.is_private),   // ← NOVO
     status: row.status || 'open',
     source: row.source || 'supabase',
     notes: row.notes || '',
@@ -156,6 +154,7 @@ function opToRow(op: any, organizationId: string): any {
     description: op.description || null,
     link: op.link || null,
     covers_costs: Boolean(op.coversCosts),
+    is_private: Boolean(op.isPrivate),    // ← NOVO
     status: op.status || 'open',
     source: op.source || 'manual',
     notes: op.notes || null,
