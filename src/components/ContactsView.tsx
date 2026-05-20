@@ -4,6 +4,7 @@
 // UPDATE: removido badge MIL, removido botão "Duplicar/editar" dos contactos de base, subtítulo simplificado
 
 import { useMemo, useRef, useState } from 'react'
+import { useAuth } from '../auth/AuthProvider'
 import { contactsSOMA } from '../data/contactsSOMA'
 import {
   type Contact,
@@ -174,6 +175,8 @@ function isDuplicate(candidate: Contact, all: ContactWithOrigin[]) {
 }
 
 export default function ContactsView() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const [manualContacts, setManualContacts] = useState<Contact[]>(getManualContacts())
@@ -542,14 +545,14 @@ export default function ContactsView() {
                   ➤ Enviar a pipeline
                 </button>
 
-                {/* ← MUDANÇA 3: "Editar" só para contactos manuais, não para os de base */}
-                {c.origin === 'manual' && (
+                {/* Admin edita tudo; producer só edita os seus manuais */}
+                {(isAdmin || c.origin === 'manual') && (
                   <button style={styles.secondaryBtn} onClick={() => startEditContact(c)}>
                     Editar
                   </button>
                 )}
 
-                {c.origin === 'manual' && (
+                {(isAdmin || c.origin === 'manual') && (
                   <button style={styles.dangerBtn} onClick={() => removeContact(c.id)}>
                     Apagar
                   </button>
