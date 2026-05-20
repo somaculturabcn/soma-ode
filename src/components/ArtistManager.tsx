@@ -2,7 +2,7 @@
 // SOMA ODÉ — Artist Manager v2 (9 secções + Cartografia Davis v2 + Supabase)
 // BUG FIX 1: findIndex(sec => sec.id) — evita colisão com objecto de estilos `s`
 // BUG FIX 2: Array.isArray(a.disciplines) — disciplines pode vir como string do Supabase
-// UPDATE: producer_id gravado automaticamente ao criar/guardar artista
+// UPDATE v3: producer_id gravado ao guardar; isOwner usa app_metadata
 
 import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthProvider'
@@ -129,12 +129,19 @@ const REGIONS: { label: string; emoji: string; countries: { code: string; name: 
 // ─── Componente principal ─────────────────────────────────
 
 export default function ArtistManager() {
-  const { user } = useAuth() // ← NOVO: acesso ao utilizador autenticado
+  const { user } = useAuth()
   const [artists, setArtists] = useState<Artist[]>([])
   const [editing, setEditing] = useState<Artist | null>(null)
   const [section, setSection] = useState<string>('01')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+
+  // ─── Determina o role do utilizador actual ───────────────
+  // Lê de app_metadata (definido via SQL, não modificável pelo utilizador)
+  const userRole: string = (user as any)?.app_metadata?.role
+    ?? (user as any)?.user_metadata?.role
+    ?? 'producer'
+  const isAdmin = userRole === 'admin'
 
   useEffect(() => { load() }, [])
 
@@ -160,7 +167,6 @@ export default function ArtistManager() {
     if (!editing.name?.trim()) { alert('Nome artístico obrigatório'); return }
     setSaving(true)
     try {
-      // ← NOVO: producer_id gravado automaticamente com o UID do utilizador actual
       await saveArtistToSupabase({
         ...editing,
         updatedAt: new Date().toISOString(),
@@ -225,8 +231,8 @@ export default function ArtistManager() {
             const m = materialsCount(a.materials || {})
             const c = cartografiaCount(a.cartografia || {})
             const disciplines = safeArr(a.disciplines)
-            // ← NOVO: determina se o utilizador actual é dono deste artista
-            const isOwner = (a as any).producer_id === user?.id || user?.user_metadata?.role === 'admin'
+            // ─── Apenas admin ou dono do artista vê Editar/Apagar ───
+            const canEdit = isAdmin || (a as any).producer_id === user?.id
             return (
               <article key={a.id} style={s.card}>
                 <h3 style={s.cardTitle}>{a.name || '—'}</h3>
@@ -240,8 +246,7 @@ export default function ArtistManager() {
                   <span>Materiais {m.done}/{m.total}</span>
                   <span>Cartografia {c.filled}/{c.total}</span>
                 </div>
-                {/* ← NOVO: Editar/Apagar só aparecem se for dono ou admin */}
-                {isOwner && (
+                {canEdit && (
                   <div style={s.cardActions}>
                     <button style={s.secondary} onClick={() => { setEditing(a); setSection('01') }}>Editar</button>
                     <button style={s.danger} onClick={() => remove(a.id)}>Apagar</button>
@@ -318,7 +323,7 @@ type SecProps = {
 
 type SecPropsToggle = SecProps & { toggle: (field: keyof Artist, item: string) => void }
 
-// ─── SECÇÃO 01: IDENTIDADE ────────────────────────────────
+// ─── SECÇÃO 01 ────────────────────────────────────────────
 
 function Section01({ a, update }: SecProps) {
   return (
@@ -357,7 +362,7 @@ function Section01({ a, update }: SecProps) {
   )
 }
 
-// ─── SECÇÃO 02: LOCALIZAÇÃO ───────────────────────────────
+// ─── SECÇÃO 02 ────────────────────────────────────────────
 
 function Section02({ a, update }: SecProps) {
   return (
@@ -381,7 +386,7 @@ function Section02({ a, update }: SecProps) {
   )
 }
 
-// ─── SECÇÃO 03: PERFIL ────────────────────────────────────
+// ─── SECÇÃO 03 ────────────────────────────────────────────
 
 function Section03({ a, update, toggle }: SecPropsToggle) {
   const disciplines = safeArr(a.disciplines)
@@ -391,7 +396,6 @@ function Section03({ a, update, toggle }: SecPropsToggle) {
   return (
     <div>
       <h2 style={s.h2}>03 · Perfil artístico</h2>
-
       <Field label="Disciplinas (clica para seleccionar)">
         <div style={s.chipGrid}>
           {DISCIPLINES.map(d => {
@@ -406,7 +410,6 @@ function Section03({ a, update, toggle }: SecPropsToggle) {
           })}
         </div>
       </Field>
-
       <Field label="Função profissional">
         <div style={s.chipGrid}>
           {SPECIALTIES.map(sp => (
@@ -418,7 +421,6 @@ function Section03({ a, update, toggle }: SecPropsToggle) {
           ))}
         </div>
       </Field>
-
       <Field label="Idiomas">
         <div style={s.chipGrid}>
           {LANGUAGES.map(l => (
@@ -430,28 +432,21 @@ function Section03({ a, update, toggle }: SecPropsToggle) {
           ))}
         </div>
       </Field>
-
       <Field label="Keywords (vírgula separa)">
-        <input style={s.input}
-          placeholder="afro, queer, decolonial, ritual..."
+        <input style={s.input} placeholder="afro, queer, decolonial, ritual..."
           value={safeArr(a.keywords).join(', ')}
           onChange={e => update('keywords', e.target.value.split(',').map(x => x.trim()).filter(Boolean))} />
       </Field>
-
       <Field label="Temas (vírgula separa)">
-        <input style={s.input}
-          placeholder="identidade, corpo, memória..."
+        <input style={s.input} placeholder="identidade, corpo, memória..."
           value={safeArr(a.themes).join(', ')}
           onChange={e => update('themes', e.target.value.split(',').map(x => x.trim()).filter(Boolean))} />
       </Field>
-
       <Field label="Géneros (vírgula separa)">
-        <input style={s.input}
-          placeholder="performance, música eletrônica..."
+        <input style={s.input} placeholder="performance, música eletrônica..."
           value={safeArr(a.genres).join(', ')}
           onChange={e => update('genres', e.target.value.split(',').map(x => x.trim()).filter(Boolean))} />
       </Field>
-
       <Field label="Bio curta">
         <textarea style={s.textarea} rows={4} value={a.bio || ''}
           onChange={e => update('bio', e.target.value)} />
@@ -460,7 +455,7 @@ function Section03({ a, update, toggle }: SecPropsToggle) {
   )
 }
 
-// ─── SECÇÃO 04: PAÍSES ────────────────────────────────────
+// ─── SECÇÃO 04 ────────────────────────────────────────────
 
 function Section04({ a, update }: SecProps) {
   const selected = safeArr(a.targetCountries)
@@ -520,7 +515,7 @@ function Section04({ a, update }: SecProps) {
   )
 }
 
-// ─── SECÇÃO 05: MOBILIDADE ────────────────────────────────
+// ─── SECÇÃO 05 ────────────────────────────────────────────
 
 function Section05({ a, update }: SecProps) {
   function updMobility(field: keyof ArtistMobility, value: any) {
@@ -573,17 +568,15 @@ function Section05({ a, update }: SecProps) {
   )
 }
 
-// ─── SECÇÃO 06: MATERIAIS ─────────────────────────────────
+// ─── SECÇÃO 06 ────────────────────────────────────────────
 
 function Section06({ a, update }: SecProps) {
   function updMaterials(field: keyof ArtistMaterials, value: any) {
     update('materials', { ...(a.materials || {}), [field]: value })
   }
   const checkboxes: { key: keyof ArtistMaterials; label: string }[] = [
-    { key: 'bioPT', label: '📝 Bio PT' },
-    { key: 'bioEN', label: '📝 Bio EN' },
-    { key: 'bioES', label: '📝 Bio ES' },
-    { key: 'bioCA', label: '📝 Bio CA' },
+    { key: 'bioPT', label: '📝 Bio PT' }, { key: 'bioEN', label: '📝 Bio EN' },
+    { key: 'bioES', label: '📝 Bio ES' }, { key: 'bioCA', label: '📝 Bio CA' },
     { key: 'pressPhoto', label: '📸 Foto press' },
     { key: 'videoPresentation', label: '🎬 Vídeo apresentação' },
     { key: 'technicalRider', label: '🎚 Rider técnico' },
@@ -591,10 +584,8 @@ function Section06({ a, update }: SecProps) {
     { key: 'pressClippings', label: '📑 Press clippings' },
   ]
   const links: { key: keyof ArtistMaterials; label: string }[] = [
-    { key: 'spotifyLink', label: 'Spotify' },
-    { key: 'bandcampLink', label: 'Bandcamp' },
-    { key: 'soundcloudLink', label: 'Soundcloud' },
-    { key: 'youtubeLink', label: 'YouTube' },
+    { key: 'spotifyLink', label: 'Spotify' }, { key: 'bandcampLink', label: 'Bandcamp' },
+    { key: 'soundcloudLink', label: 'Soundcloud' }, { key: 'youtubeLink', label: 'YouTube' },
     { key: 'tiktokHandle', label: 'TikTok @' },
   ]
   return (
@@ -615,8 +606,7 @@ function Section06({ a, update }: SecProps) {
         <div style={s.grid2}>
           {links.map(l => (
             <Field key={l.key} label={l.label}>
-              <input style={s.input}
-                value={(a.materials?.[l.key] as string) || ''}
+              <input style={s.input} value={(a.materials?.[l.key] as string) || ''}
                 onChange={e => updMaterials(l.key, e.target.value)} />
             </Field>
           ))}
@@ -626,7 +616,7 @@ function Section06({ a, update }: SecProps) {
   )
 }
 
-// ─── SECÇÃO 07: PROJECTOS ─────────────────────────────────
+// ─── SECÇÃO 07 ────────────────────────────────────────────
 
 function Section07({ a, update, artistId }: SecProps & { artistId: string }) {
   const projects = (a as any).projects || []
@@ -636,8 +626,7 @@ function Section07({ a, update, artistId }: SecProps & { artistId: string }) {
     const newId = crypto.randomUUID()
     update('projects' as any, [...projects, {
       id: newId, name: '', format: '', duration: '', language: '',
-      summary: '', technicalNeeds: '',
-      videoLink: '', driveLink: '', dossierLink: '',
+      summary: '', technicalNeeds: '', videoLink: '', driveLink: '', dossierLink: '',
       projectTargetAudience: '', projectTerritories: '',
       projectKeywords: [] as string[], projectFormat: '',
       hasCirculated: false, circulationHistory: '',
@@ -658,23 +647,17 @@ function Section07({ a, update, artistId }: SecProps & { artistId: string }) {
 
   function handleDossierExtracted(projectId: string, dossier: ExtractedDossier) {
     update('projects' as any, projects.map((p: any) =>
-      p.id === projectId
-        ? {
-            ...p,
-            dossierUrl: dossier.dossierUrl,
-            dossierFileName: dossier.dossierFileName,
-            dossierUploadedAt: dossier.dossierUploadedAt,
-            dossierWordCount: dossier.dossierWordCount,
-            dossierText: dossier.dossierText,
-            methodology: dossier.methodology,
-            references: dossier.references,
-            communities: dossier.communities,
-            highlights: dossier.highlights,
-            projectFormat: p.projectFormat || dossier.format,
-            projectKeywords: safeArr(p.projectKeywords).length ? p.projectKeywords : dossier.keywords,
-            summary: p.summary || dossier.summary,
-          }
-        : p
+      p.id === projectId ? {
+        ...p,
+        dossierUrl: dossier.dossierUrl, dossierFileName: dossier.dossierFileName,
+        dossierUploadedAt: dossier.dossierUploadedAt, dossierWordCount: dossier.dossierWordCount,
+        dossierText: dossier.dossierText, methodology: dossier.methodology,
+        references: dossier.references, communities: dossier.communities,
+        highlights: dossier.highlights,
+        projectFormat: p.projectFormat || dossier.format,
+        projectKeywords: safeArr(p.projectKeywords).length ? p.projectKeywords : dossier.keywords,
+        summary: p.summary || dossier.summary,
+      } : p
     ))
   }
 
@@ -769,20 +752,15 @@ function Section07({ a, update, artistId }: SecProps & { artistId: string }) {
               <div style={{ marginTop: 16 }}>
                 <button style={s.danger} onClick={() => removeProject(p.id)}>🗑 Remover projeto</button>
               </div>
-
               <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
                 <h4 style={{ color: '#60b4e8', marginBottom: 8 }}>📄 Dossier PDF</h4>
                 <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>
                   O dossier fica guardado no Supabase e o texto é extraído para melhorar o match com oportunidades.
                 </p>
                 <ProjectDossierUpload
-                  projectId={p.id}
-                  projectName={p.name || 'Projecto'}
-                  artistId={artistId}
-                  dossierFileName={p.dossierFileName}
-                  dossierUrl={p.dossierUrl}
-                  dossierUploadedAt={p.dossierUploadedAt}
-                  dossierWordCount={p.dossierWordCount}
+                  projectId={p.id} projectName={p.name || 'Projecto'} artistId={artistId}
+                  dossierFileName={p.dossierFileName} dossierUrl={p.dossierUrl}
+                  dossierUploadedAt={p.dossierUploadedAt} dossierWordCount={p.dossierWordCount}
                   onExtracted={handleDossierExtracted}
                 />
               </div>
@@ -795,7 +773,7 @@ function Section07({ a, update, artistId }: SecProps & { artistId: string }) {
   )
 }
 
-// ─── SECÇÃO 08: CRM INTERNO ───────────────────────────────
+// ─── SECÇÃO 08 ────────────────────────────────────────────
 
 function Section08({ a, update }: SecProps) {
   function updInternal(field: string, value: any) {
@@ -845,11 +823,10 @@ function Section08({ a, update }: SecProps) {
   )
 }
 
-// ─── SECÇÃO 09: CARTOGRAFIA SOMA ──────────────────────────
+// ─── SECÇÃO 09 ────────────────────────────────────────────
 
 function Section09({ a, update }: SecProps) {
   const c = a.cartografia || {}
-
   function updRaiz(field: string, value: any) {
     update('cartografia', { ...c, raiz: { ...(c.raiz || {}), [field]: value } })
   }
@@ -862,100 +839,76 @@ function Section09({ a, update }: SecProps) {
   function updRota(field: string, value: any) {
     update('cartografia', { ...c, rota: { ...(c.rota || {}), [field]: value } })
   }
-
   return (
     <div>
       <h2 style={s.h2}>09 · Cartografia SOMA</h2>
-      <p style={s.subtitle}>
-        Metodologia de inteligência curatorial — Angela Davis, Paul Gilroy, Pierre Bourdieu e bell hooks.
-        ⭐ Vocabulário alimenta o matching automaticamente.
-      </p>
-
+      <p style={s.subtitle}>Metodologia de inteligência curatorial — Angela Davis, Paul Gilroy, Pierre Bourdieu e bell hooks.</p>
       <details style={s.detail} open>
         <summary style={s.summary}>🌱 RAIZ — origens, tensões, vocabulário e legado de resistência</summary>
         <Field label="Origens (texto livre)">
           <textarea style={s.textarea} rows={3} value={c.raiz?.origins || ''}
-            onChange={e => updRaiz('origins', e.target.value)}
-            placeholder="Que histórias, territórios, culturas ou experiências atravessam o trabalho?" />
+            onChange={e => updRaiz('origins', e.target.value)} placeholder="Que histórias, territórios, culturas ou experiências atravessam o trabalho?" />
         </Field>
         <Field label="Tensões fundamentais">
           <textarea style={s.textarea} rows={3} value={c.raiz?.tensions || ''}
-            onChange={e => updRaiz('tensions', e.target.value)}
-            placeholder="Que conflitos ou contradições movem a criação?" />
+            onChange={e => updRaiz('tensions', e.target.value)} placeholder="Que conflitos ou contradições movem a criação?" />
         </Field>
         <Field label="⭐ Vocabulário (5-8 palavras únicas, vírgula separa)">
-          <input style={s.input}
-            placeholder="diáspora, ritual, terreiro, fronteira..."
+          <input style={s.input} placeholder="diáspora, ritual, terreiro, fronteira..."
             value={safeArr(c.raiz?.vocabulario).join(', ')}
             onChange={e => updRaiz('vocabulario', e.target.value.split(',').map((x: string) => x.trim()).filter(Boolean))} />
         </Field>
         <Field label="✊🏿 Legado de Resistência (Angela Davis)">
           <textarea style={s.textarea} rows={3} value={(c.raiz as any)?.legacyOfResistance || ''}
-            onChange={e => updRaiz('legacyOfResistance', e.target.value)}
-            placeholder="Como o trabalho dialoga com a memória histórica de resistência?" />
+            onChange={e => updRaiz('legacyOfResistance', e.target.value)} placeholder="Como o trabalho dialoga com a memória histórica de resistência?" />
         </Field>
         <Field label="🤲 Práticas de Cuidado Comunitário">
           <textarea style={s.textarea} rows={3} value={(c.raiz as any)?.carePractices || ''}
-            onChange={e => updRaiz('carePractices', e.target.value)}
-            placeholder="Que práticas de cuidado coletivo sustentam o processo criativo?" />
+            onChange={e => updRaiz('carePractices', e.target.value)} placeholder="Que práticas de cuidado coletivo sustentam o processo criativo?" />
         </Field>
       </details>
-
       <details style={s.detail}>
         <summary style={s.summary}>🌊 CAMPO — quem recebe e por quê</summary>
         <Field label="Perfis de audiência">
-          <textarea style={s.textarea} rows={3} value={c.campo?.audienceProfiles || ''}
-            onChange={e => updCampo('audienceProfiles', e.target.value)} />
+          <textarea style={s.textarea} rows={3} value={c.campo?.audienceProfiles || ''} onChange={e => updCampo('audienceProfiles', e.target.value)} />
         </Field>
         <Field label="Motivação de adesão">
-          <textarea style={s.textarea} rows={3} value={c.campo?.motivation || ''}
-            onChange={e => updCampo('motivation', e.target.value)} />
+          <textarea style={s.textarea} rows={3} value={c.campo?.motivation || ''} onChange={e => updCampo('motivation', e.target.value)} />
         </Field>
         <Field label="Territórios da audiência (vírgula separa)">
-          <input style={s.input}
-            value={safeArr(c.campo?.audienceTerritories).join(', ')}
+          <input style={s.input} value={safeArr(c.campo?.audienceTerritories).join(', ')}
             onChange={e => updCampo('audienceTerritories', e.target.value.split(',').map((x: string) => x.trim()).filter(Boolean))} />
         </Field>
       </details>
-
       <details style={s.detail}>
         <summary style={s.summary}>🕸 TEIA — estrutura do circuito e alianças éticas</summary>
         <Field label="Pares (artistas similares)">
-          <textarea style={s.textarea} rows={3} value={c.teia?.pares || ''}
-            onChange={e => updTeia('pares', e.target.value)} />
+          <textarea style={s.textarea} rows={3} value={c.teia?.pares || ''} onChange={e => updTeia('pares', e.target.value)} />
         </Field>
         <Field label="Quem legitima">
-          <textarea style={s.textarea} rows={3} value={c.teia?.legitimacy || ''}
-            onChange={e => updTeia('legitimacy', e.target.value)} />
+          <textarea style={s.textarea} rows={3} value={c.teia?.legitimacy || ''} onChange={e => updTeia('legitimacy', e.target.value)} />
         </Field>
         <Field label="Redes de influência">
-          <textarea style={s.textarea} rows={3} value={c.teia?.influenceNetworks || ''}
-            onChange={e => updTeia('influenceNetworks', e.target.value)} />
+          <textarea style={s.textarea} rows={3} value={c.teia?.influenceNetworks || ''} onChange={e => updTeia('influenceNetworks', e.target.value)} />
         </Field>
         <Field label="🤝 Alianças Éticas (Angela Davis)">
           <textarea style={s.textarea} rows={3} value={(c.teia as any)?.ethicalAlliances || ''}
-            onChange={e => updTeia('ethicalAlliances', e.target.value)}
-            placeholder="Que instituições demonstram prática antirracista REAL?" />
+            onChange={e => updTeia('ethicalAlliances', e.target.value)} placeholder="Que instituições demonstram prática antirracista REAL?" />
         </Field>
       </details>
-
       <details style={s.detail}>
         <summary style={s.summary}>🗺 ROTA — próximos territórios</summary>
         <Field label="Gaps (territórios em falta)">
-          <textarea style={s.textarea} rows={3} value={c.rota?.gaps || ''}
-            onChange={e => updRota('gaps', e.target.value)} />
+          <textarea style={s.textarea} rows={3} value={c.rota?.gaps || ''} onChange={e => updRota('gaps', e.target.value)} />
         </Field>
         <Field label="Corredores estratégicos (vírgula separa)">
-          <input style={s.input}
-            value={safeArr(c.rota?.corredores).join(', ')}
+          <input style={s.input} value={safeArr(c.rota?.corredores).join(', ')}
             onChange={e => updRota('corredores', e.target.value.split(',').map((x: string) => x.trim()).filter(Boolean))} />
         </Field>
         <Field label="Plano de expansão">
-          <textarea style={s.textarea} rows={3} value={c.rota?.expansionPlan || ''}
-            onChange={e => updRota('expansionPlan', e.target.value)} />
+          <textarea style={s.textarea} rows={3} value={c.rota?.expansionPlan || ''} onChange={e => updRota('expansionPlan', e.target.value)} />
         </Field>
       </details>
-
       <Field label="✨ Posicionamento estratégico SOMA">
         <textarea style={s.textareaBig} rows={5} value={c.somaPositioning || ''}
           onChange={e => update('cartografia', { ...c, somaPositioning: e.target.value })} />
