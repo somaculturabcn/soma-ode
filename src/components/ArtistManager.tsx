@@ -2,8 +2,10 @@
 // SOMA ODÉ — Artist Manager v2 (9 secções + Cartografia Davis v2 + Supabase)
 // BUG FIX 1: findIndex(sec => sec.id) — evita colisão com objecto de estilos `s`
 // BUG FIX 2: Array.isArray(a.disciplines) — disciplines pode vir como string do Supabase
+// UPDATE: producer_id gravado automaticamente ao criar/guardar artista
 
 import { useEffect, useState } from 'react'
+import { useAuth } from '../auth/AuthProvider'
 import type { Artist, ArtistMaterials, ArtistMobility } from '../types/artist'
 import { emptyArtist, materialsCount, cartografiaCount } from '../types/artist'
 import {
@@ -15,8 +17,6 @@ import ProjectDossierUpload from './ProjectDossierUpload'
 import type { ExtractedDossier } from '../services/pdfExtractor'
 
 // ─── Helper: garante sempre array ────────────────────────
-// Corrige o erro quando campos vêm como string do Supabase
-
 function safeArr(val: any): string[] {
   if (Array.isArray(val)) return val
   if (typeof val === 'string' && val.trim()) return val.split(',').map((s: string) => s.trim()).filter(Boolean)
@@ -129,6 +129,7 @@ const REGIONS: { label: string; emoji: string; countries: { code: string; name: 
 // ─── Componente principal ─────────────────────────────────
 
 export default function ArtistManager() {
+  const { user } = useAuth() // ← NOVO: acesso ao utilizador autenticado
   const [artists, setArtists] = useState<Artist[]>([])
   const [editing, setEditing] = useState<Artist | null>(null)
   const [section, setSection] = useState<string>('01')
@@ -159,7 +160,12 @@ export default function ArtistManager() {
     if (!editing.name?.trim()) { alert('Nome artístico obrigatório'); return }
     setSaving(true)
     try {
-      await saveArtistToSupabase({ ...editing, updatedAt: new Date().toISOString() })
+      // ← NOVO: producer_id gravado automaticamente com o UID do utilizador actual
+      await saveArtistToSupabase({
+        ...editing,
+        updatedAt: new Date().toISOString(),
+        producer_id: user?.id ?? null,
+      } as any)
       await load()
       setEditing(null)
     } catch (err) {
@@ -218,8 +224,9 @@ export default function ArtistManager() {
           {artists.map(a => {
             const m = materialsCount(a.materials || {})
             const c = cartografiaCount(a.cartografia || {})
-            // ✅ FIX: safeArr garante que disciplines é sempre array
             const disciplines = safeArr(a.disciplines)
+            // ← NOVO: determina se o utilizador actual é dono deste artista
+            const isOwner = (a as any).producer_id === user?.id || user?.user_metadata?.role === 'admin'
             return (
               <article key={a.id} style={s.card}>
                 <h3 style={s.cardTitle}>{a.name || '—'}</h3>
@@ -233,10 +240,13 @@ export default function ArtistManager() {
                   <span>Materiais {m.done}/{m.total}</span>
                   <span>Cartografia {c.filled}/{c.total}</span>
                 </div>
-                <div style={s.cardActions}>
-                  <button style={s.secondary} onClick={() => { setEditing(a); setSection('01') }}>Editar</button>
-                  <button style={s.danger} onClick={() => remove(a.id)}>Apagar</button>
-                </div>
+                {/* ← NOVO: Editar/Apagar só aparecem se for dono ou admin */}
+                {isOwner && (
+                  <div style={s.cardActions}>
+                    <button style={s.secondary} onClick={() => { setEditing(a); setSection('01') }}>Editar</button>
+                    <button style={s.danger} onClick={() => remove(a.id)}>Apagar</button>
+                  </div>
+                )}
               </article>
             )
           })}
@@ -280,7 +290,6 @@ export default function ArtistManager() {
         {section === '09' && <Section09 a={editing} update={update} />}
       </div>
 
-      {/* ✅ BUG FIX: parâmetro `sec` evita colisão com objecto de estilos `s` */}
       <footer style={s.formFooter}>
         <button style={s.secondary} onClick={() => {
           const idx = SECTIONS.findIndex(sec => sec.id === section)
@@ -647,7 +656,6 @@ function Section07({ a, update, artistId }: SecProps & { artistId: string }) {
     }
   }
 
-  // Callback do upload de dossier — actualiza o projecto com os dados extraídos
   function handleDossierExtracted(projectId: string, dossier: ExtractedDossier) {
     update('projects' as any, projects.map((p: any) =>
       p.id === projectId
@@ -662,7 +670,6 @@ function Section07({ a, update, artistId }: SecProps & { artistId: string }) {
             references: dossier.references,
             communities: dossier.communities,
             highlights: dossier.highlights,
-            // Enriquece campos vazios com os dados extraídos do PDF
             projectFormat: p.projectFormat || dossier.format,
             projectKeywords: safeArr(p.projectKeywords).length ? p.projectKeywords : dossier.keywords,
             summary: p.summary || dossier.summary,
@@ -763,7 +770,6 @@ function Section07({ a, update, artistId }: SecProps & { artistId: string }) {
                 <button style={s.danger} onClick={() => removeProject(p.id)}>🗑 Remover projeto</button>
               </div>
 
-              {/* ─── Upload Dossier PDF ─── */}
               <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
                 <h4 style={{ color: '#60b4e8', marginBottom: 8 }}>📄 Dossier PDF</h4>
                 <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>
