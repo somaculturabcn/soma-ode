@@ -1,12 +1,13 @@
 // src/auth/LoginScreen.tsx
 // SOMA ODÉ — Login completo: Google OAuth, email/senha, signup artista/produtor,
 // recuperação de senha, nova senha (recovery link), i18n PT-BR/ES/EN
+// + ecrã de escolha de role para novos utilizadores Google OAuth
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLanguage, LANG_FLAGS, type Lang } from '../i18n/LanguageContext'
 
-type Mode = 'login' | 'artist' | 'producer' | 'forgot' | 'new_password'
+type Mode = 'login' | 'artist' | 'producer' | 'forgot' | 'new_password' | 'choose_role'
 
 export default function LoginScreen() {
   const { lang, setLang, t } = useLanguage()
@@ -21,7 +22,7 @@ export default function LoginScreen() {
   const [message, setMessage] = useState('')
   const [isError, setIsError] = useState(false)
 
-  // Detecta link de recovery — extrai tokens ANTES de limpar o hash
+  // Detecta link de recovery OU utilizador Google sem role
   useEffect(() => {
     const hash = window.location.hash
     if (hash.includes('type=recovery')) {
@@ -37,7 +38,20 @@ export default function LoginScreen() {
         setMode('new_password')
         window.history.replaceState({}, '', window.location.pathname)
       }
+      return
     }
+
+    // Verifica se é um utilizador Google OAuth sem role (viewer)
+    supabase.auth.getSession().then(({ data }) => {
+      const user = data?.session?.user
+      if (!user) return
+      const role = user.user_metadata?.role || user.app_metadata?.role
+      const provider = user.app_metadata?.provider
+      // Se entrou pelo Google E não tem role definido → pede escolha
+      if (provider === 'google' && (!role || role === 'viewer')) {
+        setMode('choose_role')
+      }
+    })
   }, [])
 
   function msg(text: string, error = false) {
@@ -122,12 +136,46 @@ export default function LoginScreen() {
     setLoading(false)
   }
 
+  // Escolha de role para utilizadores Google OAuth novos
+  async function handleChooseRole(role: 'artist' | 'producer') {
+    setLoading(true); msg('')
+    const { data: sessionData } = await supabase.auth.getSession()
+    const user = sessionData?.session?.user
+    if (!user) { msg('Sessão expirada. Tenta entrar novamente.', true); setLoading(false); return }
+
+    // Guarda role nos metadados do utilizador
+    const { error } = await supabase.auth.updateUser({
+      data: { role, pending_org_name: role === 'producer' ? orgName.trim() || 'A minha organização' : undefined }
+    })
+
+    if (error) { msg(error.message, true); setLoading(false); return }
+
+    // Se for artista, cria registo na tabela artists
+    if (role === 'artist') {
+      await supabase.from('artists').insert({
+        id: crypto.randomUUID(), user_id: user.id,
+        artistic_name: user.user_metadata?.full_name || '',
+        email: user.email || '',
+        disciplines: [], languages: [], keywords: [], target_countries: [],
+        materials: {}, mobility: {}, projects: [], cartografia: {}, crm: {},
+        payload: { name: user.user_metadata?.full_name || '', email: user.email || '' },
+        organization_id: '00000000-0000-0000-0000-000000000001',
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      })
+    }
+
+    // Força refresh da sessão para carregar novo role
+    await supabase.auth.refreshSession()
+    window.location.reload()
+  }
+
   const titles: Record<Mode, string> = {
     login: t.welcome_back,
     artist: t.create_artist,
     producer: t.create_producer,
     forgot: t.forgot_title,
     new_password: t.new_password_title,
+    choose_role: 'Quem és tu?',
   }
   const subtitles: Record<Mode, string> = {
     login: t.welcome_sub,
@@ -135,6 +183,7 @@ export default function LoginScreen() {
     producer: t.create_producer_sub,
     forgot: t.forgot_sub,
     new_password: t.new_password_sub,
+    choose_role: 'Para terminar o registo, diz-nos como vais usar a plataforma.',
   }
 
   return (
@@ -162,6 +211,47 @@ export default function LoginScreen() {
           </div>
         )}
 
+        {/* ── ESCOLHA DE ROLE (Google OAuth novos utilizadores) ── */}
+        {mode === 'choose_role' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <button style={s.roleCard} onClick={() => handleChooseRole('artist')} disabled={loading}>
+              <span style={s.roleEmoji}>🎤</span>
+              <div>
+                <div style={s.roleTitle}>Sou artista</div>
+                <div style={s.roleDesc}>Quero gerir o meu perfil e receber propostas de apresentação</div>
+              </div>
+            </button>
+
+            <button style={{ ...s.roleCard, borderColor: 'rgba(26,105,148,0.4)', background: 'rgba(26,105,148,0.08)' }}
+              onClick={() => setMode('choose_role_producer'  as Mode)} disabled={loading}>
+              <span style={s.roleEmoji}>🏢</span>
+              <div>
+                <div style={s.roleTitle}>Sou produtor/a ou organização</div>
+                <div style={s.roleDesc}>Quero gerir artistas, contratos e oportunidades</div>
+              </div>
+            </button>
+
+            {loading && <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>A configurar conta...</p>}
+          </div>
+        )}
+
+        {/* Ecrã intermédio para produtor Google — pede nome da org */}
+        {(mode as string) === 'choose_role_producer' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <label style={s.label}>Nome da organização / nome artístico</label>
+            <input style={s.input} value={orgName} placeholder="Ex: Xiphefu Produções"
+              onChange={e => setOrgName(e.target.value)} />
+            <button style={s.primaryBtn} disabled={loading}
+              onClick={() => handleChooseRole('producer')}>
+              {loading ? 'A configurar...' : 'Confirmar e entrar'}
+            </button>
+            <button style={s.linkBtn} onClick={() => setMode('choose_role')}>
+              ← Voltar
+            </button>
+          </div>
+        )}
+
+        {/* ── LOGIN NORMAL ── */}
         {mode === 'login' && (
           <>
             <form onSubmit={handleLogin} style={s.form}>
@@ -305,4 +395,9 @@ const s: Record<string, React.CSSProperties> = {
   producerBtn: { background: 'rgba(26,105,148,0.15)', color: '#60b4e8', border: '1px solid rgba(26,105,148,0.3)', borderRadius: 8, padding: '12px 8px', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 },
   linkBtn: { background: 'none', border: 'none', color: '#60b4e8', fontSize: 13, cursor: 'pointer', padding: '8px 0', textAlign: 'center', width: '100%' },
   footer: { textAlign: 'center', fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 24, marginBottom: 0 },
+  // Novos estilos para escolha de role
+  roleCard: { display: 'flex', alignItems: 'center', gap: 16, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '16px 18px', cursor: 'pointer', textAlign: 'left', width: '100%', color: '#fff', fontFamily: 'inherit', transition: 'border-color .2s' },
+  roleEmoji: { fontSize: 28, flexShrink: 0 },
+  roleTitle: { fontSize: 15, fontWeight: 700, marginBottom: 4, color: '#fff' },
+  roleDesc: { fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.4 },
 }
