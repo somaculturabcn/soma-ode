@@ -10,18 +10,21 @@ type AuthUser = {
   role: Role
   organizationId: string
   artistId?: string
+  needsRoleSetup?: boolean
 }
 
 type AuthContextType = {
   user: AuthUser | null
   loading: boolean
   signOut: () => Promise<void>
+  completeRoleSetup: (role: 'artist' | 'producer', organizationName?: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   signOut: async () => {},
+  completeRoleSetup: async () => {},
 })
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -40,44 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      const meta = sessionUser.user_metadata || {}
-      const role = (meta.role || 'viewer') as Role
-      let organizationId = SOMA_ORG_ID
-
-      if (role === 'admin' || role === 'manager') {
-        organizationId = SOMA_ORG_ID
-      }
-
-      if (role === 'producer') {
-        organizationId = await getOrCreateProducerOrg(sessionUser.id, sessionUser.email || '', meta)
-      }
-
-      if (role !== 'admin' && role !== 'manager' && role !== 'producer' && meta.organization_id) {
-        organizationId = meta.organization_id
-      }
-
-      const baseUser: AuthUser = {
-        id: sessionUser.id,
-        email: sessionUser.email || '',
-        role,
-        organizationId,
-      }
-
-      if (mounted) setUser(baseUser)
-
-      if (role === 'artist') {
-        const { data: artistData } = await supabase
-          .from('artists')
-          .select('id')
-          .or(`user_id.eq.${sessionUser.id},auth_user_id.eq.${sessionUser.id}`)
-          .maybeSingle()
-
-        if (mounted && artistData) {
-          setUser(prev => (prev ? { ...prev, artistId: artistData.id } : null))
-        }
-      }
-
-      if (mounted) setLoading(false)
+      await hydrateUser(sessionUser, mounted)
     }
 
     init().catch(err => {
@@ -85,10 +51,126 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (mounted) setLoading(false)
     })
 
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return
+
+      if (!session?.user) {
+        setUser(null)
+        setLoading(false)
+        return
+      }
+
+      setLoading(true)
+      await hydrateUser(session.user, mounted)
+    })
+
     return () => {
       mounted = false
+      listener.subscription.unsubscribe()
     }
   }, [])
+
+  async function hydrateUser(sessionUser: any, mounted = true) {
+    const meta = sessionUser.user_metadata || {}
+    const metaRole = meta.role as Role | undefined
+
+    if (!metaRole) {
+      if (mounted) {
+        setUser({
+          id: sessionUser.id,
+          email: sessionUser.email || '',
+          role: 'viewer' as Role,
+          organizationId: SOMA_ORG_ID,
+          needsRoleSetup: true,
+        })
+        setLoading(false)
+      }
+      return
+    }
+
+    const role = metaRole
+    let organizationId = SOMA_ORG_ID
+
+    if (role === 'admin' || role === 'manager') {
+      organizationId = SOMA_ORG_ID
+    }
+
+    if (role === 'producer') {
+      organizationId = await getOrCreateProducerOrg(sessionUser.id, sessionUser.email || '', meta)
+    }
+
+    if (role !== 'admin' && role !== 'manager' && role !== 'producer' && meta.organization_id) {
+      organizationId = meta.organization_id
+    }
+
+    const baseUser: AuthUser = {
+      id: sessionUser.id,
+      email: sessionUser.email || '',
+      role,
+      organizationId,
+      needsRoleSetup: false,
+    }
+
+    if (mounted) setUser(baseUser)
+
+    if (role === 'artist') {
+      const { data: artistData } = await supabase
+        .from('artists')
+        .select('id')
+        .or(`user_id.eq.${sessionUser.id},auth_user_id.eq.${sessionUser.id}`)
+        .maybeSingle()
+
+      if (mounted && artistData) {
+        setUser(prev => (prev ? { ...prev, artistId: artistData.id } : null))
+      }
+    }
+
+    if (mounted) setLoading(false)
+  }
+
+  async function completeRoleSetup(role: 'artist' | 'producer', organizationName?: string) {
+    setLoading(true)
+
+    const { data } = await supabase.auth.getUser()
+    const sessionUser = data.user
+
+    if (!sessionUser) {
+      setLoading(false)
+      return
+    }
+
+    const currentMeta = sessionUser.user_metadata || {}
+
+    const nextMeta: Record<string, any> = {
+      ...currentMeta,
+      role,
+    }
+
+    if (role === 'producer') {
+      nextMeta.pending_org_name =
+        organizationName?.trim() ||
+        currentMeta.full_name ||
+        sessionUser.email?.split('@')[0] ||
+        'Minha Organização'
+    }
+
+    const { error } = await supabase.auth.updateUser({
+      data: nextMeta,
+    })
+
+    if (error) {
+      console.error('Erro ao definir perfil:', error)
+      setLoading(false)
+      return
+    }
+
+    const { data: refreshed } = await supabase.auth.refreshSession()
+    if (refreshed.session?.user) {
+      await hydrateUser(refreshed.session.user, true)
+    } else {
+      setLoading(false)
+    }
+  }
 
   async function signOut() {
     await supabase.auth.signOut()
@@ -96,7 +178,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signOut, completeRoleSetup }}>
       {children}
     </AuthContext.Provider>
   )
