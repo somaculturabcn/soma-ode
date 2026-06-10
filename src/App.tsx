@@ -15,8 +15,10 @@ import ArtistPortal from './components/ArtistPortal'
 import EventManager from './components/EventManager'
 import ProducerPortal from './components/ProducerPortal'
 import ProjectManager from './components/ProjectManager'
+import DashboardHome from './components/DashboardHome'
 
 type Tab =
+  | 'HOME'
   | 'PERFIL'
   | 'ARTISTAS'
   | 'PROJETOS'
@@ -26,17 +28,31 @@ type Tab =
   | 'PIPELINE'
   | 'DOCUMENTOS'
   | 'EVENTOS'
+  | 'PORTAL'
 
-const tabs: { id: Tab; label: string; permission?: string; producerOnly?: boolean }[] = [
-  { id: 'PERFIL',       label: 'Perfil',        producerOnly: true },
-  { id: 'ARTISTAS',     label: 'Artistas',      permission: 'artists' },
-  { id: 'PROJETOS',     label: 'Projetos',      permission: 'contracts' },
-  { id: 'OPORTUNIDADES',label: 'Oportunidades', permission: 'opportunities' },
-  { id: 'EVENTOS',      label: 'Eventos',       permission: 'contracts' },
-  { id: 'CONTACTOS',    label: 'Contactos',     permission: 'contacts' },
-  { id: 'CONTRATOS',    label: 'Contratos',     permission: 'contracts' },
-  { id: 'PIPELINE',     label: 'Pipeline',      permission: 'pipeline' },
-  { id: 'DOCUMENTOS',   label: 'Documentos',    permission: 'documents' },
+const adminTabs: { id: Tab; label: string }[] = [
+  { id: 'HOME',         label: 'Início' },
+  { id: 'ARTISTAS',     label: 'Artistas' },
+  { id: 'PROJETOS',     label: 'Projetos' },
+  { id: 'OPORTUNIDADES',label: 'Oportunidades' },
+  { id: 'EVENTOS',      label: 'Eventos' },
+  { id: 'CONTACTOS',    label: 'Contactos' },
+  { id: 'CONTRATOS',    label: 'Contratos' },
+  { id: 'PIPELINE',     label: 'Pipeline' },
+  { id: 'DOCUMENTOS',   label: 'Documentos' },
+]
+
+const producerTabs: { id: Tab; label: string }[] = [
+  { id: 'HOME',         label: 'Início' },
+  { id: 'PERFIL',       label: 'Perfil' },
+  { id: 'PROJETOS',     label: 'Projetos' },
+  { id: 'ARTISTAS',     label: 'Artistas' },
+  { id: 'OPORTUNIDADES',label: 'Oportunidades' },
+  { id: 'EVENTOS',      label: 'Eventos' },
+  { id: 'CONTACTOS',    label: 'Contactos' },
+  { id: 'CONTRATOS',    label: 'Contratos' },
+  { id: 'PIPELINE',     label: 'Pipeline' },
+  { id: 'DOCUMENTOS',   label: 'Documentos' },
 ]
 
 function LangSwitcher() {
@@ -57,7 +73,7 @@ function LangSwitcher() {
   )
 }
 
-// ── Ecrã de escolha de role para utilizadores sem perfil (viewer) ─────────────
+// ── Ecrã de escolha de role ──────────────────────────────────────────────────
 function RoleSetupScreen() {
   const { completeRoleSetup } = useAuth()
   const [orgName, setOrgName] = useState('')
@@ -89,7 +105,6 @@ function RoleSetupScreen() {
 
         {step === 'choose' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {/* Telefone comum */}
             <div>
               <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', display: 'block', marginBottom: 6 }}>Telefone *</label>
               <div style={{ display: 'flex', gap: 8 }}>
@@ -105,8 +120,7 @@ function RoleSetupScreen() {
               </div>
             </div>
 
-            <button
-              style={{ display: 'flex', alignItems: 'center', gap: 16, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '16px 18px', cursor: 'pointer', textAlign: 'left', width: '100%', color: '#fff', fontFamily: 'inherit' }}
+            <button style={{ display: 'flex', alignItems: 'center', gap: 16, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '16px 18px', cursor: 'pointer', textAlign: 'left', width: '100%', color: '#fff', fontFamily: 'inherit' }}
               onClick={() => confirm('artist')} disabled={loading}>
               <span style={{ fontSize: 28 }}>🎤</span>
               <div>
@@ -115,8 +129,7 @@ function RoleSetupScreen() {
               </div>
             </button>
 
-            <button
-              style={{ display: 'flex', alignItems: 'center', gap: 16, background: 'rgba(26,105,148,0.08)', border: '1px solid rgba(26,105,148,0.4)', borderRadius: 12, padding: '16px 18px', cursor: 'pointer', textAlign: 'left', width: '100%', color: '#fff', fontFamily: 'inherit' }}
+            <button style={{ display: 'flex', alignItems: 'center', gap: 16, background: 'rgba(26,105,148,0.08)', border: '1px solid rgba(26,105,148,0.4)', borderRadius: 12, padding: '16px 18px', cursor: 'pointer', textAlign: 'left', width: '100%', color: '#fff', fontFamily: 'inherit' }}
               onClick={() => setStep('producer_details')} disabled={loading}>
               <span style={{ fontSize: 28 }}>🏢</span>
               <div>
@@ -150,45 +163,53 @@ function RoleSetupScreen() {
 
 function AppContent() {
   const { user, loading, signOut } = useAuth()
-  const [activeTab, setActiveTab] = useState<Tab>('PERFIL')
+  const [activeTab, setActiveTab] = useState<Tab>('HOME')
+
+  function navigateTo(tab: string) {
+    setActiveTab(tab as Tab)
+  }
 
   if (loading) return <div style={styles.loading}>A carregar...</div>
-
-  // Não autenticado
   if (!user) return <LoginScreen />
-
-  // Autenticado mas sem role — mostra ecrã de escolha
   if (user.needsRoleSetup) return <RoleSetupScreen />
 
-  // Portal do artista
+  // Portal artista
   if (user.role === 'artist') {
     return (
       <div style={styles.app}>
         <header style={styles.header}>
           <div style={styles.logoWrap}>
             <span style={styles.logo}>SOMA</span>
-            <span style={styles.logoSub}>CULTURA · ODÉ · PORTAL</span>
+            <span style={styles.logoSub}>CULTURA · ODÉ</span>
           </div>
+          <nav style={styles.nav}>
+            {[{ id: 'HOME', label: 'Início' }, { id: 'PORTAL', label: 'O meu perfil' }].map(tab => (
+              <button key={tab.id}
+                style={{ ...styles.navButton, ...(activeTab === tab.id ? styles.navButtonActive : {}) }}
+                onClick={() => setActiveTab(tab.id as Tab)}>
+                {tab.label}
+              </button>
+            ))}
+          </nav>
           <div style={styles.userBox}>
             <LangSwitcher />
             <span style={styles.userText}>{user.email}</span>
             <button style={styles.logoutBtn} onClick={async () => { await signOut(); window.location.reload() }}>Sair</button>
           </div>
         </header>
-        <main style={styles.main}><ArtistPortal /></main>
+        <main style={styles.main}>
+          {activeTab === 'HOME'   && <DashboardHome onNavigate={navigateTo} />}
+          {activeTab === 'PORTAL' && <ArtistPortal />}
+        </main>
       </div>
     )
   }
 
-  const visibleTabs = tabs.filter(tab => {
-    if (tab.producerOnly) return user.role === 'producer'
-    if (!tab.permission) return true
-    return hasAccess(user.role as any, tab.permission)
-  })
+  const visibleTabs = user.role === 'producer' ? producerTabs : adminTabs
 
   const safeTab = visibleTabs.find(t => t.id === activeTab)
     ? activeTab
-    : visibleTabs[0]?.id
+    : 'HOME'
 
   return (
     <div style={styles.app}>
@@ -214,15 +235,16 @@ function AppContent() {
       </header>
 
       <main style={styles.main}>
-        {safeTab === 'PERFIL'        && user.role === 'producer'                          && <ProducerPortal />}
-        {safeTab === 'ARTISTAS'      && hasAccess(user.role as any, 'artists')             && <ArtistManager />}
-        {safeTab === 'PROJETOS'      && hasAccess(user.role as any, 'contracts')           && <ProjectManager />}
-        {safeTab === 'OPORTUNIDADES' && hasAccess(user.role as any, 'opportunities')       && <MatchView />}
-        {safeTab === 'EVENTOS'       && hasAccess(user.role as any, 'contracts')           && <EventManager />}
-        {safeTab === 'CONTACTOS'     && hasAccess(user.role as any, 'contacts')            && <ContactsView />}
-        {safeTab === 'CONTRATOS'     && hasAccess(user.role as any, 'contracts')           && <ContractManager />}
-        {safeTab === 'PIPELINE'      && hasAccess(user.role as any, 'pipeline')            && <PipelineView />}
-        {safeTab === 'DOCUMENTOS'    && hasAccess(user.role as any, 'documents')           && <DocumentsView />}
+        {safeTab === 'HOME'         && <DashboardHome onNavigate={navigateTo} />}
+        {safeTab === 'PERFIL'       && user.role === 'producer'                    && <ProducerPortal />}
+        {safeTab === 'ARTISTAS'     && hasAccess(user.role as any, 'artists')      && <ArtistManager />}
+        {safeTab === 'PROJETOS'     && hasAccess(user.role as any, 'contracts')    && <ProjectManager />}
+        {safeTab === 'OPORTUNIDADES'&& hasAccess(user.role as any, 'opportunities')&& <MatchView />}
+        {safeTab === 'EVENTOS'      && hasAccess(user.role as any, 'contracts')    && <EventManager />}
+        {safeTab === 'CONTACTOS'    && hasAccess(user.role as any, 'contacts')     && <ContactsView />}
+        {safeTab === 'CONTRATOS'    && hasAccess(user.role as any, 'contracts')    && <ContractManager />}
+        {safeTab === 'PIPELINE'     && hasAccess(user.role as any, 'pipeline')     && <PipelineView />}
+        {safeTab === 'DOCUMENTOS'   && hasAccess(user.role as any, 'documents')    && <DocumentsView />}
       </main>
     </div>
   )
@@ -245,8 +267,8 @@ const styles: Record<string, React.CSSProperties> = {
   logoWrap: { display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 },
   logo: { fontSize: 20, fontWeight: 900, letterSpacing: '0.12em', color: '#fff' },
   logoSub: { fontSize: 11, color: 'rgba(255,255,255,0.68)', letterSpacing: '0.18em', whiteSpace: 'nowrap' },
-  nav: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'center', flex: 1 },
-  navButton: { background: 'transparent', color: '#fff', border: '1px solid transparent', borderRadius: 7, padding: '8px 15px', fontSize: 14, fontWeight: 600, cursor: 'pointer' },
+  nav: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'center', flex: 1 },
+  navButton: { background: 'transparent', color: '#fff', border: '1px solid transparent', borderRadius: 7, padding: '7px 13px', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
   navButtonActive: { background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.42)' },
   userBox: { display: 'flex', alignItems: 'center', gap: 10 },
   userText: { fontSize: 12, color: 'rgba(255,255,255,0.75)' },
