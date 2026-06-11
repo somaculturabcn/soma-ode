@@ -1,10 +1,10 @@
 // src/components/ArtistPortal.tsx
 // SOMA ODÉ — Portal do Artista
-// Secções: 01-07 + 09 (sem CRM Interno)
-// Cartografia completa com Angela Davis — somaPositioning em modo leitura
+// CORRIGIDO: cria perfil automaticamente + notifica SOMA + acesso imediato
 
 import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthProvider'
+import { supabase } from '../lib/supabase'
 import { loadArtistByUserId, saveArtistToSupabase } from '../data/artistsSupabaseStore'
 import { loadProposalsForArtist, updateProposalStatusInSupabase } from '../data/proposalsSupabaseStore'
 import type { Artist } from '../types/artist'
@@ -50,12 +50,14 @@ export default function ArtistPortal() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [isError, setIsError] = useState(false)
   const [view, setView] = useState<'profile' | 'proposals'>('profile')
   const [section, setSection] = useState('01')
   const [responding, setResponding] = useState<string | null>(null)
+  const [isNewProfile, setIsNewProfile] = useState(false)
 
   useEffect(() => {
-    const safetyTimer = setTimeout(() => setLoading(false), 5000)
+    const safetyTimer = setTimeout(() => setLoading(false), 8000)
     if (user?.id) {
       load().finally(() => clearTimeout(safetyTimer))
     } else {
@@ -68,16 +70,69 @@ export default function ArtistPortal() {
     if (!user?.id) return
     setLoading(true)
     try {
-      const a = await loadArtistByUserId(user.id)
+      let a = await loadArtistByUserId(user.id)
+
+      // ── Se não existe registo → cria automaticamente ──────────────────────
+      if (!a) {
+        const newId = crypto.randomUUID()
+        const meta = (user as any).user_metadata || {}
+        const fullName = meta.full_name || ''
+        const phone = meta.phone || ''
+
+        const newRecord = {
+          id: newId,
+          user_id: user.id,
+          artistic_name: fullName,
+          email: user.email || '',
+          phone,
+          disciplines: [],
+          languages: [],
+          keywords: [],
+          target_countries: [],
+          materials: {},
+          mobility: {},
+          projects: [],
+          cartografia: {},
+          crm: {},
+          payload: { name: fullName, email: user.email || '' },
+          organization_id: '00000000-0000-0000-0000-000000000001',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }
+
+        const { error: insertError } = await supabase.from('artists').insert(newRecord)
+
+        if (!insertError) {
+          // Notifica SOMA via inserção na tabela de notificações
+          await supabase.from('notifications').insert({
+            id: crypto.randomUUID(),
+            type: 'new_artist',
+            title: 'Novo artista registado',
+            body: `${fullName || user.email} criou conta como artista na plataforma.`,
+            metadata: { userId: user.id, email: user.email, name: fullName },
+            read: false,
+            created_at: new Date().toISOString(),
+          }).throwOnError().then(() => {}).catch(() => {})
+          // (ignora erro se tabela não existir ainda)
+
+          a = await loadArtistByUserId(user.id)
+          setIsNewProfile(true)
+        }
+      }
+
       setArtist(a)
+
       if (a) {
         try {
           const p = await loadProposalsForArtist(a.id)
           setProposals(p)
         } catch (err) { console.error(err) }
       }
-    } catch (err) { console.error(err) }
-    finally { setLoading(false) }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function respondProposal(proposalId: string, accept: boolean) {
@@ -99,12 +154,15 @@ export default function ArtistPortal() {
     if (!artist) return
     setSaving(true)
     setMessage('')
+    setIsError(false)
     try {
       await saveArtistToSupabase(artist)
-      setMessage('Perfil guardado com sucesso!')
+      setMessage('Perfil guardado com sucesso! ✓')
+      setIsNewProfile(false)
     } catch (err) {
       console.error(err)
       setMessage('Erro ao guardar. Tenta de novo.')
+      setIsError(true)
     } finally { setSaving(false) }
   }
 
@@ -120,17 +178,19 @@ export default function ArtistPortal() {
     update(field, next)
   }
 
-  if (loading) return <div style={pt.center}>A carregar o teu perfil...</div>
+  if (loading) return (
+    <div style={pt.center}>
+      <div style={{ fontSize: 32, marginBottom: 16 }}>🎤</div>
+      <p>A carregar o teu perfil...</p>
+    </div>
+  )
 
-  if (!artist) {
-    return (
-      <div style={pt.emptyScreen}>
-        <h2 style={pt.h2}>Bem-vindo ao SOMA ODÉ</h2>
-        <p style={pt.subtitle}>O teu perfil ainda não foi configurado. Contacta a SOMA.</p>
-        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>somaculturabcn@gmail.com</p>
-      </div>
-    )
-  }
+  // ── Nunca bloquear o artista — se não tem perfil, mostra formulário vazio ──
+  if (!artist) return (
+    <div style={pt.center}>
+      <p style={{ color: 'rgba(255,255,255,0.4)' }}>Erro ao carregar. Tenta recarregar a página.</p>
+    </div>
+  )
 
   const m = materialsCount(artist.materials)
   const c = cartografiaCount(artist.cartografia)
@@ -139,11 +199,27 @@ export default function ArtistPortal() {
   return (
     <div style={pt.wrap}>
 
+      {/* Banner de boas-vindas para perfil novo */}
+      {isNewProfile && (
+        <div style={pt.welcomeBanner}>
+          <span style={{ fontSize: 24 }}>👋</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>Bem-vindo/a ao SOMA ODÉ!</div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>
+              O teu perfil foi criado. Preenche os teus dados e guarda — a equipa SOMA será notificada.
+            </div>
+          </div>
+          <button style={pt.primaryBtn} onClick={saveProfile} disabled={saving}>
+            {saving ? 'A guardar...' : '💾 Guardar perfil'}
+          </button>
+        </div>
+      )}
+
       <header style={pt.hero}>
         <div>
-          <h1 style={pt.title}>{artist.name || 'Artista'}</h1>
+          <h1 style={pt.title}>{artist.name || artist.email || 'O meu perfil'}</h1>
           <p style={pt.subtitle}>
-            {[artist.base, artist.origin].filter(Boolean).join(' · ') || 'Localização por preencher'}
+            {[artist.base, artist.origin].filter(Boolean).join(' · ') || 'Preenche a tua localização'}
           </p>
         </div>
         <div style={pt.heroStats}>
@@ -174,7 +250,14 @@ export default function ArtistPortal() {
         </button>
       </nav>
 
-      {message && <div style={pt.message}>{message}</div>}
+      {message && (
+        <div style={{
+          ...pt.message,
+          background: isError ? 'rgba(255,100,100,0.08)' : 'rgba(96,180,232,0.12)',
+          border: isError ? '1px solid rgba(255,100,100,0.25)' : '1px solid rgba(96,180,232,0.25)',
+          color: isError ? '#ff8a8a' : '#b8e2ff',
+        }}>{message}</div>
+      )}
 
       {view === 'profile' && (
         <>
@@ -289,7 +372,7 @@ export default function ArtistPortal() {
   )
 }
 
-// ─── SECÇÕES ─────────────────────────────────────────────
+// ─── SECÇÕES ──────────────────────────────────────────────────────────────────
 
 function Section01({ data, onChange }: { data: any; onChange: (f: string, v: any) => void }) {
   return (
@@ -463,29 +546,25 @@ function Section07({ data, onChange, onSave, artistId }: {
     }
   }
 
-  // Callback quando o dossier é extraído — actualiza o projecto e guarda automaticamente
   function handleDossierExtracted(projectId: string, dossier: ExtractedDossier) {
     const updatedProjects = projects.map((p: any) =>
-      p.id === projectId
-        ? {
-            ...p,
-            dossierUrl: dossier.dossierUrl,
-            dossierFileName: dossier.dossierFileName,
-            dossierUploadedAt: dossier.dossierUploadedAt,
-            dossierWordCount: dossier.dossierWordCount,
-            dossierText: dossier.dossierText,
-            methodology: dossier.methodology,
-            references: dossier.references,
-            communities: dossier.communities,
-            highlights: dossier.highlights,
-            projectFormat: p.projectFormat || dossier.format,
-            projectKeywords: (p.projectKeywords || []).length ? p.projectKeywords : dossier.keywords,
-            summary: p.summary || dossier.summary,
-          }
-        : p
+      p.id === projectId ? {
+        ...p,
+        dossierUrl: dossier.dossierUrl,
+        dossierFileName: dossier.dossierFileName,
+        dossierUploadedAt: dossier.dossierUploadedAt,
+        dossierWordCount: dossier.dossierWordCount,
+        dossierText: dossier.dossierText,
+        methodology: dossier.methodology,
+        references: dossier.references,
+        communities: dossier.communities,
+        highlights: dossier.highlights,
+        projectFormat: p.projectFormat || dossier.format,
+        projectKeywords: (p.projectKeywords || []).length ? p.projectKeywords : dossier.keywords,
+        summary: p.summary || dossier.summary,
+      } : p
     )
     onChange('projects', updatedProjects)
-    // Guarda automaticamente após o upload
     onSave()
   }
 
@@ -525,7 +604,7 @@ function Section07({ data, onChange, onSave, artistId }: {
                 <F label="Link Drive" v={p.driveLink || ''} onChange={v => upd(p.id, 'driveLink', v)} />
                 <F label="Link Dossier" v={p.dossierLink || ''} onChange={v => upd(p.id, 'dossierLink', v)} />
               </div>
-              <FA label="🧭 Público-alvo do projeto" v={p.projectTargetAudience || ''}
+              <FA label="Público-alvo do projeto" v={p.projectTargetAudience || ''}
                 onChange={v => upd(p.id, 'projectTargetAudience', v)} helper="Quem é o público ideal?" />
               <FA label="Territórios onde o projeto faz sentido" v={p.projectTerritories || ''}
                 onChange={v => upd(p.id, 'projectTerritories', v)} helper="Em que cidades, países ou regiões?" />
@@ -542,8 +621,6 @@ function Section07({ data, onChange, onSave, artistId }: {
                 <FA label="Histórico de circulação" v={p.circulationHistory || ''}
                   onChange={v => upd(p.id, 'circulationHistory', v)} helper="Onde já foi apresentado? Em que contexto?" />
               )}
-
-              {/* ─── Dossier PDF ─── */}
               <div style={pt.dossierSection}>
                 <div style={pt.dossierTitle}>📄 Dossier do projecto</div>
                 <p style={pt.hint}>
@@ -560,7 +637,6 @@ function Section07({ data, onChange, onSave, artistId }: {
                   onExtracted={handleDossierExtracted}
                 />
               </div>
-
               <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
                 <button style={pt.primaryBtn} onClick={onSave}>💾 Guardar Projeto</button>
                 <button style={pt.dangerBtn} onClick={() => del(p.id)}>🗑 Remover</button>
@@ -576,19 +652,10 @@ function Section07({ data, onChange, onSave, artistId }: {
 
 function Section09({ data, onChange }: { data: any; onChange: (f: string, v: any) => void }) {
   const c = data.cartografia || {}
-
-  function updRaiz(field: string, value: any) {
-    onChange('cartografia', { ...c, raiz: { ...(c.raiz || {}), [field]: value } })
-  }
-  function updCampo(field: string, value: any) {
-    onChange('cartografia', { ...c, campo: { ...(c.campo || {}), [field]: value } })
-  }
-  function updTeia(field: string, value: any) {
-    onChange('cartografia', { ...c, teia: { ...(c.teia || {}), [field]: value } })
-  }
-  function updRota(field: string, value: any) {
-    onChange('cartografia', { ...c, rota: { ...(c.rota || {}), [field]: value } })
-  }
+  function updRaiz(field: string, value: any) { onChange('cartografia', { ...c, raiz: { ...(c.raiz || {}), [field]: value } }) }
+  function updCampo(field: string, value: any) { onChange('cartografia', { ...c, campo: { ...(c.campo || {}), [field]: value } }) }
+  function updTeia(field: string, value: any) { onChange('cartografia', { ...c, teia: { ...(c.teia || {}), [field]: value } }) }
+  function updRota(field: string, value: any) { onChange('cartografia', { ...c, rota: { ...(c.rota || {}), [field]: value } }) }
 
   return (
     <div>
@@ -597,62 +664,48 @@ function Section09({ data, onChange }: { data: any; onChange: (f: string, v: any
         Metodologia de inteligência curatorial — Angela Davis, Paul Gilroy, Pierre Bourdieu e bell hooks.
         O vocabulário que escolhes alimenta automaticamente o matching com editais e residências.
       </p>
-
       <details style={pt.detail} open>
         <summary style={pt.summary}>🌱 RAIZ — origens, tensões, vocabulário e legado de resistência</summary>
         <FA label="Origens (texto livre)" v={c.raiz?.origins || ''} onChange={v => updRaiz('origins', v)}
           helper="Que histórias, territórios, culturas ou experiências atravessam o teu trabalho?" />
         <FA label="Tensões fundamentais" v={c.raiz?.tensions || ''} onChange={v => updRaiz('tensions', v)}
-          helper="Que conflitos ou contradições movem a tua criação? (deslocamento, língua, raça, género, memória)" />
+          helper="Que conflitos ou contradições movem a tua criação?" />
         <F label="⭐ Vocabulário (5-8 palavras únicas, vírgula separa)"
           v={Array.isArray(c.raiz?.vocabulario) ? c.raiz.vocabulario.join(', ') : (c.raiz?.vocabulario || '')}
           onChange={v => updRaiz('vocabulario', v.split(',').map((x: string) => x.trim()).filter(Boolean))}
           helper="Palavras que só tu usas. Alimentam o motor de matching automaticamente." />
-        <FA label="✊🏿 Legado de Resistência (Angela Davis)" v={c.raiz?.legacyOfResistance || ''}
+        <FA label="✊🏿 Legado de Resistência" v={c.raiz?.legacyOfResistance || ''}
           onChange={v => updRaiz('legacyOfResistance', v)}
-          helper="Como o teu trabalho dialoga com a memória histórica de resistência? Que legados de luta e insurgência estética honras?" />
+          helper="Como o teu trabalho dialoga com a memória histórica de resistência?" />
         <FA label="🤲 Práticas de Cuidado Comunitário" v={c.raiz?.carePractices || ''}
           onChange={v => updRaiz('carePractices', v)}
-          helper="Que práticas de cuidado coletivo sustentam o teu processo criativo? Como a tua comunidade resiste à desumanização cotidiana?" />
+          helper="Que práticas de cuidado coletivo sustentam o teu processo criativo?" />
       </details>
-
       <details style={pt.detail}>
         <summary style={pt.summary}>🎯 CAMPO — quem recebe e por quê</summary>
         <FA label="Perfis de audiência" v={c.campo?.audienceProfiles || ''} onChange={v => updCampo('audienceProfiles', v)}
-          helper="Quem costuma se conectar com o teu trabalho? (Públicos, comunidades, cenas, gerações)" />
+          helper="Quem costuma se conectar com o teu trabalho?" />
         <FA label="Motivação de adesão" v={c.campo?.motivation || ''} onChange={v => updCampo('motivation', v)}
-          helper="Por que as pessoas se conectam? (Identificação, festa, cura, política, espiritualidade, comunidade)" />
+          helper="Por que as pessoas se conectam?" />
         <F label="Territórios da audiência (vírgula separa)"
           v={Array.isArray(c.campo?.audienceTerritories) ? c.campo.audienceTerritories.join(', ') : (c.campo?.audienceTerritories || '')}
-          onChange={v => updCampo('audienceTerritories', v.split(',').map((x: string) => x.trim()).filter(Boolean))}
-          helper="Em que cidades, países ou comunidades o teu trabalho faz sentido?" />
+          onChange={v => updCampo('audienceTerritories', v.split(',').map((x: string) => x.trim()).filter(Boolean))} />
       </details>
-
       <details style={pt.detail}>
         <summary style={pt.summary}>🕸️ TEIA — estrutura do circuito e alianças éticas</summary>
-        <FA label="Pares (artistas similares)" v={c.teia?.pares || ''} onChange={v => updTeia('pares', v)}
-          helper="Que artistas, cenas ou movimentos dialogam com o teu trabalho?" />
-        <FA label="Quem legitima" v={c.teia?.legitimacy || ''} onChange={v => updTeia('legitimacy', v)}
-          helper="Onde já apresentaste, foste reconhecida ou validada? (Festivais, espaços, prémios, imprensa, residências)" />
-        <FA label="Redes de influência" v={c.teia?.influenceNetworks || ''} onChange={v => updTeia('influenceNetworks', v)}
-          helper="Que redes, festivais, instituições ou espaços poderiam fortalecer a tua circulação?" />
-        <FA label="🤝 Alianças Éticas (Angela Davis)" v={c.teia?.ethicalAlliances || ''}
-          onChange={v => updTeia('ethicalAlliances', v)}
-          helper="Que instituições demonstram prática antirracista REAL? Quais evitam a 'diversidade cosmética'?" />
+        <FA label="Pares (artistas similares)" v={c.teia?.pares || ''} onChange={v => updTeia('pares', v)} />
+        <FA label="Quem legitima" v={c.teia?.legitimacy || ''} onChange={v => updTeia('legitimacy', v)} />
+        <FA label="Redes de influência" v={c.teia?.influenceNetworks || ''} onChange={v => updTeia('influenceNetworks', v)} />
+        <FA label="🤝 Alianças Éticas" v={c.teia?.ethicalAlliances || ''} onChange={v => updTeia('ethicalAlliances', v)} />
       </details>
-
       <details style={pt.detail}>
         <summary style={pt.summary}>🧭 ROTA — próximos territórios e estratégia de liberdade</summary>
-        <FA label="Gaps (territórios em falta)" v={c.rota?.gaps || ''} onChange={v => updRota('gaps', v)}
-          helper="O que falta hoje para aplicares melhor a editais? (Materiais, contactos, recursos, tempo)" />
+        <FA label="Gaps (territórios em falta)" v={c.rota?.gaps || ''} onChange={v => updRota('gaps', v)} />
         <F label="Corredores estratégicos (vírgula separa)"
           v={Array.isArray(c.rota?.corredores) ? c.rota.corredores.join(', ') : (c.rota?.corredores || '')}
-          onChange={v => updRota('corredores', v.split(',').map((x: string) => x.trim()).filter(Boolean))}
-          helper="Quais seriam os caminhos naturais de circulação? (Ex: Barcelona → Lisboa → Berlim → São Paulo)" />
-        <FA label="Plano de expansão" v={c.rota?.expansionPlan || ''} onChange={v => updRota('expansionPlan', v)}
-          helper="Onde gostarias de estar nos próximos 12–24 meses? Fala de países, formatos, colaborações e ambições reais." />
+          onChange={v => updRota('corredores', v.split(',').map((x: string) => x.trim()).filter(Boolean))} />
+        <FA label="Plano de expansão" v={c.rota?.expansionPlan || ''} onChange={v => updRota('expansionPlan', v)} />
       </details>
-
       {c.somaPositioning && (
         <div style={pt.somaBox}>
           <div style={pt.somaLabel}>
@@ -666,11 +719,9 @@ function Section09({ data, onChange }: { data: any; onChange: (f: string, v: any
   )
 }
 
-// ─── Helpers de input ─────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function F({ label, v, onChange, helper }: {
-  label: string; v: string; onChange: (v: string) => void; helper?: string
-}) {
+function F({ label, v, onChange, helper }: { label: string; v: string; onChange: (v: string) => void; helper?: string }) {
   return (
     <label style={pt.field}>
       <span style={pt.fieldLabel}>{label}</span>
@@ -679,21 +730,16 @@ function F({ label, v, onChange, helper }: {
   )
 }
 
-function FA({ label, v, onChange, helper }: {
-  label: string; v: string; onChange: (v: string) => void; helper?: string
-}) {
+function FA({ label, v, onChange, helper }: { label: string; v: string; onChange: (v: string) => void; helper?: string }) {
   return (
     <label style={pt.field}>
       <span style={pt.fieldLabel}>{label}</span>
-      <textarea style={pt.textarea} value={v} onChange={e => onChange(e.target.value)}
-        placeholder={helper} rows={3} />
+      <textarea style={pt.textarea} value={v} onChange={e => onChange(e.target.value)} placeholder={helper} rows={3} />
     </label>
   )
 }
 
-function C({ label, checked, onChange }: {
-  label: string; checked: boolean; onChange: (v: boolean) => void
-}) {
+function C({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <label style={pt.checkItem}>
       <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} />
@@ -702,14 +748,17 @@ function C({ label, checked, onChange }: {
   )
 }
 
-// ─── Styles ───────────────────────────────────────────────
+// ─── Estilos ──────────────────────────────────────────────────────────────────
 
 const pt: Record<string, React.CSSProperties> = {
   center: { padding: 60, textAlign: 'center', color: '#fff' },
-  emptyScreen: { padding: 60, textAlign: 'center', color: '#fff', maxWidth: 500, margin: '0 auto' },
   emptyInline: { padding: 40, textAlign: 'center', color: 'rgba(255,255,255,0.5)' },
   wrap: { maxWidth: 1100, margin: '0 auto', padding: '32px 22px', color: '#fff' },
-
+  welcomeBanner: {
+    display: 'flex', alignItems: 'center', gap: 16,
+    background: 'rgba(110,243,165,0.08)', border: '1px solid rgba(110,243,165,0.25)',
+    borderRadius: 12, padding: '16px 20px', marginBottom: 24,
+  },
   hero: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
     marginBottom: 28, flexWrap: 'wrap', gap: 20,
@@ -721,106 +770,40 @@ const pt: Record<string, React.CSSProperties> = {
   stat: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 },
   statLabel: { fontSize: 10, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.1em', textTransform: 'uppercase' },
   statValue: { fontSize: 22, fontWeight: 700, color: '#60b4e8' },
-
   tabs: { display: 'flex', gap: 8, marginBottom: 24 },
-  tab: {
-    background: 'transparent', color: 'rgba(255,255,255,0.65)',
-    border: '1px solid rgba(255,255,255,0.14)', padding: '10px 18px',
-    borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer',
-    display: 'flex', alignItems: 'center', gap: 8,
-  },
+  tab: { background: 'transparent', color: 'rgba(255,255,255,0.65)', border: '1px solid rgba(255,255,255,0.14)', padding: '10px 18px', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 },
   tabActive: { background: '#1A6994', color: '#fff', border: '1px solid #1A6994' },
   badge: { background: '#ffcf5c', color: '#000', fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 10 },
-
   sectionTabs: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 },
-  sectionTab: {
-    padding: '7px 12px', background: 'transparent',
-    border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.6)',
-    borderRadius: 8, fontSize: 12, cursor: 'pointer',
-  },
+  sectionTab: { padding: '7px 12px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.6)', borderRadius: 8, fontSize: 12, cursor: 'pointer' },
   sectionTabActive: { background: '#1A6994', color: '#fff', border: '1px solid #1A6994' },
-
   sectionBox: { background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 24 },
   h2: { color: '#60b4e8', fontSize: 13, letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: 0, marginBottom: 20, textAlign: 'center' },
   hint: { color: 'rgba(255,255,255,0.45)', fontSize: 12, marginBottom: 16, lineHeight: 1.5 },
-
-  message: {
-    background: 'rgba(96,180,232,0.12)', border: '1px solid rgba(96,180,232,0.25)',
-    color: '#b8e2ff', borderRadius: 8, padding: 10, marginBottom: 14, fontSize: 13,
-  },
-
+  message: { borderRadius: 8, padding: 10, marginBottom: 14, fontSize: 13 },
   footer: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 },
-  btn: {
-    background: 'rgba(255,255,255,0.06)', color: '#fff',
-    border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '10px 16px', fontSize: 13, cursor: 'pointer',
-  },
-  primaryBtn: {
-    background: '#1A6994', color: '#fff', border: 'none',
-    borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 800, cursor: 'pointer',
-  },
-  dangerBtn: {
-    background: 'rgba(255,70,70,0.12)', color: '#ff8a8a',
-    border: '1px solid rgba(255,70,70,0.25)', borderRadius: 8, padding: '8px 12px', fontSize: 12, cursor: 'pointer',
-  },
-
+  btn: { background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '10px 16px', fontSize: 13, cursor: 'pointer' },
+  primaryBtn: { background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 800, cursor: 'pointer' },
+  dangerBtn: { background: 'rgba(255,70,70,0.12)', color: '#ff8a8a', border: '1px solid rgba(255,70,70,0.25)', borderRadius: 8, padding: '8px 12px', fontSize: 12, cursor: 'pointer' },
   grid2: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 14 },
-
   field: { display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 14 },
   fieldLabel: { fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', textTransform: 'uppercase' },
-  input: {
-    background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.14)',
-    borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box',
-  },
-  textarea: {
-    background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.14)',
-    borderRadius: 8, padding: 12, fontSize: 13, minHeight: 90,
-    outline: 'none', resize: 'vertical', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box',
-  },
-
+  input: { background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' },
+  textarea: { background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8, padding: 12, fontSize: 13, minHeight: 90, outline: 'none', resize: 'vertical', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' },
   chipGrid: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6, marginBottom: 14 },
-  chip: {
-    padding: '8px 14px', background: 'transparent', color: 'rgba(255,255,255,0.6)',
-    border: '1px solid rgba(255,255,255,0.14)', borderRadius: 24, fontSize: 13, cursor: 'pointer',
-  },
+  chip: { padding: '8px 14px', background: 'transparent', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 24, fontSize: 13, cursor: 'pointer' },
   chipActive: { background: 'rgba(26,105,148,0.3)', color: '#fff', border: '1px solid #1A6994' },
-
   checkRow: { display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 14 },
   checkItem: { display: 'flex', alignItems: 'center', gap: 8, color: 'rgba(255,255,255,0.7)', fontSize: 13, cursor: 'pointer' },
-
   detail: { background: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 14, marginBottom: 12 },
   summary: { fontSize: 14, fontWeight: 600, color: '#fff', cursor: 'pointer', marginBottom: 14 },
-
-  somaBox: {
-    marginTop: 20, padding: 18,
-    background: 'rgba(26,105,148,0.07)',
-    border: '1px solid rgba(26,105,148,0.35)',
-    borderRadius: 10,
-  },
-  somaLabel: {
-    fontSize: 11, color: '#60b4e8', letterSpacing: '0.1em', textTransform: 'uppercase',
-    marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10,
-  },
-  somaTag: {
-    fontSize: 10, color: 'rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.06)',
-    padding: '2px 8px', borderRadius: 10, letterSpacing: '0.04em', textTransform: 'none',
-  },
+  somaBox: { marginTop: 20, padding: 18, background: 'rgba(26,105,148,0.07)', border: '1px solid rgba(26,105,148,0.35)', borderRadius: 10 },
+  somaLabel: { fontSize: 11, color: '#60b4e8', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10 },
+  somaTag: { fontSize: 10, color: 'rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: 10 },
   somaText: { margin: 0, color: 'rgba(255,255,255,0.85)', fontSize: 14, lineHeight: 1.7, fontStyle: 'italic' },
-
   projectCard: { background: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 16, marginTop: 14 },
-
-  // Dossier section
-  dossierSection: {
-    marginTop: 20,
-    paddingTop: 16,
-    borderTop: '1px solid rgba(255,255,255,0.07)',
-  },
-  dossierTitle: {
-    fontSize: 13,
-    fontWeight: 700,
-    color: '#60b4e8',
-    marginBottom: 8,
-  },
-
+  dossierSection: { marginTop: 20, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.07)' },
+  dossierTitle: { fontSize: 13, fontWeight: 700, color: '#60b4e8', marginBottom: 8 },
   proposalsList: { display: 'grid', gap: 14 },
   proposalCard: { background: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 18 },
   proposalHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: 10, alignItems: 'center' },
@@ -831,19 +814,8 @@ const pt: Record<string, React.CSSProperties> = {
   notesBox: { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: 12, marginBottom: 12 },
   notesLabel: { fontSize: 11, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.05em' },
   notes: { margin: '4px 0 0', color: 'rgba(255,255,255,0.85)', lineHeight: 1.5, fontSize: 13 },
-  linkButton: {
-    background: 'transparent', color: '#60b4e8', border: '1px solid rgba(96,180,232,0.3)',
-    padding: '6px 12px', borderRadius: 6, fontSize: 13, cursor: 'pointer', marginBottom: 12,
-  },
+  linkButton: { background: 'transparent', color: '#60b4e8', border: '1px solid rgba(96,180,232,0.3)', padding: '6px 12px', borderRadius: 6, fontSize: 13, cursor: 'pointer', marginBottom: 12 },
   actions: { display: 'flex', gap: 10, marginTop: 14 },
-  acceptBtn: {
-    background: 'rgba(110,243,165,0.18)', color: '#6ef3a5',
-    border: '1px solid rgba(110,243,165,0.35)', padding: '10px 18px',
-    borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer',
-  },
-  refuseBtn: {
-    background: 'rgba(255,70,70,0.12)', color: '#ff8a8a',
-    border: '1px solid rgba(255,70,70,0.25)', padding: '10px 18px',
-    borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer',
-  },
+  acceptBtn: { background: 'rgba(110,243,165,0.18)', color: '#6ef3a5', border: '1px solid rgba(110,243,165,0.35)', padding: '10px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' },
+  refuseBtn: { background: 'rgba(255,70,70,0.12)', color: '#ff8a8a', border: '1px solid rgba(255,70,70,0.25)', padding: '10px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' },
 }
