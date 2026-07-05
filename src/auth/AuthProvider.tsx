@@ -92,7 +92,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function hydrateUser(sessionUser: any, mounted = true) {
     const meta = sessionUser.user_metadata || {}
-    const metaRole = meta.role as Role | undefined
+
+    // O role vem da tabela `profiles` (fonte segura), não do user_metadata.
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', sessionUser.id)
+      .maybeSingle()
+    const dbRole = (profile?.role ?? '') as string
+    const metaRole = (dbRole && dbRole !== 'pending' ? dbRole : undefined) as Role | undefined
 
     if (!metaRole) {
       if (mounted) {
@@ -115,11 +123,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       organizationId = SOMA_ORG_ID
     }
 
-    if (role === 'producer') {
+    if (role === 'producer' || role === 'artist') {
       organizationId = await getOrCreateProducerOrg(sessionUser.id, sessionUser.email || '', meta)
     }
 
-    if (role !== 'admin' && role !== 'manager' && role !== 'producer' && meta.organization_id) {
+    if (role !== 'admin' && role !== 'manager' && role !== 'producer' && role !== 'artist' && meta.organization_id) {
       organizationId = meta.organization_id
     }
 
@@ -161,22 +169,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const currentMeta = sessionUser.user_metadata || {}
 
-    const nextMeta: Record<string, any> = {
-      ...currentMeta,
-      role,
-    }
-
+    // Nome da organização fica no metadata (não é sensível) — usado ao criar a org.
     if (role === 'producer') {
-      nextMeta.pending_org_name =
+      const pendingOrgName =
         organizationName?.trim() ||
         currentMeta.full_name ||
         sessionUser.email?.split('@')[0] ||
         'Minha Organização'
+      await supabase.auth.updateUser({ data: { ...currentMeta, pending_org_name: pendingOrgName } })
     }
 
-    const { error } = await supabase.auth.updateUser({
-      data: nextMeta,
-    })
+    // O role é gravado na tabela profiles (fonte segura).
+    // O trigger no Supabase permite apenas pending -> artist/producer.
+    const { error } = await supabase
+      .from('profiles')
+      .update({ role, updated_at: new Date().toISOString() })
+      .eq('id', sessionUser.id)
 
     if (error) {
       console.error('Erro ao definir perfil:', error)
@@ -184,12 +192,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    const { data: refreshed } = await supabase.auth.refreshSession()
-    if (refreshed.session?.user) {
-      await hydrateUser(refreshed.session.user, true)
-    } else {
-      setLoading(false)
-    }
+    await hydrateUser(sessionUser, true)
   }
 
   async function signOut() {
