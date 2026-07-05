@@ -29,6 +29,7 @@ type Tab =
   | 'DOCUMENTOS'
   | 'EVENTOS'
   | 'PORTAL'
+  | 'PRODUTORES'
 
 const adminTabs: { id: Tab; label: string }[] = [
   { id: 'HOME',         label: 'Início' },
@@ -54,6 +55,30 @@ const producerTabs: { id: Tab; label: string }[] = [
   { id: 'PIPELINE',     label: 'Pipeline' },
   { id: 'DOCUMENTOS',   label: 'Documentos' },
 ]
+
+const artistTabs: { id: Tab; label: string }[] = [
+  { id: 'HOME',         label: 'Início' },
+  { id: 'PORTAL',       label: 'O meu perfil' },
+  { id: 'PROJETOS',     label: 'Projetos' },
+  { id: 'OPORTUNIDADES',label: 'Oportunidades' },
+  { id: 'EVENTOS',      label: 'Eventos' },
+  { id: 'PRODUTORES',   label: 'Produtores' },
+  { id: 'CONTACTOS',    label: 'Contactos' },
+  { id: 'CONTRATOS',    label: 'Contratos' },
+  { id: 'PIPELINE',     label: 'Pipeline' },
+  { id: 'DOCUMENTOS',   label: 'Documentos' },
+]
+
+function ArtistPlaceholder({ title, emoji, text }: { title: string; emoji: string; text: string }) {
+  return (
+    <div style={{ maxWidth: 640, margin: '40px auto', textAlign: 'center', color: '#fff', fontFamily: 'system-ui, sans-serif', padding: '48px 24px', border: '1px dashed rgba(255,255,255,0.14)', borderRadius: 16, background: 'rgba(255,255,255,0.02)' }}>
+      <div style={{ fontSize: 40, marginBottom: 12 }}>{emoji}</div>
+      <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>{title}</div>
+      <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>{text}</div>
+      <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 16 }}>Em construção para o teu perfil de artista.</div>
+    </div>
+  )
+}
 
 function LangSwitcher() {
   const { lang, setLang } = useLanguage()
@@ -183,7 +208,7 @@ function AppContent() {
             <span style={styles.logoSub}>CULTURA · ODÉ</span>
           </div>
           <nav style={styles.nav}>
-            {[{ id: 'HOME', label: 'Início' }, { id: 'PORTAL', label: 'O meu perfil' }].map(tab => (
+            {artistTabs.map(tab => (
               <button key={tab.id}
                 style={{ ...styles.navButton, ...(activeTab === tab.id ? styles.navButtonActive : {}) }}
                 onClick={() => setActiveTab(tab.id as Tab)}>
@@ -198,8 +223,17 @@ function AppContent() {
           </div>
         </header>
         <main style={styles.main}>
-          {activeTab === 'HOME'   && <DashboardHome onNavigate={navigateTo} />}
-          {activeTab === 'PORTAL' && <ArtistPortal />}
+          {activeTab === 'HOME'      && <DashboardHome onNavigate={navigateTo} />}
+          {activeTab === 'PORTAL'    && <ArtistPortal />}
+          {activeTab === 'CONTACTOS' && <ContactsView />}
+
+          {activeTab === 'PROJETOS'     && <ArtistPlaceholder title="Projetos" emoji="📁" text="Em breve: os teus projetos, com a possibilidade de ligar cada um a um produtor." />}
+          {activeTab === 'OPORTUNIDADES'&& <ArtistPlaceholder title="Oportunidades" emoji="🎯" text="Em breve: editais, residências e open calls compatíveis com o teu perfil." />}
+          {activeTab === 'EVENTOS'      && <ArtistPlaceholder title="Eventos" emoji="🎪" text="Em breve: os eventos onde participas." />}
+          {activeTab === 'PRODUTORES'   && <ArtistPlaceholder title="Produtores" emoji="🏢" text="Em breve: o diretório de produtores, onde podes pedir para ligar os teus projetos." />}
+          {activeTab === 'CONTRATOS'    && <ArtistPlaceholder title="Contratos" emoji="📄" text="Em breve: os teus contratos e pagamentos." />}
+          {activeTab === 'PIPELINE'     && <ArtistPlaceholder title="Pipeline" emoji="📊" text="Em breve: o estado das tuas candidaturas e propostas." />}
+          {activeTab === 'DOCUMENTOS'   && <ArtistPlaceholder title="Documentos" emoji="📎" text="Em breve: cartas-convite e documentação para as tuas candidaturas." />}
         </main>
       </div>
     )
