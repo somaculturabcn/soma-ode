@@ -1,6 +1,6 @@
 // src/components/ArtistPortal.tsx
 // SOMA ODÉ — Portal do Artista
-// CORRIGIDO: cria perfil automaticamente + notifica SOMA + acesso imediato
+// CORRIGIDO: carrega por user_id/auth_user_id/email + permite editar o próprio perfil
 
 import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthProvider'
@@ -42,6 +42,226 @@ const SPECIALTIES = [
 ]
 
 const LANGUAGES = ['PT', 'EN', 'ES', 'FR', 'IT', 'DE', 'CA', 'GL', 'ZH', 'JA', 'KO', 'RU', 'HI']
+function safeArray(value: any): string[] {
+  if (Array.isArray(value)) return value
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map(item => item.trim())
+      .filter(Boolean)
+  }
+  return []
+}
+
+function getUserMeta(user: any) {
+  return user?.user_metadata || user?.raw_user_meta_data || {}
+}
+
+function normalizeArtistRecord(record: any, user: any): Artist {
+  const meta = getUserMeta(user)
+  const payload = record?.payload || {}
+
+  return {
+    ...record,
+    id: record.id,
+    userId: record.userId || record.user_id || user?.id,
+    authUserId: record.authUserId || record.auth_user_id || user?.id,
+    name:
+      record.name ||
+      record.artistic_name ||
+      payload.name ||
+      meta.full_name ||
+      user?.email ||
+      '',
+    legalName:
+      record.legalName ||
+      record.legal_name ||
+      payload.legalName ||
+      '',
+    pronouns: record.pronouns || payload.pronouns || '',
+    email: record.email || payload.email || user?.email || '',
+    phone: record.phone || meta.phone || '',
+    instagram: record.instagram || payload.instagram || '',
+    website: record.website || payload.website || '',
+    videoLink: record.videoLink || record.video_link || payload.videoLink || '',
+    driveLink: record.driveLink || record.drive_link || payload.driveLink || '',
+    origin:
+      record.origin ||
+      record.origin_country ||
+      payload.origin ||
+      '',
+    originCity:
+      record.originCity ||
+      record.origin_city ||
+      payload.originCity ||
+      '',
+    base:
+      record.base ||
+      record.base_city ||
+      record.city ||
+      payload.base ||
+      '',
+    residenceCountry:
+      record.residenceCountry ||
+      record.residence_country ||
+      payload.residenceCountry ||
+      '',
+    disciplines: safeArray(record.disciplines),
+    specialties: safeArray(record.specialties),
+    languages: safeArray(record.languages),
+    keywords: safeArray(record.keywords),
+    themes: safeArray(record.themes),
+    genres: safeArray(record.genres),
+    targetCountries: safeArray(record.targetCountries || record.target_countries),
+    mobility: record.mobility || {},
+    materials: record.materials || {},
+    projects: Array.isArray(record.projects) ? record.projects : [],
+    cartografia: record.cartografia || {},
+    bio: record.bio || payload.bio || '',
+    minFee: record.minFee ?? record.min_fee,
+    availability: record.availability || '',
+  } as Artist
+}
+
+async function getProfileOrganizationId(userId: string) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('organization_id')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (error) {
+    console.warn('Não foi possível ler organization_id da profiles:', error)
+    return null
+  }
+
+  return data?.organization_id || null
+}
+
+async function linkArtistToAuthUser(record: any, user: any) {
+  const updates: Record<string, any> = {}
+
+  if (!record.user_id || record.user_id !== user.id) updates.user_id = user.id
+  if (!record.auth_user_id || record.auth_user_id !== user.id) updates.auth_user_id = user.id
+  if (!record.email && user.email) updates.email = user.email
+
+  if (Object.keys(updates).length === 0) return record
+
+  updates.updated_at = new Date().toISOString()
+
+  const { data, error } = await supabase
+    .from('artists')
+    .update(updates)
+    .eq('id', record.id)
+    .select('*')
+    .maybeSingle()
+
+  if (error) {
+    console.warn('Perfil encontrado, mas não foi possível religar user_id/auth_user_id:', error)
+    return record
+  }
+
+  return data || { ...record, ...updates }
+}
+
+async function loadArtistForCurrentUser(user: any): Promise<Artist | null> {
+  let byUserId: Artist | null = null
+
+  try {
+    byUserId = await loadArtistByUserId(user.id)
+  } catch (error) {
+    console.warn('loadArtistByUserId falhou; vou tentar auth_user_id/email:', error)
+  }
+
+  if (byUserId) {
+    return normalizeArtistRecord(byUserId, user)
+  }
+
+  const filters = [
+    `user_id.eq.${user.id}`,
+    `auth_user_id.eq.${user.id}`,
+  ]
+
+  if (user.email) {
+    filters.push(`email.eq.${user.email}`)
+  }
+
+  const { data, error } = await supabase
+    .from('artists')
+    .select('*')
+    .or(filters.join(','))
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    console.warn('Erro ao procurar artista por user_id/auth_user_id/email:', error)
+    return null
+  }
+
+  if (!data) return null
+
+  const linked = await linkArtistToAuthUser(data, user)
+  return normalizeArtistRecord(linked, user)
+}
+
+async function createArtistForCurrentUser(user: any): Promise<Artist | null> {
+  const meta = getUserMeta(user)
+  const fullName = meta.full_name || user.email || ''
+  const phone = meta.phone || ''
+  const organizationId = await getProfileOrganizationId(user.id)
+
+  const newRecord = {
+    id: crypto.randomUUID(),
+    user_id: user.id,
+    auth_user_id: user.id,
+    artistic_name: fullName,
+    legal_name: fullName,
+    email: user.email || '',
+    phone,
+    active: true,
+    disciplines: [],
+    languages: [],
+    keywords: [],
+    target_countries: [],
+    materials: {},
+    mobility: {},
+    projects: [],
+    cartografia: {},
+    crm: {},
+    payload: { name: fullName, email: user.email || '' },
+    organization_id: organizationId,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }
+
+  const { data, error } = await supabase
+    .from('artists')
+    .insert(newRecord)
+    .select('*')
+    .maybeSingle()
+
+  if (error) {
+    console.error('Erro ao criar perfil de artista:', error)
+    return null
+  }
+
+  try {
+    await supabase.from('notifications').insert({
+      id: crypto.randomUUID(),
+      type: 'new_artist',
+      title: 'Novo artista registado',
+      body: `${fullName || user.email} criou conta como artista na plataforma.`,
+      metadata: { userId: user.id, email: user.email, name: fullName },
+      read: false,
+      created_at: new Date().toISOString(),
+    })
+  } catch {
+    // A tabela notifications ainda pode não existir. Não bloqueia o perfil.
+  }
+
+  return normalizeArtistRecord(data || newRecord, user)
+}
+
 
 export default function ArtistPortal() {
   const { user } = useAuth()
@@ -68,68 +288,42 @@ export default function ArtistPortal() {
 
   async function load() {
     if (!user?.id) return
+
     setLoading(true)
+    setMessage('')
+    setIsError(false)
+
     try {
-      let a = await loadArtistByUserId(user.id)
+      let loadedArtist = await loadArtistForCurrentUser(user)
 
-      // ── Se não existe registo → cria automaticamente ──────────────────────
-      if (!a) {
-        const newId = crypto.randomUUID()
-        const meta = (user as any).user_metadata || {}
-        const fullName = meta.full_name || ''
-        const phone = meta.phone || ''
+      if (!loadedArtist) {
+        loadedArtist = await createArtistForCurrentUser(user)
 
-        const newRecord = {
-          id: newId,
-          user_id: user.id,
-          artistic_name: fullName,
-          email: user.email || '',
-          phone,
-          disciplines: [],
-          languages: [],
-          keywords: [],
-          target_countries: [],
-          materials: {},
-          mobility: {},
-          projects: [],
-          cartografia: {},
-          crm: {},
-          payload: { name: fullName, email: user.email || '' },
-          organization_id: '00000000-0000-0000-0000-000000000001',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }
-
-        const { error: insertError } = await supabase.from('artists').insert(newRecord)
-
-        if (!insertError) {
-          // Notifica SOMA via inserção na tabela de notificações
-          await supabase.from('notifications').insert({
-            id: crypto.randomUUID(),
-            type: 'new_artist',
-            title: 'Novo artista registado',
-            body: `${fullName || user.email} criou conta como artista na plataforma.`,
-            metadata: { userId: user.id, email: user.email, name: fullName },
-            read: false,
-            created_at: new Date().toISOString(),
-          }).throwOnError().then(() => {}).catch(() => {})
-          // (ignora erro se tabela não existir ainda)
-
-          a = await loadArtistByUserId(user.id)
+        if (loadedArtist) {
           setIsNewProfile(true)
         }
       }
 
-      setArtist(a)
+      if (!loadedArtist) {
+        setArtist(null)
+        setMessage('Não foi possível carregar ou criar o teu perfil. Fala com a equipa SOMA.')
+        setIsError(true)
+        return
+      }
 
-      if (a) {
-        try {
-          const p = await loadProposalsForArtist(a.id)
-          setProposals(p)
-        } catch (err) { console.error(err) }
+      setArtist(loadedArtist)
+
+      try {
+        const p = await loadProposalsForArtist(loadedArtist.id)
+        setProposals(p)
+      } catch (err) {
+        console.error('Erro ao carregar propostas do artista:', err)
       }
     } catch (err) {
       console.error(err)
+      setArtist(null)
+      setMessage('Erro ao carregar o perfil. Tenta recarregar a página.')
+      setIsError(true)
     } finally {
       setLoading(false)
     }
@@ -151,19 +345,34 @@ export default function ArtistPortal() {
   }
 
   async function saveProfile() {
-    if (!artist) return
+    if (!artist || !user?.id) return
+
     setSaving(true)
     setMessage('')
     setIsError(false)
+
     try {
-      await saveArtistToSupabase(artist)
+      const artistToSave = {
+        ...artist,
+        user_id: (artist as any).user_id || user.id,
+        auth_user_id: (artist as any).auth_user_id || user.id,
+        email: artist.email || user.email || '',
+      } as Artist
+
+      await saveArtistToSupabase(artistToSave)
+
+      const refreshed = await loadArtistForCurrentUser(user)
+      if (refreshed) setArtist(refreshed)
+
       setMessage('Perfil guardado com sucesso! ✓')
       setIsNewProfile(false)
     } catch (err) {
       console.error(err)
       setMessage('Erro ao guardar. Tenta de novo.')
       setIsError(true)
-    } finally { setSaving(false) }
+    } finally {
+      setSaving(false)
+    }
   }
 
   function update(field: string, value: any) {
