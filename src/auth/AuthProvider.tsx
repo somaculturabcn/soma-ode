@@ -27,12 +27,31 @@ const AuthContext = createContext<AuthContextType>({
   completeRoleSetup: async () => {},
 })
 
+// Tempo máximo (ms) que a app espera pelo arranque antes de libertar o ecrã
+// de carregamento. Evita que a app fique presa em "A carregar..." quando o
+// Supabase está pausado (plano Free) ou a rede está lenta.
+const BOOT_TIMEOUT_MS = 8000
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let mounted = true
+
+    // ── Rede de segurança ──────────────────────────────────────────────
+    // Se nada resolver o arranque em BOOT_TIMEOUT_MS, libertamos o ecrã de
+    // carregamento à força. A app mostra o login em vez de congelar.
+    // Se, entretanto, a sessão for hidratada, o estado atualiza normalmente.
+    const safetyTimer = setTimeout(() => {
+      if (mounted) {
+        console.warn(
+          'AuthProvider: timeout de arranque atingido — a libertar o ecrã de carregamento. ' +
+          'Provável causa: Supabase pausado ou rede lenta.'
+        )
+        setLoading(false)
+      }
+    }, BOOT_TIMEOUT_MS)
 
     async function init() {
       const { data } = await supabase.auth.getSession()
@@ -66,6 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       mounted = false
+      clearTimeout(safetyTimer)
       listener.subscription.unsubscribe()
     }
   }, [])
