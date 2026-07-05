@@ -1,7 +1,10 @@
 // src/auth/permissions.ts
 // SOMA ODÉ — Roles e permissões
-// Correção temporária: produtores NÃO acessam Contactos da SOMA
-// porque os 112 contactos ainda estão embutidos no frontend.
+// Contactos:
+// - admin vê tudo
+// - producer pode gerir os seus próprios contactos
+// - artist pode gerir os seus próprios contactos simples
+// A separação dos dados acontece dentro do ContactsView + Supabase/RLS.
 
 export type Role = 'admin' | 'manager' | 'producer' | 'artist' | 'viewer'
 
@@ -20,12 +23,13 @@ export const PERMISSIONS: Record<Role, string[]> = {
     'reports',
   ],
 
-  // Produtor independente — acesso ao seu próprio workspace,
-  // mas SEM "contacts" enquanto os contactos ainda vêm do contactsSOMA/localStorage.
+  // Produtor independente — acesso ao seu workspace.
+  // Pode usar Contactos, mas só deve ver/criar os seus próprios contactos.
   producer: [
     'artists',
     'opportunities',
     'events',
+    'contacts',
     'contracts',
     'pipeline',
     'documents',
@@ -33,9 +37,11 @@ export const PERMISSIONS: Record<Role, string[]> = {
     'reports',
   ],
 
+  // Artista — pode gerir o próprio perfil, candidaturas e contactos simples.
   artist: [
     'own_profile',
     'own_applications',
+    'contacts',
   ],
 
   viewer: [
