@@ -1,7 +1,11 @@
 // src/components/ContactsView.tsx
 // SOMA ODÉ — Contactos
 // Ver + adicionar manual + editar + apagar + importar CSV + limpar CSV + enviar ao pipeline
-// UPDATE: removido badge MIL, removido botão "Duplicar/editar" dos contactos de base, subtítulo simplificado
+//
+// Regra aplicada:
+// - admin/manager vê contactsSOMA + todos os contactos manuais/importados
+// - producer/artist vê Contactos, mas só os seus próprios contactos manuais/importados
+// - producer/artist NÃO vê os 112 contactos da SOMA
 
 import { useMemo, useRef, useState } from 'react'
 import { useAuth } from '../auth/AuthProvider'
@@ -16,12 +20,56 @@ import {
 } from '../data/manualContactsStore'
 import { addPipelineItem, getPipeline } from '../data/pipelineStore'
 
-type ContactWithOrigin = Contact & {
-  origin: 'mil' | 'manual'
+type OwnedContact = Contact & {
+  ownerUserId?: string
+  ownerEmail?: string
+  ownerRole?: string
+  visibility?: 'private' | 'organization' | 'admin'
 }
 
-function emptyContact(): Contact {
+type ContactWithOrigin = OwnedContact & {
+  origin: 'soma' | 'manual'
+}
+
+function getUserId(user: any) {
+  return user?.id || user?.user_id || user?.auth_user_id || ''
+}
+
+function getUserEmail(user: any) {
+  return user?.email || ''
+}
+
+function getUserRole(user: any) {
+  return (
+    user?.role ||
+    user?.user_metadata?.role ||
+    user?.raw_user_meta_data?.role ||
+    'viewer'
+  )
+}
+
+function isAdminRole(role: string) {
+  return role === 'admin' || role === 'manager'
+}
+
+function contactBelongsToUser(contact: OwnedContact, userId: string, userEmail: string) {
+  if (contact.ownerUserId && contact.ownerUserId === userId) return true
+  if (contact.ownerEmail && userEmail && contact.ownerEmail === userEmail) return true
+  return false
+}
+
+function attachOwner(contact: Contact, user: any): OwnedContact {
   return {
+    ...contact,
+    ownerUserId: getUserId(user),
+    ownerEmail: getUserEmail(user),
+    ownerRole: getUserRole(user),
+    visibility: 'private',
+  }
+}
+
+function emptyContact(user: any): OwnedContact {
+  return attachOwner({
     id: crypto.randomUUID(),
     name: '',
     organization: '',
@@ -37,7 +85,7 @@ function emptyContact(): Contact {
     disciplines: [],
     notes: '',
     source: 'manual',
-  }
+  }, user)
 }
 
 function cleanText(value?: string) {
@@ -158,6 +206,29 @@ function parseContactsCsv(text: string): Contact[] {
     .filter(c => c.name || c.email || c.phone || c.organization)
 }
 
+function normalizeSomaContact(c: any): ContactWithOrigin {
+  return {
+    id: c.id,
+    name: c.name || '',
+    organization: c.organization || '',
+    role: c.role || 'Outro',
+    email: c.email || '',
+    phone: c.phone || '',
+    country: c.country || '',
+    city: c.city || '',
+    website: c.website || '',
+    instagram: c.instagram || '',
+    linkedin: c.linkedin || '',
+    tiktok: c.tiktok || '',
+    disciplines: c.disciplines || [],
+    notes: c.notes || '',
+    source: 'SOMA',
+    ownerRole: 'admin',
+    visibility: 'admin',
+    origin: 'soma',
+  }
+}
+
 function isDuplicate(candidate: Contact, all: ContactWithOrigin[]) {
   const email = cleanText(candidate.email)
   const phone = cleanPhone(candidate.phone)
@@ -176,47 +247,50 @@ function isDuplicate(candidate: Contact, all: ContactWithOrigin[]) {
 
 export default function ContactsView() {
   const { user } = useAuth()
-  const isAdmin = user?.role === 'admin'
+  const role = getUserRole(user)
+  const isAdmin = isAdminRole(role)
+  const currentUserId = getUserId(user)
+  const currentUserEmail = getUserEmail(user)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
-  const [manualContacts, setManualContacts] = useState<Contact[]>(getManualContacts())
+  const [manualContacts, setManualContacts] = useState<OwnedContact[]>(
+    () => getManualContacts() as OwnedContact[]
+  )
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
-  const [editing, setEditing] = useState<Contact | null>(null)
+  const [editing, setEditing] = useState<OwnedContact | null>(null)
   const [isNew, setIsNew] = useState(false)
   const [importSummary, setImportSummary] = useState('')
 
+  const visibleManualContacts = useMemo(() => {
+    if (isAdmin) return manualContacts
+
+    return manualContacts.filter(contact =>
+      contactBelongsToUser(contact, currentUserId, currentUserEmail)
+    )
+  }, [manualContacts, isAdmin, currentUserId, currentUserEmail])
+
   const allContacts: ContactWithOrigin[] = useMemo(() => {
-    const imported: ContactWithOrigin[] = contactsSOMA.map((c: any) => ({
-      id: c.id,
-      name: c.name || '',
-      organization: c.organization || '',
-      role: c.role || 'Outro',
-      email: c.email || '',
-      phone: c.phone || '',
-      country: c.country || '',
-      city: c.city || '',
-      website: c.website || '',
-      instagram: c.instagram || '',
-      linkedin: c.linkedin || '',
-      tiktok: c.tiktok || '',
-      disciplines: c.disciplines || [],
-      notes: c.notes || '',
-      source: 'MIL',
-      origin: 'mil',
+    const somaContacts: ContactWithOrigin[] = isAdmin
+      ? contactsSOMA.map((c: any) => normalizeSomaContact(c))
+      : []
+
+    const visibleManual: ContactWithOrigin[] = visibleManualContacts.map(c => ({
+      ...c,
+      origin: 'manual' as const,
     }))
 
     return sortContacts([
-      ...manualContacts.map(c => ({ ...c, origin: 'manual' as const })),
-      ...imported,
+      ...visibleManual,
+      ...somaContacts,
     ])
-  }, [manualContacts])
+  }, [visibleManualContacts, isAdmin])
 
   const roles = useMemo(() => {
     const counts = new Map<string, number>()
     for (const c of allContacts) {
-      const role = c.role || 'Outro'
-      counts.set(role, (counts.get(role) || 0) + 1)
+      const currentRole = c.role || 'Outro'
+      counts.set(currentRole, (counts.get(currentRole) || 0) + 1)
     }
     return Array.from(counts.entries()).sort((a, b) => b[1] - a[1])
   }, [allContacts])
@@ -241,15 +315,25 @@ export default function ContactsView() {
   }, [allContacts, search, roleFilter])
 
   function refresh() {
-    setManualContacts(getManualContacts())
+    setManualContacts(getManualContacts() as OwnedContact[])
   }
 
   function startNewContact() {
-    setEditing(emptyContact())
+    setEditing(emptyContact(user))
     setIsNew(true)
   }
 
   function startEditContact(contact: ContactWithOrigin) {
+    if (contact.origin === 'soma') {
+      alert('Este contacto faz parte da base SOMA. Por agora, a base SOMA só pode ser editada no ficheiro contactsSOMA.ts.')
+      return
+    }
+
+    if (!isAdmin && !contactBelongsToUser(contact, currentUserId, currentUserEmail)) {
+      alert('Não podes editar contactos de outra conta.')
+      return
+    }
+
     setEditing({
       id: contact.id,
       name: contact.name,
@@ -266,6 +350,10 @@ export default function ContactsView() {
       disciplines: contact.disciplines || [],
       notes: contact.notes,
       source: contact.source || 'manual',
+      ownerUserId: contact.ownerUserId,
+      ownerEmail: contact.ownerEmail,
+      ownerRole: contact.ownerRole,
+      visibility: contact.visibility || 'private',
     })
     setIsNew(false)
   }
@@ -278,7 +366,7 @@ export default function ContactsView() {
       return
     }
 
-    const cleanContact: Contact = {
+    const cleanContact: OwnedContact = {
       ...editing,
       name: editing.name.trim(),
       organization: editing.organization?.trim(),
@@ -296,15 +384,30 @@ export default function ContactsView() {
       source: editing.source || 'manual',
     }
 
-    const duplicated = isDuplicate(cleanContact, allContacts)
+    const finalContact: OwnedContact = isNew
+      ? attachOwner(cleanContact, user)
+      : {
+          ...cleanContact,
+          ownerUserId: cleanContact.ownerUserId || currentUserId,
+          ownerEmail: cleanContact.ownerEmail || currentUserEmail,
+          ownerRole: cleanContact.ownerRole || role,
+          visibility: cleanContact.visibility || 'private',
+        }
+
+    if (!isAdmin && !contactBelongsToUser(finalContact, currentUserId, currentUserEmail)) {
+      alert('Não podes guardar contactos em nome de outra conta.')
+      return
+    }
+
+    const duplicated = isDuplicate(finalContact, allContacts)
 
     if (duplicated) {
       const ok = confirm('Este contacto parece duplicado por email ou telefone. Queres guardar mesmo assim?')
       if (!ok) return
     }
 
-    if (isNew) addManualContact(cleanContact)
-    else updateManualContact(cleanContact)
+    if (isNew) addManualContact(finalContact)
+    else updateManualContact(finalContact)
 
     refresh()
     setEditing(null)
@@ -312,7 +415,20 @@ export default function ContactsView() {
   }
 
   function removeContact(id: string) {
+    const contact = manualContacts.find(c => c.id === id)
+
+    if (!contact) {
+      alert('Este contacto faz parte da base SOMA e não pode ser apagado aqui.')
+      return
+    }
+
+    if (!isAdmin && !contactBelongsToUser(contact, currentUserId, currentUserEmail)) {
+      alert('Não podes apagar contactos de outra conta.')
+      return
+    }
+
     if (!confirm('Apagar este contacto?')) return
+
     deleteManualContact(id)
     refresh()
     setEditing(null)
@@ -348,9 +464,19 @@ export default function ContactsView() {
   }
 
   function clearCsvContacts() {
-    const current = getManualContacts()
-    const csvContacts = current.filter(c => c.source === 'csv')
-    const next = current.filter(c => c.source !== 'csv')
+    const current = getManualContacts() as OwnedContact[]
+
+    const csvContacts = current.filter(c => {
+      if (c.source !== 'csv') return false
+      if (isAdmin) return true
+      return contactBelongsToUser(c, currentUserId, currentUserEmail)
+    })
+
+    const next = current.filter(c => {
+      if (c.source !== 'csv') return true
+      if (isAdmin) return false
+      return !contactBelongsToUser(c, currentUserId, currentUserEmail)
+    })
 
     if (csvContacts.length === 0) {
       alert('Não há contactos CSV para apagar.')
@@ -368,19 +494,36 @@ export default function ContactsView() {
   }
 
   function clearAllManualContacts() {
-    const current = getManualContacts()
+    const current = getManualContacts() as OwnedContact[]
 
-    if (current.length === 0) {
+    const contactsToDelete = current.filter(c => {
+      if (isAdmin) return true
+      return contactBelongsToUser(c, currentUserId, currentUserEmail)
+    })
+
+    const next = current.filter(c => {
+      if (isAdmin) return false
+      return !contactBelongsToUser(c, currentUserId, currentUserEmail)
+    })
+
+    if (contactsToDelete.length === 0) {
       alert('Não há contactos manuais para apagar.')
       return
     }
 
-    if (!confirm(`ATENÇÃO: apagar TODOS os ${current.length} contactos manuais?`)) return
+    const message = isAdmin
+      ? `ATENÇÃO: apagar TODOS os ${contactsToDelete.length} contactos manuais/importados de todas as contas?`
+      : `Apagar TODOS os teus ${contactsToDelete.length} contactos manuais/importados?`
 
-    saveManualContacts([])
+    if (!confirm(message)) return
+
+    saveManualContacts(sortContacts(next))
     refresh()
 
-    const summary = `${current.length} contactos manuais apagados.`
+    const summary = isAdmin
+      ? `${contactsToDelete.length} contactos manuais/importados de todas as contas apagados.`
+      : `${contactsToDelete.length} contactos teus apagados.`
+
     setImportSummary(summary)
     alert(summary)
   }
@@ -389,28 +532,33 @@ export default function ContactsView() {
     const text = await file.text()
     const parsed = parseContactsCsv(text)
 
-    const existingManualWithoutCsv = getManualContacts().filter(c => c.source !== 'csv')
+    const current = getManualContacts() as OwnedContact[]
 
-    saveManualContacts(existingManualWithoutCsv)
-    setManualContacts(existingManualWithoutCsv)
+    const existingManualWithoutOwnCsv = current.filter(c => {
+      if (c.source !== 'csv') return true
+      if (isAdmin) return false
+      return !contactBelongsToUser(c, currentUserId, currentUserEmail)
+    })
+
+    saveManualContacts(existingManualWithoutOwnCsv)
+    setManualContacts(existingManualWithoutOwnCsv)
 
     let imported = 0
     let duplicated = 0
     let incomplete = 0
 
-    let currentAll: ContactWithOrigin[] = [
-      ...existingManualWithoutCsv.map(c => ({ ...c, origin: 'manual' as const })),
-      ...contactsSOMA.map((c: any) => ({
-        id: c.id, name: c.name || '', organization: c.organization || '',
-        role: c.role || 'Outro', email: c.email || '', phone: c.phone || '',
-        country: c.country || '', city: c.city || '', website: c.website || '',
-        instagram: c.instagram || '', linkedin: c.linkedin || '', tiktok: c.tiktok || '',
-        disciplines: c.disciplines || [], notes: c.notes || '',
-        source: 'MIL', origin: 'mil' as const,
-      })),
+    const baseForDuplicateCheck: ContactWithOrigin[] = [
+      ...existingManualWithoutOwnCsv
+        .filter(c => {
+          if (isAdmin) return true
+          return contactBelongsToUser(c, currentUserId, currentUserEmail)
+        })
+        .map(c => ({ ...c, origin: 'manual' as const })),
+      ...(isAdmin ? contactsSOMA.map((c: any) => normalizeSomaContact(c)) : []),
     ]
 
-    const toSave: Contact[] = [...existingManualWithoutCsv]
+    let currentAll: ContactWithOrigin[] = baseForDuplicateCheck
+    const toSave: OwnedContact[] = [...existingManualWithoutOwnCsv]
 
     for (const contact of parsed) {
       if (!contact.name && !contact.organization && !contact.email && !contact.phone) {
@@ -418,14 +566,16 @@ export default function ContactsView() {
         continue
       }
 
-      if (isDuplicate(contact, currentAll)) {
+      const ownedContact = attachOwner(contact, user)
+
+      if (isDuplicate(ownedContact, currentAll)) {
         duplicated++
         continue
       }
 
-      toSave.push(contact)
+      toSave.push(ownedContact)
       imported++
-      currentAll = [{ ...contact, origin: 'manual' }, ...currentAll]
+      currentAll = [{ ...ownedContact, origin: 'manual' }, ...currentAll]
     }
 
     saveManualContacts(sortContacts(toSave))
@@ -443,9 +593,9 @@ export default function ContactsView() {
       <header style={styles.header}>
         <div>
           <h2 style={styles.title}>Contactos</h2>
-          {/* ← MUDANÇA 1: subtítulo simplificado, sem "MIL" e "manuais" */}
           <p style={styles.subtitle}>
             {filtered.length} de {allContacts.length} contactos
+            {!isAdmin && ' · apenas os teus contactos'}
           </p>
           {importSummary && <p style={styles.importSummary}>{importSummary}</p>}
         </div>
@@ -494,9 +644,9 @@ export default function ContactsView() {
           onChange={e => setRoleFilter(e.target.value)}
         >
           <option value="all">Todos os cargos</option>
-          {roles.map(([role, count]) => (
-            <option key={role} value={role}>
-              {role} ({count})
+          {roles.map(([currentRole, count]) => (
+            <option key={currentRole} value={currentRole}>
+              {currentRole} ({count})
             </option>
           ))}
         </select>
@@ -505,6 +655,9 @@ export default function ContactsView() {
       <div style={styles.grid}>
         {filtered.map(c => {
           const duplicated = isDuplicate(c, allContacts)
+          const canManage =
+            c.origin === 'manual' &&
+            (isAdmin || contactBelongsToUser(c, currentUserId, currentUserEmail))
 
           return (
             <div key={`${c.origin}-${c.id}`} style={styles.card}>
@@ -517,9 +670,11 @@ export default function ContactsView() {
                 <div style={styles.badges}>
                   {duplicated && <span style={styles.duplicateBadge}>duplicado</span>}
                   {c.role && <span style={styles.role}>{c.role}</span>}
-                  {/* ← MUDANÇA 2: badge só aparece para contactos manuais, sem "MIL" */}
                   {c.origin === 'manual' && (
                     <span style={styles.manualBadge}>manual</span>
+                  )}
+                  {c.origin === 'soma' && isAdmin && (
+                    <span style={styles.somaBadge}>SOMA</span>
                   )}
                 </div>
               </div>
@@ -545,14 +700,13 @@ export default function ContactsView() {
                   ➤ Enviar a pipeline
                 </button>
 
-                {/* Admin edita tudo; producer só edita os seus manuais */}
-                {(isAdmin || c.origin === 'manual') && (
+                {canManage && (
                   <button style={styles.secondaryBtn} onClick={() => startEditContact(c)}>
                     Editar
                   </button>
                 )}
 
-                {(isAdmin || c.origin === 'manual') && (
+                {canManage && (
                   <button style={styles.dangerBtn} onClick={() => removeContact(c.id)}>
                     Apagar
                   </button>
@@ -569,50 +723,89 @@ export default function ContactsView() {
             <h3 style={styles.modalTitle}>{isNew ? 'Novo contacto' : 'Editar contacto'}</h3>
 
             <div style={styles.formGrid}>
-              <input style={styles.input} placeholder="Nome"
+              <input
+                style={styles.input}
+                placeholder="Nome"
                 value={editing.name}
-                onChange={e => setEditing({ ...editing, name: e.target.value })} />
-              <input style={styles.input} placeholder="Organização"
+                onChange={e => setEditing({ ...editing, name: e.target.value })}
+              />
+              <input
+                style={styles.input}
+                placeholder="Organização"
                 value={editing.organization || ''}
-                onChange={e => setEditing({ ...editing, organization: e.target.value })} />
-              <input style={styles.input} placeholder="Cargo / função"
+                onChange={e => setEditing({ ...editing, organization: e.target.value })}
+              />
+              <input
+                style={styles.input}
+                placeholder="Cargo / função"
                 value={editing.role || ''}
-                onChange={e => setEditing({ ...editing, role: e.target.value })} />
-              <input style={styles.input} placeholder="Email"
+                onChange={e => setEditing({ ...editing, role: e.target.value })}
+              />
+              <input
+                style={styles.input}
+                placeholder="Email"
                 value={editing.email || ''}
-                onChange={e => setEditing({ ...editing, email: e.target.value })} />
-              <input style={styles.input} placeholder="Telefone"
+                onChange={e => setEditing({ ...editing, email: e.target.value })}
+              />
+              <input
+                style={styles.input}
+                placeholder="Telefone"
                 value={editing.phone || ''}
-                onChange={e => setEditing({ ...editing, phone: e.target.value })} />
-              <input style={styles.input} placeholder="País"
+                onChange={e => setEditing({ ...editing, phone: e.target.value })}
+              />
+              <input
+                style={styles.input}
+                placeholder="País"
                 value={editing.country || ''}
-                onChange={e => setEditing({ ...editing, country: e.target.value })} />
-              <input style={styles.input} placeholder="Cidade"
+                onChange={e => setEditing({ ...editing, country: e.target.value })}
+              />
+              <input
+                style={styles.input}
+                placeholder="Cidade"
                 value={editing.city || ''}
-                onChange={e => setEditing({ ...editing, city: e.target.value })} />
-              <input style={styles.input} placeholder="Website"
+                onChange={e => setEditing({ ...editing, city: e.target.value })}
+              />
+              <input
+                style={styles.input}
+                placeholder="Website"
                 value={editing.website || ''}
-                onChange={e => setEditing({ ...editing, website: e.target.value })} />
-              <input style={styles.input} placeholder="Instagram"
+                onChange={e => setEditing({ ...editing, website: e.target.value })}
+              />
+              <input
+                style={styles.input}
+                placeholder="Instagram"
                 value={editing.instagram || ''}
-                onChange={e => setEditing({ ...editing, instagram: e.target.value })} />
-              <input style={styles.input} placeholder="LinkedIn"
+                onChange={e => setEditing({ ...editing, instagram: e.target.value })}
+              />
+              <input
+                style={styles.input}
+                placeholder="LinkedIn"
                 value={editing.linkedin || ''}
-                onChange={e => setEditing({ ...editing, linkedin: e.target.value })} />
-              <input style={styles.input} placeholder="TikTok"
+                onChange={e => setEditing({ ...editing, linkedin: e.target.value })}
+              />
+              <input
+                style={styles.input}
+                placeholder="TikTok"
                 value={editing.tiktok || ''}
-                onChange={e => setEditing({ ...editing, tiktok: e.target.value })} />
-              <input style={styles.input} placeholder="Disciplinas separadas por vírgula"
+                onChange={e => setEditing({ ...editing, tiktok: e.target.value })}
+              />
+              <input
+                style={styles.input}
+                placeholder="Disciplinas separadas por vírgula"
                 value={(editing.disciplines || []).join(', ')}
                 onChange={e => setEditing({
                   ...editing,
                   disciplines: e.target.value.split(',').map(x => x.trim()).filter(Boolean),
-                })} />
+                })}
+              />
             </div>
 
-            <textarea style={styles.textarea} placeholder="Notas internas"
+            <textarea
+              style={styles.textarea}
+              placeholder="Notas internas"
               value={editing.notes || ''}
-              onChange={e => setEditing({ ...editing, notes: e.target.value })} />
+              onChange={e => setEditing({ ...editing, notes: e.target.value })}
+            />
 
             <div style={styles.modalActions}>
               <button style={styles.secondaryBtn} onClick={() => setEditing(null)}>
@@ -659,6 +852,7 @@ const styles: Record<string, React.CSSProperties> = {
   role: { fontSize: 10, padding: '2px 8px', background: 'rgba(26,105,148,0.15)', color: '#60b4e8', borderRadius: 10, whiteSpace: 'nowrap' },
   duplicateBadge: { fontSize: 10, padding: '2px 8px', background: 'rgba(255,80,80,0.16)', color: '#ff8a8a', borderRadius: 10 },
   manualBadge: { fontSize: 10, padding: '2px 8px', background: 'rgba(110,243,165,0.12)', color: '#6ef3a5', borderRadius: 10 },
+  somaBadge: { fontSize: 10, padding: '2px 8px', background: 'rgba(255,207,92,0.12)', color: '#ffcf5c', borderRadius: 10 },
   contactLines: { display: 'flex', flexDirection: 'column', gap: 5, marginTop: 8 },
   link: { fontSize: 12, color: '#7ab6ff', textDecoration: 'none', wordBreak: 'break-all' },
   meta: { fontSize: 12, color: 'rgba(255,255,255,0.55)' },
