@@ -1,4 +1,4 @@
-// src/App.tsx — // SOMA ODÉ v4.3 — modularização MatchView
+// src/App.tsx — // SOMA ODÉ v4.3 — modularização MatchView2
 import { useState } from 'react'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { LanguageProvider, useLanguage, LANG_FLAGS, type Lang } from './i18n/LanguageContext'
