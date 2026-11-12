@@ -1,14 +1,16 @@
-// src/App.tsx — SOMA ODÉ v5.1 — Standalone (sem Supabase)
-// Funciona 100% offline no StackBlitz com localStorage
-import { useState } from 'react'
+// src/App.tsx — SOMA ODÉ v5.2 — Landing page + Auth + App
+import { useState, useEffect } from 'react'
 
-// ── Componentes v5 ──────────────────────────────────────────────────────────
+// ── Componentes ────────────────────────────────────────────────────────────
+import LandingPage from './components/LandingPage'
+import AuthScreen from './components/AuthScreen'
 import ArtistProfileSetup from './components/ArtistProfileSetup'
 import RadarView from './components/RadarView'
 import MatchPanel from './components/MatchPanel'
 import BookingManager from './components/BookingManager'
 import SettingsPanel from './components/SettingsPanel'
 
+type Screen = 'landing' | 'login' | 'register' | 'app'
 type Tab = 'HOME' | 'PERFIL' | 'RADAR' | 'MATCH' | 'BOOKING' | 'SETTINGS'
 
 const TABS: { id: Tab; icon: string; label: string }[] = [
@@ -20,8 +22,8 @@ const TABS: { id: Tab; icon: string; label: string }[] = [
   { id: 'SETTINGS', icon: '⚙️', label: 'Config' },
 ]
 
-// ── Home simples ────────────────────────────────────────────────────────────
-function HomeScreen({ onNavigate }: { onNavigate: (t: Tab) => void }) {
+// ── Home Screen (dentro da app) ────────────────────────────────────────────
+function HomeScreen({ onNavigate, userName }: { onNavigate: (t: Tab) => void; userName?: string }) {
   let hasProfile = false
   let bookingCount = 0
   try {
@@ -32,7 +34,9 @@ function HomeScreen({ onNavigate }: { onNavigate: (t: Tab) => void }) {
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '40px 20px', color: '#fff' }}>
-      <h1 style={{ fontSize: 36, margin: '0 0 4px', color: '#60b4e8' }}>SOMA ODÉ</h1>
+      <h1 style={{ fontSize: 36, margin: '0 0 4px', color: '#60b4e8' }}>
+        {userName ? `Olá, ${userName}!` : 'SOMA ODÉ'}
+      </h1>
       <p style={{ margin: '0 0 32px', color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>
         Plataforma de gestão cultural — artistas × oportunidades
       </p>
@@ -74,13 +78,60 @@ function QuickCard({ icon, title, sub, color, onClick }: {
   )
 }
 
-// ── App principal ───────────────────────────────────────────────────────────
+// ── App principal ──────────────────────────────────────────────────────────
 export default function App() {
+  const [screen, setScreen] = useState<Screen>('landing')
   const [tab, setTab] = useState<Tab>('HOME')
+  const [user, setUser] = useState<{ email: string; id: string; name?: string } | null>(null)
 
+  // Verificar se já está logged in
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('soma_user')
+      if (stored) {
+        const u = JSON.parse(stored)
+        setUser(u)
+        setScreen('app')
+      }
+    } catch { /* */ }
+  }, [])
+
+  function handleAuthSuccess(u: { email: string; id: string; name?: string }) {
+    setUser(u)
+    setScreen('app')
+  }
+
+  function handleLogout() {
+    localStorage.removeItem('soma_user')
+    setUser(null)
+    setScreen('landing')
+  }
+
+  // ── Landing page ─────────────────────────────────────────────
+  if (screen === 'landing') {
+    return (
+      <LandingPage
+        onLogin={() => setScreen('login')}
+        onRegister={() => setScreen('register')}
+      />
+    )
+  }
+
+  // ── Auth screen ──────────────────────────────────────────────
+  if (screen === 'login' || screen === 'register') {
+    return (
+      <AuthScreen
+        mode={screen}
+        onBack={() => setScreen('landing')}
+        onSuccess={handleAuthSuccess}
+      />
+    )
+  }
+
+  // ── App principal (autenticado) ──────────────────────────────
   function renderContent() {
     switch (tab) {
-      case 'HOME':     return <HomeScreen onNavigate={setTab} />
+      case 'HOME':     return <HomeScreen onNavigate={setTab} userName={user?.name || user?.email?.split('@')[0]} />
       case 'PERFIL':   return <ArtistProfileSetup />
       case 'RADAR':    return <RadarView />
       case 'MATCH':    return <MatchPanel />
@@ -99,10 +150,19 @@ export default function App() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 18, fontWeight: 900, color: '#1A6994', letterSpacing: '-0.02em' }}>SOMA</span>
-          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>ODÉ v5.1</span>
+          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>ODÉ v5.2</span>
         </div>
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>
-          modo offline · dados em localStorage
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>
+            {user?.email}
+          </span>
+          <button onClick={handleLogout} style={{
+            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: 6, padding: '4px 10px', fontSize: 11, color: 'rgba(255,255,255,0.4)',
+            cursor: 'pointer',
+          }}>
+            Sair
+          </button>
         </div>
       </header>
 

@@ -46,9 +46,8 @@ export default function SettingsPanel() {
 
       {/* Conta */}
       <Section title="Conta">
-        <InfoRow label="Email" value={user?.email || '—'} />
-        <InfoRow label="Role" value={user?.role || '—'} />
-        <InfoRow label="Organização" value={user?.orgId || '—'} />
+        <InfoRow label="Email" value={(() => { try { const u = localStorage.getItem('soma_user'); return u ? JSON.parse(u).email : '—' } catch { return '—' } })()} />
+        <InfoRow label="Modo" value={(() => { try { return localStorage.getItem('soma_user') ? 'Autenticado' : 'Visitante' } catch { return '—' } })()} />
         <div style={{ marginTop: 12 }}>
           <button style={st.dangerBtn} onClick={() => { localStorage.clear(); window.location.reload() }}>
             Terminar sessão
