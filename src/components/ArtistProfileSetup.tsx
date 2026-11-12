@@ -2,7 +2,6 @@
 // SOMA ODÉ v5 — Perfil artístico: 4 perguntas → IA gera perfil estruturado
 
 import { useState, useEffect } from 'react'
-import { useAuth } from '../auth/AuthProvider'
 import { generateArtistProfile, hasApiKey, type ArtistProfileAI } from '../services/aiService'
 
 const STORAGE_KEY = 'soma_artist_profile'
@@ -18,7 +17,6 @@ const QUESTIONS = [
 ]
 
 export default function ArtistProfileSetup() {
-  const { user } = useAuth()
   const [step, setStep] = useState<Step>(0)
   const [answers, setAnswers] = useState({ identity: '', audience: '', power: '', direction: '' })
   const [profile, setProfile] = useState<ArtistProfileAI | null>(null)

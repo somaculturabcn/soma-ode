@@ -2,11 +2,9 @@
 // SOMA ODÉ v5 — Painel de configurações
 
 import { useState, useEffect } from 'react'
-import { useAuth } from '../auth/AuthProvider'
 import { saveApiKey, hasApiKey } from '../services/aiService'
 
 export default function SettingsPanel() {
-  const { user, signOut } = useAuth()
   const [apiKey, setApiKey] = useState('')
   const [saved, setSaved] = useState(false)
   const [hasKey, setHasKey] = useState(false)
@@ -52,7 +50,7 @@ export default function SettingsPanel() {
         <InfoRow label="Role" value={user?.role || '—'} />
         <InfoRow label="Organização" value={user?.orgId || '—'} />
         <div style={{ marginTop: 12 }}>
-          <button style={st.dangerBtn} onClick={async () => { await signOut(); window.location.reload() }}>
+          <button style={st.dangerBtn} onClick={() => { localStorage.clear(); window.location.reload() }}>
             Terminar sessão
           </button>
         </div>
