@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import { saveApiKey, hasApiKey } from '../services/aiService'
+import { getActivityLog, downloadActivityCSV, clearActivityLog, logActivity } from '../services/activityLog'
 
 export default function SettingsPanel() {
   const [apiKey, setApiKey] = useState('')
@@ -90,6 +91,14 @@ export default function SettingsPanel() {
         </p>
       </Section>
 
+      {/* Registo de atividade */}
+      <Section title="Registo de Atividade">
+        <p style={st.hint}>
+          Todas as tuas ações na plataforma ficam registadas. Exporta para CSV (Excel/Google Sheets) a qualquer momento.
+        </p>
+        <ActivityLogSection />
+      </Section>
+
       {/* Dados locais */}
       <Section title="Dados locais">
         <p style={st.hint}>
@@ -133,6 +142,50 @@ function InfoRow({ label, value }: { label: string; value: string }) {
     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
       <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>{label}</span>
       <span style={{ fontSize: 13, color: '#fff' }}>{value}</span>
+    </div>
+  )
+}
+
+function ActivityLogSection() {
+  const log = getActivityLog()
+  const recent = log.slice(-10).reverse()
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <button style={{ background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+          onClick={() => {
+            logActivity('SETTINGS', 'exportar', 'Exportou log de atividade para CSV')
+            downloadActivityCSV()
+          }}>
+          📊 Exportar CSV ({log.length} registos)
+        </button>
+        {log.length > 0 && (
+          <button style={{ background: 'rgba(249,112,102,0.1)', color: '#f97066', border: '1px solid rgba(249,112,102,0.3)', borderRadius: 8, padding: '8px 14px', fontSize: 12, cursor: 'pointer' }}
+            onClick={() => {
+              if (confirm('Apagar todo o registo de atividade?')) {
+                clearActivityLog()
+                window.location.reload()
+              }
+            }}>
+            Limpar log
+          </button>
+        )}
+      </div>
+      {recent.length > 0 && (
+        <div>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 6 }}>Últimas ações:</div>
+          {recent.map(e => (
+            <div key={e.id} style={{ display: 'flex', gap: 8, padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.03)', fontSize: 11 }}>
+              <span style={{ color: 'rgba(255,255,255,0.25)', minWidth: 115, flexShrink: 0 }}>
+                {new Date(e.timestamp).toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+              </span>
+              <span style={{ color: '#60b4e8', minWidth: 60, flexShrink: 0 }}>{e.module}</span>
+              <span style={{ color: 'rgba(255,255,255,0.5)' }}>{e.detail}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

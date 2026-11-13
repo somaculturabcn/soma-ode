@@ -1,4 +1,4 @@
-// src/App.tsx — SOMA ODÉ v5.3 — Roles + Admin + Radar público
+// src/App.tsx — SOMA ODÉ v5.4 — Roles + Admin + Radar público + Activity Log
 import { useState, useEffect } from 'react'
 
 // ── Componentes ────────────────────────────────────────────────────────────
@@ -9,6 +9,7 @@ import RadarView from './components/RadarView'
 import MatchPanel from './components/MatchPanel'
 import BookingManager from './components/BookingManager'
 import SettingsPanel from './components/SettingsPanel'
+import { logActivity } from './services/activityLog'
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 type UserRole = 'artista' | 'produtor' | 'admin'
@@ -90,12 +91,16 @@ function NetworkManager({ role }: { role: UserRole }) {
   function addContact() {
     if (!form.name.trim()) return
     const defaultType = role === 'produtor' ? 'artista' : role === 'artista' ? 'produtor' : form.type || 'outro'
-    save([...contacts, { ...form, name: form.name.trim(), type: form.type || defaultType }])
+    const contactType = form.type || defaultType
+    save([...contacts, { ...form, name: form.name.trim(), type: contactType }])
+    logActivity('REDE', 'criar', `Adicionou contacto: ${form.name.trim()} (${contactType})`, { name: form.name.trim(), type: contactType, email: form.email })
     setForm({ name: '', email: '', type: '', notes: '' })
     setShowForm(false)
   }
 
   function removeContact(i: number) {
+    const c = contacts[i]
+    logActivity('REDE', 'apagar', `Removeu contacto: ${c?.name || '?'}`)
     save(contacts.filter((_, idx) => idx !== i))
   }
 
@@ -292,9 +297,11 @@ export default function App() {
   function handleAuthSuccess(u: User) {
     setUser(u)
     setScreen('app')
+    logActivity('AUTH', 'login', `Login: ${u.email} (${getEffectiveRole(u)})`)
   }
 
   function handleLogout() {
+    logActivity('AUTH', 'logout', 'Sessão terminada')
     localStorage.removeItem('soma_user')
     setUser(null)
     setScreen('landing')
@@ -414,7 +421,7 @@ export default function App() {
         {tabs.map(t => {
           const active = tab === t.id
           return (
-            <button key={t.id} onClick={() => setTab(t.id)} style={{
+            <button key={t.id} onClick={() => { setTab(t.id); logActivity(t.id, 'ver', `Abriu ${t.label}`) }} style={{
               flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 6,
               padding: '12px 18px', fontSize: 13, fontWeight: active ? 700 : 400,
               color: active ? '#60b4e8' : 'rgba(255,255,255,0.4)',

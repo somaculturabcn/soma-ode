@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import { generateArtistProfile, hasApiKey, type ArtistProfileAI } from '../services/aiService'
+import { logActivity } from '../services/activityLog'
 
 const STORAGE_KEY = 'soma_artist_profile'
 const ANSWERS_KEY = 'soma_artist_answers'
@@ -50,6 +51,7 @@ export default function ArtistProfileSetup() {
       const result = await generateArtistProfile(answers)
       setProfile(result)
       localStorage.setItem(STORAGE_KEY, JSON.stringify(result))
+      logActivity('PERFIL', 'criar', 'Perfil artístico gerado pela IA', { disciplines: result.disciplines, keywords: result.keywords })
       setStep('done')
     } catch (e: any) {
       setError(e.message || 'Erro ao gerar perfil')
@@ -61,6 +63,7 @@ export default function ArtistProfileSetup() {
     setStep(0)
     setProfile(null)
     localStorage.removeItem(STORAGE_KEY)
+    logActivity('PERFIL', 'apagar', 'Perfil artístico resetado')
   }
 
   const currentQ = typeof step === 'number' ? QUESTIONS[step] : null

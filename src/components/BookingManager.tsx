@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import { realOpportunities } from '../data/realOpportunities'
+import { logActivity } from '../services/activityLog'
 
 const BOOKING_KEY = 'soma_booking_contacts'
 const PROFILE_KEY = 'soma_artist_profile'
@@ -44,9 +45,10 @@ export default function BookingManager() {
     } catch { /* */ }
   }, [])
 
-  function save(list: BookingContact[]) {
+  function save(list: BookingContact[], action?: string, detail?: string) {
     setContacts(list)
     localStorage.setItem(BOOKING_KEY, JSON.stringify(list))
+    if (action && detail) logActivity('BOOKING', action, detail)
   }
 
   function updateStatus(id: string, status: BookingStatus) {
