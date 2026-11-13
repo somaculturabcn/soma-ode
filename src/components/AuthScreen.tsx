@@ -4,10 +4,12 @@
 import { useState } from 'react'
 import { supabase, hasSupabase } from '../lib/supabase'
 
+type UserRole = 'artista' | 'produtor'
+
 type Props = {
   mode: 'login' | 'register'
   onBack: () => void
-  onSuccess: (user: { email: string; id: string }) => void
+  onSuccess: (user: { email: string; id: string; role?: UserRole }) => void
 }
 
 export default function AuthScreen({ mode: initialMode, onBack, onSuccess }: Props) {
@@ -15,6 +17,7 @@ export default function AuthScreen({ mode: initialMode, onBack, onSuccess }: Pro
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
+  const [role, setRole] = useState<UserRole | ''>('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -32,6 +35,9 @@ export default function AuthScreen({ mode: initialMode, onBack, onSuccess }: Pro
       if (password.length < 6) {
         throw new Error('A password precisa de pelo menos 6 caracteres')
       }
+      if (mode === 'register' && !role) {
+        throw new Error('Escolhe se és Artista ou Produtor/a')
+      }
 
       if (hasSupabase) {
         // ── Supabase auth ────────────────────────────────────────
@@ -39,14 +45,14 @@ export default function AuthScreen({ mode: initialMode, onBack, onSuccess }: Pro
           const { data, error: err } = await supabase.auth.signUp({
             email: email.trim(),
             password,
-            options: { data: { name: name.trim() || undefined } }
+            options: { data: { name: name.trim() || undefined, role } }
           })
           if (err) throw new Error(translateError(err.message))
           if (data.user) {
             // Alguns projetos Supabase exigem confirmação de email
             if (data.session) {
-              localStorage.setItem('soma_user', JSON.stringify({ email: data.user.email, id: data.user.id }))
-              onSuccess({ email: data.user.email!, id: data.user.id })
+              localStorage.setItem('soma_user', JSON.stringify({ email: data.user.email, id: data.user.id, role }))
+              onSuccess({ email: data.user.email!, id: data.user.id, role: role as UserRole })
             } else {
               setSuccess('Conta criada! Verifica o teu email para confirmar.')
             }
@@ -58,14 +64,16 @@ export default function AuthScreen({ mode: initialMode, onBack, onSuccess }: Pro
           })
           if (err) throw new Error(translateError(err.message))
           if (data.user) {
-            localStorage.setItem('soma_user', JSON.stringify({ email: data.user.email, id: data.user.id }))
-            onSuccess({ email: data.user.email!, id: data.user.id })
+            const storedRole = data.user.user_metadata?.role || 'artista'
+            localStorage.setItem('soma_user', JSON.stringify({ email: data.user.email, id: data.user.id, role: storedRole }))
+            onSuccess({ email: data.user.email!, id: data.user.id, role: storedRole })
           }
         }
       } else {
         // ── Fallback localStorage (sem Supabase) ─────────────────
         const userId = 'local_' + email.trim().replace(/[^a-z0-9]/g, '_')
-        const userData = { email: email.trim(), id: userId, name: name.trim() }
+        const userRole = role || 'artista'
+        const userData = { email: email.trim(), id: userId, name: name.trim(), role: userRole }
         localStorage.setItem('soma_user', JSON.stringify(userData))
         onSuccess(userData)
       }
@@ -108,17 +116,41 @@ export default function AuthScreen({ mode: initialMode, onBack, onSuccess }: Pro
         {/* Form */}
         <form onSubmit={handleSubmit} style={st.form}>
           {mode === 'register' && (
-            <div style={st.field}>
-              <label style={st.label}>Nome (opcional)</label>
-              <input
-                style={st.input}
-                type="text"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="O teu nome artístico ou real"
-                autoComplete="name"
-              />
-            </div>
+            <>
+              {/* Role picker */}
+              <div style={st.field}>
+                <label style={st.label}>Eu sou...</label>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <RoleOption
+                    icon="🎤"
+                    label="Artista"
+                    desc="Músico/a, bailarino/a, performer, artista visual"
+                    selected={role === 'artista'}
+                    onClick={() => setRole('artista')}
+                  />
+                  <RoleOption
+                    icon="🏢"
+                    label="Produtor/a"
+                    desc="Produção cultural, gestão de artistas, booking"
+                    selected={role === 'produtor'}
+                    onClick={() => setRole('produtor')}
+                  />
+                </div>
+              </div>
+
+              {/* Nome */}
+              <div style={st.field}>
+                <label style={st.label}>Nome (opcional)</label>
+                <input
+                  style={st.input}
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder={role === 'produtor' ? 'Nome da produtora ou o teu nome' : 'O teu nome artístico ou real'}
+                  autoComplete="name"
+                />
+              </div>
+            </>
           )}
 
           <div style={st.field}>
@@ -180,6 +212,23 @@ export default function AuthScreen({ mode: initialMode, onBack, onSuccess }: Pro
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+function RoleOption({ icon, label, desc, selected, onClick }: {
+  icon: string; label: string; desc: string; selected: boolean; onClick: () => void
+}) {
+  return (
+    <div onClick={onClick} style={{
+      flex: 1, padding: '16px 14px', borderRadius: 12, cursor: 'pointer',
+      background: selected ? 'rgba(26,105,148,0.12)' : '#0a0a0a',
+      border: selected ? '2px solid #1A6994' : '2px solid rgba(255,255,255,0.08)',
+      textAlign: 'center', transition: 'all 0.15s',
+    }}>
+      <div style={{ fontSize: 32, marginBottom: 8 }}>{icon}</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: selected ? '#60b4e8' : '#fff', marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>{desc}</div>
     </div>
   )
 }
