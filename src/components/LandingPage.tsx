@@ -6,9 +6,10 @@ import { useState } from 'react'
 type Props = {
   onLogin: () => void
   onRegister: () => void
+  onRadar: () => void
 }
 
-export default function LandingPage({ onLogin, onRegister }: Props) {
+export default function LandingPage({ onLogin, onRegister, onRadar }: Props) {
   const [showVideo, setShowVideo] = useState(false)
 
   return (
@@ -34,6 +35,11 @@ export default function LandingPage({ onLogin, onRegister }: Props) {
             </button>
             <button style={st.secondaryBtn} onClick={onLogin}>
               Já tenho conta
+            </button>
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <button style={{ ...st.secondaryBtn, border: 'none', fontSize: 13, padding: '8px 16px', color: 'rgba(255,255,255,0.4)' }} onClick={onRadar}>
+              📡 Explorar Radar sem conta
             </button>
           </div>
           <p style={st.heroNote}>
