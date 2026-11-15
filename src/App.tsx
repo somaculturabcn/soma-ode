@@ -9,12 +9,13 @@ import RadarView from './components/RadarView'
 import MatchPanel from './components/MatchPanel'
 import BookingManager from './components/BookingManager'
 import SettingsPanel from './components/SettingsPanel'
+import AdminArtistsPanel from './components/AdminArtistsPanel'
 import { logActivity } from './services/activityLog'
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 type UserRole = 'artista' | 'produtor' | 'admin'
 type Screen = 'landing' | 'login' | 'register' | 'radar-public' | 'app'
-type Tab = 'HOME' | 'PERFIL' | 'RADAR' | 'MATCH' | 'BOOKING' | 'REDE' | 'SETTINGS'
+type Tab = 'HOME' | 'PERFIL' | 'RADAR' | 'MATCH' | 'BOOKING' | 'REDE' | 'ARTISTAS' | 'SETTINGS'
 
 type User = {
   email: string
@@ -43,10 +44,11 @@ function getTabsForRole(role: UserRole): { id: Tab; icon: string; label: string 
   if (role === 'admin') {
     return [
       ...common.slice(0, 1),
-      { id: 'PERFIL',   icon: '🎤', label: 'Perfil' },
-      { id: 'REDE',     icon: '👥', label: 'Rede' },
+      { id: 'PERFIL' as Tab,    icon: '🎤', label: 'Perfil' },
+      { id: 'ARTISTAS' as Tab,  icon: '🎭', label: 'Artistas' },
+      { id: 'REDE' as Tab,      icon: '👥', label: 'Rede' },
       ...common.slice(1),
-      { id: 'SETTINGS', icon: '⚙️', label: 'Config' },
+      { id: 'SETTINGS' as Tab,  icon: '⚙️', label: 'Config' },
     ]
   }
 
@@ -376,10 +378,11 @@ export default function App() {
     switch (tab) {
       case 'HOME':     return <HomeScreen onNavigate={setTab} userName={user?.name || user?.email?.split('@')[0]} role={role} />
       case 'PERFIL':   return <ArtistProfileSetup />
-      case 'RADAR':    return <RadarView />
+      case 'RADAR':    return <RadarView isAdmin={role === 'admin'} />
       case 'MATCH':    return <MatchPanel />
       case 'BOOKING':  return <BookingManager />
       case 'REDE':     return <NetworkManager role={role} />
+      case 'ARTISTAS': return <AdminArtistsPanel />
       case 'SETTINGS': return <SettingsPanel />
     }
   }

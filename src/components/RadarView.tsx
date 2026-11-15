@@ -2,9 +2,12 @@
 // SOMA ODÉ v5 — Radar de Editais + Festivais
 // Inspirado no radareditais.clubemma.com.br — filtros visuais, destaques, deadline
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { realOpportunities } from '../data/realOpportunities'
+import { getManualOpportunities, deleteManualOpportunity } from '../data/manualOpportunitiesStore'
 import type { Opportunity } from '../types/opportunity'
+import OpportunityForm from './OpportunityForm'
+import CsvImporter from './CsvImporter'
 
 // ── Constantes ──────────────────────────────────────────────────────────────
 
@@ -52,18 +55,25 @@ function deadlineLabel(days: number | null): { text: string; color: string } {
 
 // ── Componente ──────────────────────────────────────────────────────────────
 
-export default function RadarView() {
+export default function RadarView({ isAdmin }: { isAdmin?: boolean } = {}) {
   const [region, setRegion] = useState('Todas')
   const [type, setType] = useState('Todos')
   const [discipline, setDiscipline] = useState('Todas')
   const [search, setSearch] = useState('')
   const [hideExpired, setHideExpired] = useState(true)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [showCsvImport, setShowCsvImport] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
-  // Usar oportunidades reais
+  const refresh = useCallback(() => setRefreshKey(k => k + 1), [])
+
+  // Usar oportunidades reais + manuais/CSV
   const allOpps = useMemo(() => {
-    return [...realOpportunities]
-  }, [])
+    const manual = getManualOpportunities()
+    return [...manual, ...realOpportunities]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey])
 
   // Filtrar
   const filtered = useMemo(() => {
@@ -114,6 +124,13 @@ export default function RadarView() {
       .slice(0, 4)
   }, [filtered])
 
+  function handleDeleteOpp(id: string, e: React.MouseEvent) {
+    e.stopPropagation()
+    if (!confirm('Apagar esta oportunidade?')) return
+    deleteManualOpportunity(id)
+    refresh()
+  }
+
   return (
     <div style={st.page}>
       {/* ── Header ──────────────────────────────────────────────── */}
@@ -122,11 +139,23 @@ export default function RadarView() {
           <h1 style={st.title}>📡 Radar</h1>
           <p style={st.sub}>Editais, festivais, residências e open calls</p>
         </div>
-        <div style={st.counter}>
-          <span style={st.counterNum}>{filtered.length}</span>
-          <span style={st.counterLabel}>oportunidades</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {isAdmin && (
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button onClick={() => setShowAddForm(true)} style={st.adminBtn}>+ Adicionar</button>
+              <button onClick={() => setShowCsvImport(true)} style={st.adminBtnAlt}>📁 Importar CSV</button>
+            </div>
+          )}
+          <div style={st.counter}>
+            <span style={st.counterNum}>{filtered.length}</span>
+            <span style={st.counterLabel}>oportunidades</span>
+          </div>
         </div>
       </div>
+
+      {/* Modals */}
+      {showAddForm && <OpportunityForm onClose={() => { setShowAddForm(false); refresh() }} />}
+      {showCsvImport && <CsvImporter onClose={() => { setShowCsvImport(false); refresh() }} onImported={() => refresh()} />}
 
       {/* ── Busca ───────────────────────────────────────────────── */}
       <input
@@ -178,7 +207,8 @@ export default function RadarView() {
           <div style={st.highlightGrid}>
             {highlights.map(o => (
               <OpportunityCard key={o.id} opp={o} expanded={expandedId === o.id}
-                onToggle={() => setExpandedId(expandedId === o.id ? null : o.id)} highlight />
+                onToggle={() => setExpandedId(expandedId === o.id ? null : o.id)} highlight
+                isAdmin={isAdmin} onDelete={handleDeleteOpp} />
             ))}
           </div>
         </div>
@@ -193,7 +223,8 @@ export default function RadarView() {
           <div style={st.grid}>
             {filtered.map(o => (
               <OpportunityCard key={o.id} opp={o} expanded={expandedId === o.id}
-                onToggle={() => setExpandedId(expandedId === o.id ? null : o.id)} />
+                onToggle={() => setExpandedId(expandedId === o.id ? null : o.id)}
+                isAdmin={isAdmin} onDelete={handleDeleteOpp} />
             ))}
           </div>
         )}
@@ -224,8 +255,8 @@ function Chip({ label, active, onClick, color }: { label: string; active: boolea
   )
 }
 
-function OpportunityCard({ opp, expanded, onToggle, highlight }: {
-  opp: Opportunity; expanded: boolean; onToggle: () => void; highlight?: boolean
+function OpportunityCard({ opp, expanded, onToggle, highlight, isAdmin, onDelete }: {
+  opp: Opportunity; expanded: boolean; onToggle: () => void; highlight?: boolean; isAdmin?: boolean; onDelete?: (id: string, e: React.MouseEvent) => void
 }) {
   const days = daysUntil(opp.deadline)
   const dl = deadlineLabel(days)
@@ -264,12 +295,21 @@ function OpportunityCard({ opp, expanded, onToggle, highlight }: {
           {opp.description && <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5, margin: '0 0 8px' }}>{opp.description}</p>}
           {opp.contactEmail && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: '0 0 4px' }}>📧 {opp.contactEmail}</p>}
           {opp.contactPerson && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: '0 0 4px' }}>👤 {opp.contactPerson}</p>}
-          {opp.url && (
-            <a href={opp.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#60b4e8', textDecoration: 'none' }}
-              onClick={e => e.stopPropagation()}>
-              🔗 Ver página oficial →
-            </a>
-          )}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+            {opp.url && (
+              <a href={opp.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#60b4e8', textDecoration: 'none' }}
+                onClick={e => e.stopPropagation()}>
+                🔗 Ver página oficial →
+              </a>
+            )}
+            {isAdmin && opp.source && onDelete && (
+              <button onClick={e => onDelete(opp.id, e)} style={{
+                marginLeft: 'auto', background: 'rgba(249,112,102,0.1)', color: '#f97066',
+                border: '1px solid rgba(249,112,102,0.2)', borderRadius: 6,
+                padding: '4px 10px', fontSize: 11, cursor: 'pointer', fontWeight: 600,
+              }}>🗑 Apagar</button>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -304,4 +344,6 @@ const st: Record<string, React.CSSProperties> = {
   tag: { fontSize: 11, background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)', padding: '2px 8px', borderRadius: 20 },
   costTag: { fontSize: 11, background: 'rgba(110,243,165,0.1)', color: '#6ef3a5', padding: '2px 8px', borderRadius: 20 },
   empty: { textAlign: 'center', color: 'rgba(255,255,255,0.4)', padding: 40, border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 12, fontSize: 14 },
+  adminBtn: { background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' },
+  adminBtnAlt: { background: 'rgba(96,180,232,0.1)', color: '#60b4e8', border: '1px solid rgba(96,180,232,0.2)', borderRadius: 8, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' },
 }
