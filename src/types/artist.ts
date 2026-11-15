@@ -128,6 +128,30 @@ export type Cartografia = {
   somaPositioning?: string
 }
 
+// ─── Material Parseado (EPK / Clipping / Dossier) ─────────
+
+export type MaterialSource = 'epk' | 'clipping' | 'bio' | 'dossier' | 'rider' | 'other'
+
+export type ParsedMaterial = {
+  id: string
+  source: MaterialSource
+  fileName: string
+  uploadedAt: string
+  rawText: string
+  wordCount: number
+  // Dados estruturados extraídos do texto
+  festivalsPlayed?: string[]
+  pressOutlets?: string[]
+  countriesPerformed?: string[]
+  citiesPerformed?: string[]
+  collaborators?: string[]
+  genres?: string[]
+  labels?: string[]
+  awards?: string[]
+  highlights?: string[]
+  socialLinks?: string[]
+}
+
 // ─── Artist ────────────────────────────────────────────────
 
 export type Artist = {
@@ -168,6 +192,7 @@ export type Artist = {
   availability?: string
   active?: boolean
 
+  parsedMaterials?: ParsedMaterial[]
   cartografia?: Cartografia
   internal?: any
 

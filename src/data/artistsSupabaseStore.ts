@@ -112,7 +112,10 @@ function artistToRow(a: Artist): any {
     // 07 · Projectos (jsonb) — inclui dossierText e campos extraídos do PDF
     projects: a.projects || [],
 
-    // 08 · CRM Interno (jsonb)
+    // 08 · Materiais Parseados (jsonb) — EPK, Clipping, etc.
+    parsed_materials: a.parsedMaterials || [],
+
+    // 09 · CRM Interno (jsonb)
     crm: a.internal || {},
 
     // 09 · Cartografia SOMA (jsonb)
@@ -164,6 +167,7 @@ function rowToArtist(row: any): Artist {
     mobility: row.mobility || payload.mobility || {},
     materials: row.materials || payload.materials || {},
     projects,
+    parsedMaterials: row.parsed_materials || payload.parsedMaterials || [],
     internal: row.crm || payload.internal || {},
     cartografia: row.cartografia || payload.cartografia || {},
     active: row.active !== false,

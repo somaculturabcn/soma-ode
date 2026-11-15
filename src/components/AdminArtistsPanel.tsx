@@ -3,9 +3,10 @@
 // Admin pode: listar todos, ver/editar perfil, registar novo, apagar
 
 import { useState, useEffect, useCallback } from 'react'
-import type { Artist } from '../types/artist'
+import type { Artist, ParsedMaterial } from '../types/artist'
 import { emptyArtist } from '../types/artist'
 import { loadArtistsFromSupabase, saveArtistToSupabase, deleteArtistFromSupabase } from '../data/artistsSupabaseStore'
+import MaterialReader from './MaterialReader'
 
 // ── Sub-componentes ──────────────────────────────────────────────────────
 
@@ -200,6 +201,7 @@ export default function AdminArtistsPanel() {
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState<Artist | null | 'new'>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [materialTarget, setMaterialTarget] = useState<Artist | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -383,8 +385,17 @@ export default function AdminArtistsPanel() {
                         {a.bio}
                       </div>
                     )}
+                    {/* Materiais parseados */}
+                    {a.parsedMaterials && a.parsedMaterials.length > 0 && (
+                      <div style={{ marginTop: 10, padding: '8px 10px', background: 'rgba(96,180,232,0.04)', borderRadius: 8 }}>
+                        <span style={{ fontSize: 11, color: '#60b4e8', fontWeight: 600 }}>
+                          📄 {a.parsedMaterials.length} material(is) · {a.parsedMaterials.reduce((s, m) => s + (m.festivalsPlayed?.length || 0), 0)} festivais · {a.parsedMaterials.reduce((s, m) => s + (m.pressOutlets?.length || 0), 0)} imprensa · {a.parsedMaterials.reduce((s, m) => s + (m.countriesPerformed?.length || 0), 0)} países
+                        </span>
+                      </div>
+                    )}
                     <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
                       <button onClick={() => setEditing(a)} style={actBtn('#1A6994')}>✏️ Editar</button>
+                      <button onClick={() => setMaterialTarget(a)} style={actBtn('#4a1d7a')}>📄 Materiais</button>
                       <button onClick={() => handleDelete(a)} style={actBtn('#7f1d1d')}>🗑 Apagar</button>
                     </div>
                   </div>
@@ -395,12 +406,27 @@ export default function AdminArtistsPanel() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modal Editar */}
       {editing !== null && (
         <ArtistFormModal
           artist={editing === 'new' ? null : editing}
           onSave={handleSave}
           onClose={() => setEditing(null)}
+        />
+      )}
+
+      {/* Modal Materiais */}
+      {materialTarget && (
+        <MaterialReader
+          artistName={materialTarget.artisticName || materialTarget.name}
+          existingMaterials={materialTarget.parsedMaterials || []}
+          onSave={async (mats: ParsedMaterial[]) => {
+            const updated = { ...materialTarget, parsedMaterials: mats, updatedAt: new Date().toISOString() }
+            await saveArtistToSupabase(updated)
+            setArtists(prev => prev.map(a => a.id === updated.id ? updated : a))
+            setMaterialTarget(null)
+          }}
+          onClose={() => setMaterialTarget(null)}
         />
       )}
     </div>
