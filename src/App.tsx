@@ -371,7 +371,9 @@ export default function App() {
   }
 
   // ── App principal (autenticado) ──────────────────────────────
-  const role = user ? getEffectiveRole(user) : 'artista'
+  const realRole = user ? getEffectiveRole(user) : 'artista'
+  const [viewAs, setViewAs] = useState<UserRole | null>(null)
+  const role = viewAs || realRole
   const tabs = getTabsForRole(role)
 
   function renderContent() {
@@ -398,11 +400,40 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 18, fontWeight: 900, color: '#1A6994', letterSpacing: '-0.02em' }}>SOMA</span>
           <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>ODÉ v5.3</span>
-          {role === 'admin' && (
-            <span style={{ fontSize: 9, background: 'rgba(255,207,92,0.15)', color: '#ffcf5c', padding: '2px 6px', borderRadius: 3, fontWeight: 700 }}>ADMIN</span>
+          {realRole === 'admin' && (
+            <span style={{ fontSize: 9, background: viewAs ? 'rgba(96,180,232,0.15)' : 'rgba(255,207,92,0.15)', color: viewAs ? '#60b4e8' : '#ffcf5c', padding: '2px 6px', borderRadius: 3, fontWeight: 700 }}>
+              {viewAs ? `VISTA ${viewAs.toUpperCase()}` : 'ADMIN'}
+            </span>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* ── Seletor de vista (só admin) ── */}
+          {realRole === 'admin' && (
+            <div style={{ display: 'flex', gap: 0, background: 'rgba(255,255,255,0.04)', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+              {([
+                { v: null,        icon: '👑', label: 'Admin' },
+                { v: 'produtor' as UserRole, icon: '🏢', label: 'Produtor' },
+                { v: 'artista' as UserRole,  icon: '🎤', label: 'Artista' },
+              ] as const).map(opt => {
+                const isActive = viewAs === opt.v
+                return (
+                  <button
+                    key={opt.label}
+                    onClick={() => { setViewAs(opt.v); setTab('HOME') }}
+                    style={{
+                      background: isActive ? 'rgba(96,180,232,0.15)' : 'transparent',
+                      border: 'none', padding: '3px 8px', fontSize: 10, fontWeight: isActive ? 700 : 400,
+                      color: isActive ? '#60b4e8' : 'rgba(255,255,255,0.35)',
+                      cursor: 'pointer', whiteSpace: 'nowrap',
+                      borderRight: '1px solid rgba(255,255,255,0.06)',
+                    }}
+                  >
+                    {opt.icon} {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
           <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>
             {role === 'produtor' ? '🏢' : role === 'admin' ? '👑' : '🎤'} {user?.email}
           </span>
