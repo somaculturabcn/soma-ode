@@ -4,7 +4,6 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { useAuth } from '../auth/AuthProvider'
 
 // ─── TIPOS ───────────────────────────────────────────────────────────────────
 
@@ -110,9 +109,14 @@ function emptyProject(orgId: string, userId: string): Omit<Project, 'id' | 'crea
 
 // ─── COMPONENTE PRINCIPAL ────────────────────────────────────────────────────
 
-export default function ProjectManager() {
-  const { user } = useAuth()
-  const isAdmin = user?.role === 'admin'
+type ProjectManagerProps = {
+  userId?: string
+  userEmail?: string
+  isAdmin?: boolean
+}
+
+export default function ProjectManager({ userId, userEmail, isAdmin = false }: ProjectManagerProps = {}) {
+  const user = userId ? { id: userId, email: userEmail || '', role: isAdmin ? 'admin' : 'artista' } : null
 
   const [projects, setProjects] = useState<Project[]>([])
   const [rosterArtists, setRosterArtists] = useState<RosterArtist[]>([])
@@ -396,12 +400,12 @@ export default function ProjectManager() {
                 ))}
               </div>
 
-              <label style={s.label} style={{ marginTop: 16 }}>Outras linguagens (campo livre)</label>
+              <label style={{ ...s.label, marginTop: 16 }}>Outras linguagens (campo livre)</label>
               <input style={s.input} value={c.disciplines_other || ''}
                 placeholder="Ex: Drag, Slam Poetry, Capoeira, Arte Digital..."
                 onChange={e => set('disciplines_other', e.target.value)} />
 
-              <label style={s.label} style={{ marginTop: 16 }}>Idiomas do projeto</label>
+              <label style={{ ...s.label, marginTop: 16 }}>Idiomas do projeto</label>
               <div style={s.chipGrid}>
                 {LANGUAGES_LIST.map(l => (
                   <button key={l} style={{ ...s.chipToggle, ...((c.languages || []).includes(l) ? s.chipToggleActive : {}) }}
@@ -437,7 +441,7 @@ export default function ProjectManager() {
                 )
               }
 
-              <label style={s.label} style={{ marginTop: 20 }}>Artistas externos</label>
+              <label style={{ ...s.label, marginTop: 20 }}>Artistas externos</label>
               <div style={s.extRow}>
                 <input style={{ ...s.input, flex: 2 }} value={newExtArtist.name} placeholder="Nome"
                   onChange={e => setNewExtArtist(p => ({ ...p, name: e.target.value }))} />
@@ -477,7 +481,7 @@ export default function ProjectManager() {
                 ))}
               </div>
 
-              <label style={s.label} style={{ marginTop: 16 }}>Países alvo (códigos ISO, separados por vírgula)</label>
+              <label style={{ ...s.label, marginTop: 16 }}>Países alvo (códigos ISO, separados por vírgula)</label>
               <input style={s.input}
                 value={(c.target_countries || []).join(', ')}
                 placeholder="ES, PT, FR, DE, BR..."

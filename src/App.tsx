@@ -10,12 +10,13 @@ import MatchPanel from './components/MatchPanel'
 import BookingManager from './components/BookingManager'
 import SettingsPanel from './components/SettingsPanel'
 import AdminArtistsPanel from './components/AdminArtistsPanel'
+import ProjectManager from './components/ProjectManager'
 import { logActivity } from './services/activityLog'
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 type UserRole = 'artista' | 'produtor' | 'admin'
 type Screen = 'landing' | 'login' | 'register' | 'radar-public' | 'app'
-type Tab = 'HOME' | 'PERFIL' | 'RADAR' | 'MATCH' | 'BOOKING' | 'REDE' | 'ARTISTAS' | 'SETTINGS'
+type Tab = 'HOME' | 'PERFIL' | 'PROJETOS' | 'RADAR' | 'MATCH' | 'BOOKING' | 'REDE' | 'ARTISTAS' | 'SETTINGS'
 
 type User = {
   email: string
@@ -46,6 +47,7 @@ function getTabsForRole(role: UserRole): { id: Tab; icon: string; label: string 
       ...common.slice(0, 1),
       { id: 'PERFIL' as Tab,    icon: '🎤', label: 'Perfil' },
       { id: 'ARTISTAS' as Tab,  icon: '🎭', label: 'Artistas' },
+      { id: 'PROJETOS' as Tab,  icon: '🗂', label: 'Projetos' },
       { id: 'REDE' as Tab,      icon: '👥', label: 'Rede' },
       ...common.slice(1),
       { id: 'SETTINGS' as Tab,  icon: '⚙️', label: 'Config' },
@@ -55,6 +57,7 @@ function getTabsForRole(role: UserRole): { id: Tab; icon: string; label: string 
   if (role === 'produtor') {
     return [
       ...common.slice(0, 1),
+      { id: 'PROJETOS' as Tab,  icon: '🗂', label: 'Projetos' },
       { id: 'REDE',     icon: '👥', label: 'Artistas' },
       ...common.slice(1),
       { id: 'SETTINGS', icon: '⚙️', label: 'Config' },
@@ -385,6 +388,7 @@ export default function App() {
       case 'BOOKING':  return <BookingManager />
       case 'REDE':     return <NetworkManager role={role} />
       case 'ARTISTAS': return <AdminArtistsPanel />
+      case 'PROJETOS': return <ProjectManager userId={user?.id} userEmail={user?.email} isAdmin={role === 'admin'} />
       case 'SETTINGS': return <SettingsPanel />
     }
   }
