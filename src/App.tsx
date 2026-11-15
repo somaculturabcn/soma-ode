@@ -283,6 +283,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('landing')
   const [tab, setTab] = useState<Tab>('HOME')
   const [user, setUser] = useState<User | null>(null)
+  const [viewAs, setViewAs] = useState<UserRole | null>(null)
 
   // Verificar se já está logged in
   useEffect(() => {
@@ -372,7 +373,6 @@ export default function App() {
 
   // ── App principal (autenticado) ──────────────────────────────
   const realRole = user ? getEffectiveRole(user) : 'artista'
-  const [viewAs, setViewAs] = useState<UserRole | null>(null)
   const role = viewAs || realRole
   const tabs = getTabsForRole(role)
 
