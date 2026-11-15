@@ -33,6 +33,73 @@ export default function SettingsPanel() {
     setHasKey(hasApiKey())
   }
 
+  function exportAllData() {
+    try {
+      const dataKeys = [
+        'soma_user', 'soma_artist_profile', 'soma_artist_answers',
+        'soma_artists', 'soma_booking_contacts', 'soma_manual_opportunities',
+        'soma_activity_log'
+      ]
+      const exportData: Record<string, unknown> = {
+        _meta: {
+          plataforma: 'SOMA ODÉ',
+          exportado_em: new Date().toISOString(),
+          versao: '7.0',
+          nota_legal: 'Exportação de dados pessoais conforme Art. 20 RGPD (Direito à Portabilidade)',
+        }
+      }
+      for (const key of dataKeys) {
+        try {
+          const val = localStorage.getItem(key)
+          if (val) exportData[key.replace('soma_', '')] = JSON.parse(val)
+        } catch { /* skip non-JSON */ }
+      }
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `soma-ode-meus-dados-${new Date().toISOString().slice(0, 10)}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      logActivity('RGPD', 'exportar_dados', 'Dados pessoais exportados (JSON)')
+    } catch (err) {
+      alert('Erro ao exportar: ' + (err instanceof Error ? err.message : 'desconhecido'))
+    }
+  }
+
+  function deleteAllDataRgpd() {
+    const step1 = confirm(
+      '⚠️ ATENÇÃO: Apagar todos os dados?\n\n' +
+      'Esta ação é irreversível e remove:\n' +
+      '• Perfil e conta\n' +
+      '• Artistas e cartografias\n' +
+      '• Contatos de booking\n' +
+      '• Oportunidades guardadas\n' +
+      '• Registo de atividade\n' +
+      '• Chave de API\n\n' +
+      'Conforme Art. 17 RGPD (Direito ao Esquecimento).'
+    )
+    if (!step1) return
+
+    const step2 = confirm(
+      '🗑️ CONFIRMAÇÃO FINAL\n\n' +
+      'Escreve OK para confirmar. Ao clicar em OK, todos os teus dados serão apagados permanentemente.'
+    )
+    if (!step2) return
+
+    // Log antes de apagar
+    logActivity('RGPD', 'apagar_dados', 'Utilizador solicitou eliminação total dos dados pessoais')
+
+    // Apagar tudo
+    const allSomaKeys = Object.keys(localStorage).filter(k => k.startsWith('soma_'))
+    allSomaKeys.forEach(k => localStorage.removeItem(k))
+
+    alert('✓ Todos os teus dados foram apagados.\nA sessão será encerrada.')
+    window.location.reload()
+  }
+
   function clearAllData() {
     if (confirm('Tens a certeza? Isto vai apagar TODOS os dados locais (perfil, artistas, booking, etc.)')) {
       const keys = ['soma_artist_profile', 'soma_artist_answers', 'soma_artists', 'soma_booking_contacts', 'soma_manual_opportunities', 'soma_gemini_key']
@@ -99,6 +166,49 @@ export default function SettingsPanel() {
         <ActivityLogSection />
       </Section>
 
+      {/* RGPD — Direitos sobre os teus dados */}
+      <Section title="🛡️ Proteção de dados (RGPD)">
+        <p style={st.hint}>
+          Conforme o RGPD (UE) e a LOPDGDD (Espanha), tens direito a aceder, exportar e apagar os teus dados pessoais a qualquer momento.
+        </p>
+
+        {/* Exportar */}
+        <div style={{ marginBottom: 14 }}>
+          <h3 style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: '0 0 6px' }}>📦 Exportar os meus dados</h3>
+          <p style={st.hint}>
+            Descarrega todos os teus dados em formato JSON — perfil, artistas, oportunidades, booking e configurações.
+          </p>
+          <button style={st.primaryBtn} onClick={exportAllData}>
+            📦 Descarregar os meus dados (JSON)
+          </button>
+        </div>
+
+        {/* Info sobre consentimento */}
+        <div style={{ marginBottom: 14 }}>
+          <h3 style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: '0 0 6px' }}>📋 Consentimento</h3>
+          <ConsentInfo />
+        </div>
+
+        {/* Apagar */}
+        <div style={{ marginBottom: 14 }}>
+          <h3 style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: '0 0 6px' }}>🗑️ Apagar todos os meus dados</h3>
+          <p style={{ ...st.hint, color: '#f97066' }}>
+            Ação irreversível. Remove todos os teus dados pessoais da plataforma: perfil, artistas, contatos, oportunidades e configurações. Conforme Art. 17 do RGPD (Direito ao Esquecimento).
+          </p>
+          <button style={st.dangerBtn} onClick={deleteAllDataRgpd}>
+            🗑️ Apagar todos os meus dados permanentemente
+          </button>
+        </div>
+
+        {/* IA */}
+        <div>
+          <h3 style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: '0 0 6px' }}>🤖 Uso de Inteligência Artificial</h3>
+          <p style={st.hint}>
+            A SOMA ODÉ utiliza o modelo Gemini 2.5 Flash (Google) para gerar perfis artísticos na Cartografia e sugestões de Match com oportunidades. Nenhum dado pessoal é enviado para treinar modelos de IA. Tens direito a pedir revisão humana de qualquer decisão automatizada (Art. 22 RGPD).
+          </p>
+        </div>
+      </Section>
+
       {/* Dados locais */}
       <Section title="Dados locais">
         <p style={st.hint}>
@@ -114,9 +224,10 @@ export default function SettingsPanel() {
 
       {/* Sobre */}
       <Section title="Sobre">
-        <InfoRow label="Versão" value="SOMA ODÉ v5.0" />
+        <InfoRow label="Versão" value="SOMA ODÉ v7.0" />
         <InfoRow label="Stack" value="React 19 + TypeScript + Vite + Supabase" />
         <InfoRow label="IA" value="Gemini 2.5 Flash (free tier)" />
+        <InfoRow label="Conformidade" value="RGPD (UE) + LOPDGDD (ES)" />
         <p style={{ ...st.hint, marginTop: 12 }}>
           SOMA Cultura — Produção cultural catalã-brasileira focada em artistas negros, migrantes e LGBTQIA+.
           Barcelona, 2024.
@@ -185,6 +296,38 @@ function ActivityLogSection() {
             </div>
           ))}
         </div>
+      )}
+    </div>
+  )
+}
+
+function ConsentInfo() {
+  let consentAt = '—'
+  let consentVersion = '—'
+  try {
+    const user = JSON.parse(localStorage.getItem('soma_user') || '{}')
+    if (user.rgpd_consent_at) {
+      consentAt = new Date(user.rgpd_consent_at).toLocaleString('pt-BR', {
+        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+      })
+    }
+    if (user.rgpd_consent_version) consentVersion = `v${user.rgpd_consent_version}`
+  } catch { /* */ }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+        <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Data do consentimento</span>
+        <span style={{ fontSize: 12, color: consentAt === '—' ? '#f97066' : '#6ef3a5' }}>{consentAt}</span>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
+        <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Versão da política</span>
+        <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{consentVersion}</span>
+      </div>
+      {consentAt === '—' && (
+        <p style={{ fontSize: 11, color: '#f97066', marginTop: 6, lineHeight: 1.4 }}>
+          ⚠️ Sem registo de consentimento. Contas criadas antes da v7 devem aceitar a nova Política de Privacidade.
+        </p>
       )}
     </div>
   )

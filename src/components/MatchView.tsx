@@ -5,6 +5,7 @@
 // Gemini em utils/geminiScout.ts · card em match/MatchCard.tsx · modais em match/MatchModals.tsx
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import AiDisclosureBanner from './AiDisclosureBanner'
 import ScoutUrlExtractor from './ScoutUrlExtractor'
 import ScoutSavedSearches from './ScoutSavedSearches'
 import SomaAnalysisModal, { type ArtistForAnalysis } from './SomaAnalysisModal'
@@ -499,6 +500,7 @@ export default function MatchView() {
 
   return (
     <div style={st.wrap}>
+      <AiDisclosureBanner context="match" compact />
       <header style={st.header}>
         <div>
           <h1 style={st.title}>Oportunidades</h1>

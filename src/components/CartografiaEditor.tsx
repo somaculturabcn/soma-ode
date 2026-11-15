@@ -4,6 +4,7 @@
 
 import { useState } from 'react';
 import type { Cartografia } from '../types/artist';
+import AiDisclosureBanner from './AiDisclosureBanner';
 
 interface CartografiaEditorProps {
   value: Cartografia | undefined;
@@ -285,6 +286,7 @@ export default function CartografiaEditor({
   if (mode === 'compact') {
     return (
       <div style={s.compact}>
+        <AiDisclosureBanner context="cartografia" compact />
         <div style={s.compactHint}>
           ⭐ <b>Cartografia — início rápido.</b> Preenche apenas o essencial
           agora. Expande mais tarde depois da entrevista completa com o
@@ -342,6 +344,7 @@ export default function CartografiaEditor({
 
   return (
     <div style={s.wrap}>
+      <AiDisclosureBanner context="cartografia" compact />
       {/* RAIZ */}
       {dim('raiz', 'RAIZ', 'identidade artística profunda', raizStatus(c), <>
         <label style={s.fieldLabel}>Origens</label>

@@ -10,14 +10,16 @@ type Props = {
   mode: 'login' | 'register'
   onBack: () => void
   onSuccess: (user: { email: string; id: string; role?: UserRole }) => void
+  onShowPrivacy?: () => void
 }
 
-export default function AuthScreen({ mode: initialMode, onBack, onSuccess }: Props) {
+export default function AuthScreen({ mode: initialMode, onBack, onSuccess, onShowPrivacy }: Props) {
   const [mode, setMode] = useState(initialMode)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [role, setRole] = useState<UserRole | ''>('')
+  const [consentRgpd, setConsentRgpd] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -38,6 +40,9 @@ export default function AuthScreen({ mode: initialMode, onBack, onSuccess }: Pro
       if (mode === 'register' && !role) {
         throw new Error('Escolhe se és Artista ou Produtor/a')
       }
+      if (mode === 'register' && !consentRgpd) {
+        throw new Error('Precisas aceitar a Política de Privacidade para criar conta')
+      }
 
       if (hasSupabase) {
         // ── Supabase auth ────────────────────────────────────────
@@ -45,7 +50,13 @@ export default function AuthScreen({ mode: initialMode, onBack, onSuccess }: Pro
           const { data, error: err } = await supabase.auth.signUp({
             email: email.trim(),
             password,
-            options: { data: { name: name.trim() || undefined, role } }
+            options: { data: {
+              name: name.trim() || undefined,
+              role,
+              rgpd_consent: true,
+              rgpd_consent_at: new Date().toISOString(),
+              rgpd_consent_version: '1.0',
+            } }
           })
           if (err) throw new Error(translateError(err.message))
           if (data.user) {
@@ -73,7 +84,12 @@ export default function AuthScreen({ mode: initialMode, onBack, onSuccess }: Pro
         // ── Fallback localStorage (sem Supabase) ─────────────────
         const userId = 'local_' + email.trim().replace(/[^a-z0-9]/g, '_')
         const userRole = role || 'artista'
-        const userData = { email: email.trim(), id: userId, name: name.trim(), role: userRole }
+        const userData = {
+          email: email.trim(), id: userId, name: name.trim(), role: userRole,
+          rgpd_consent: true,
+          rgpd_consent_at: new Date().toISOString(),
+          rgpd_consent_version: '1.0',
+        }
         localStorage.setItem('soma_user', JSON.stringify(userData))
         onSuccess(userData)
       }
@@ -181,6 +197,33 @@ export default function AuthScreen({ mode: initialMode, onBack, onSuccess }: Pro
             />
           </div>
 
+          {/* Consentimento RGPD — só no registo */}
+          {mode === 'register' && (
+            <div style={st.consentBox}>
+              <label style={st.consentLabel}>
+                <input
+                  type="checkbox"
+                  checked={consentRgpd}
+                  onChange={e => setConsentRgpd(e.target.checked)}
+                  style={st.checkbox}
+                />
+                <span style={st.consentText}>
+                  Li e aceito a{' '}
+                  <span
+                    style={st.consentLink}
+                    onClick={e => { e.preventDefault(); onShowPrivacy?.() }}
+                  >
+                    Política de Privacidade
+                  </span>
+                  {' '}e autorizo o tratamento dos meus dados pessoais conforme o RGPD (UE) 2016/679 e a LOPDGDD (ES) 3/2018.
+                </span>
+              </label>
+              <p style={st.consentHint}>
+                🔒 Os teus dados são protegidos. Podes exportá-los ou apagá-los a qualquer momento nas Configurações.
+              </p>
+            </div>
+          )}
+
           {error && <div style={st.error}>{error}</div>}
           {success && <div style={st.success}>{success}</div>}
 
@@ -260,4 +303,10 @@ const st: Record<string, React.CSSProperties> = {
   success: { padding: '10px 14px', borderRadius: 8, fontSize: 13, background: 'rgba(110,243,165,0.08)', border: '1px solid rgba(110,243,165,0.3)', color: '#6ef3a5' },
   toggleText: { fontSize: 13, color: 'rgba(255,255,255,0.4)' },
   toggleLink: { color: '#60b4e8', cursor: 'pointer', fontWeight: 600 },
+  consentBox: { background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '14px 16px' },
+  consentLabel: { display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer' },
+  checkbox: { width: 18, height: 18, marginTop: 2, accentColor: '#1A6994', flexShrink: 0, cursor: 'pointer' },
+  consentText: { fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 1.6 },
+  consentLink: { color: '#60b4e8', cursor: 'pointer', textDecoration: 'underline' },
+  consentHint: { margin: '8px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.3)', lineHeight: 1.5, paddingLeft: 28 },
 }
