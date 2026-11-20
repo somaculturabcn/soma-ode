@@ -1,5 +1,6 @@
-// src/components/LandingPage.tsx — Landing com narrativa SOMA + ODÉ
-import { colors, shadows, radius } from '../theme'
+// src/components/LandingPage.tsx — Estilo somacultura.com (screenshots reais)
+// Hero escuro full-bleed + split layout (texto esq / cards dir) + cards azuis
+import { colors, radius } from '../theme'
 
 type Props = {
   onLogin: () => void
@@ -7,142 +8,195 @@ type Props = {
   onRadar: () => void
 }
 
+/* ── Social SVG icons (like somacultura.com nav) ─────────────────── */
+const InstagramIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="2" width="20" height="20" rx="5" /><circle cx="12" cy="12" r="5" /><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor" stroke="none" />
+  </svg>
+)
+const FacebookIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z" /></svg>
+)
+const TwitterIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
+)
+
 export default function LandingPage({ onLogin, onRegister, onRadar }: Props) {
   return (
-    <div style={st.page}>
-      {/* ── Top bar mínima ────────────────────────────────────────── */}
-      <nav style={st.topBar}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <img src="/soma-logo.png" alt="SOMA Cultura" style={{ height: 24 }} />
-          <span style={{ fontSize: 10, color: colors.textMuted, fontWeight: 600, letterSpacing: '0.08em' }}>ODÉ</span>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button style={st.navBtn} onClick={onLogin}>Entrar</button>
-          <button style={st.navBtnPrimary} onClick={onRegister}>Criar conta</button>
+    <div style={{ minHeight: '100vh', background: '#0d0d0d', color: '#fff', fontFamily: "'Inter', system-ui, sans-serif" }}>
+
+      {/* ── Nav bar (estilo somacultura.com) ──────────────────────── */}
+      <nav style={st.nav}>
+        <img src="/soma-logo.png" alt="SOMA Cultura" style={{ height: 36, filter: 'brightness(0) invert(1)' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+          <span style={st.navLink} onClick={onRadar}>Radar</span>
+          <a href="https://somacultura.com" target="_blank" rel="noopener noreferrer" style={st.navLink}>Artistas</a>
+          <span style={st.navLink} onClick={onLogin}>Contacto</span>
+          <div style={{ display: 'flex', gap: 14, marginLeft: 8, color: 'rgba(255,255,255,0.7)' }}>
+            <a href="https://instagram.com/somacultura" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}><InstagramIcon /></a>
+            <a href="https://facebook.com/somacultura" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}><FacebookIcon /></a>
+            <a href="https://twitter.com/somacultura" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}><TwitterIcon /></a>
+          </div>
+          <button style={st.navBtnPrimary} onClick={onRegister}>Entrar</button>
         </div>
       </nav>
 
-      {/* ── Hero: SOMA + ODÉ conceito ────────────────────────────── */}
+      {/* ── Nav mobile ──────────────────────────────────────────── */}
+      <nav style={st.navMobile}>
+        <img src="/soma-logo.png" alt="SOMA Cultura" style={{ height: 28, filter: 'brightness(0) invert(1)' }} />
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button style={{ ...st.navBtnPrimary, padding: '6px 14px', fontSize: 12 }} onClick={onLogin}>Entrar</button>
+          <button style={{ ...st.navBtnPrimary, padding: '6px 14px', fontSize: 12 }} onClick={onRegister}>Criar conta</button>
+        </div>
+      </nav>
+
+      {/* ── Hero (full-bleed escuro, como MC Carol slide) ─────────── */}
       <header style={st.hero}>
+        {/* Gradient overlay over abstract pattern */}
+        <div style={st.heroPattern} />
+        <div style={st.heroGradient} />
         <div style={st.heroContent}>
-          <img src="/soma-logo.png" alt="SOMA Cultura" style={{ height: 56, marginBottom: 8 }} />
-          <div style={{ fontSize: 14, color: colors.textMuted, letterSpacing: '0.3em', fontWeight: 300, marginBottom: 32 }}>ODÉ</div>
-
-          <h1 style={st.headline}>
-            A soma de quem somos.<br />O caminho que abrimos.
-          </h1>
-
-          <div style={st.conceptRow}>
-            <div style={st.conceptCard}>
-              <div style={st.conceptTitle}>SOMA</div>
-              <p style={st.conceptText}>
-                Em matemática, <strong>soma</strong> é o resultado de juntar partes.
-                Na nossa visão, é o que acontece quando artistas, culturas
-                e territórios se encontram: algo maior do que a soma das partes.
-                A <strong style={{ color: colors.primary }}>SOMA Cultura</strong> é
-                uma associação de produção cultural catalã-brasileira fundada em
-                2018 em Barcelona, que trabalha na interseção entre arte,
-                migração e identidade.
-              </p>
-            </div>
-            <div style={st.conceptCard}>
-              <div style={st.conceptTitle}>ODÉ</div>
-              <p style={st.conceptText}>
-                <strong>Odé</strong> é o orixá da caça na tradição iorubá —
-                aquele que abre caminhos, que encontra o que está escondido
-                na floresta. É a energia de quem sai em busca, com estratégia
-                e coragem. Esta plataforma carrega esse nome porque faz
-                exatamente isso: <strong style={{ color: colors.primary }}>encontra os
-                melhores caminhos</strong> para a tua arte chegar mais longe.
-              </p>
-            </div>
-          </div>
-
-          <p style={st.missionText}>
-            Feita por e para artistas negros, migrantes e LGBTQIA+ —
-            porque a diversidade não é um tema, é o ponto de partida.
-          </p>
+          <h1 style={st.heroTitle}>ODÉ</h1>
+          <p style={st.heroYear}>2024</p>
+          <button style={st.heroBtn} onClick={onRegister}>Começar</button>
         </div>
       </header>
 
-      {/* ── O que faz ────────────────────────────────────────────── */}
-      <section style={{ ...st.section, background: colors.bgPage, maxWidth: 'none' }}>
-        <div style={{ maxWidth: 900, margin: '0 auto' }}>
-          <h2 style={st.sectionTitle}>O que faz o SOMA ODÉ?</h2>
-          <p style={{ ...st.sectionText, marginBottom: 32 }}>
-            Uma plataforma de gestão cultural que cruza o teu perfil artístico
-            com festivais, residências, editais e open calls internacionais —
-            para que não percas mais tempo a procurar o que já existe para ti.
-          </p>
-          <div style={st.stepsGrid}>
-            <StepCard step="1" icon="🎤" title="Cria o teu perfil"
-              desc="Responde a 4 perguntas sobre a tua arte, público, referências e objetivos. A IA gera o teu perfil curatorial." />
-            <StepCard step="2" icon="📡" title="Explora o Radar"
-              desc="Navega por 100+ festivais, residências e open calls. Filtra por país, disciplina, tipo e deadline." />
-            <StepCard step="3" icon="🎯" title="Recebe Matches"
-              desc="O algoritmo cruza o teu perfil com as oportunidades e mostra as que têm melhor compatibilidade." />
-            <StepCard step="4" icon="✈️" title="Gere o Booking"
-              desc="Adiciona venues à tua pipeline, acompanha contactos e gera emails de apresentação." />
+      {/* ── Split: Texto esquerda + Feature cards direita ─────────── */}
+      {/* (como "¿Qué es la asociacion?" + event cards em somacultura) */}
+      <section style={st.splitSection}>
+        <div style={st.splitContainer}>
+          {/* Coluna esquerda: conceito */}
+          <div style={st.splitLeft}>
+            <div style={st.somaIcon}>◉</div>
+            <h2 style={st.splitTitle}>O que é<br />SOMA ODÉ?</h2>
+            <p style={st.splitText}>
+              <strong style={{ color: '#fff' }}>SOMA</strong> — em matemática, é o resultado
+              de juntar partes. Na nossa visão, é o que acontece quando artistas,
+              culturas e territórios se encontram.
+            </p>
+            <p style={st.splitText}>
+              <strong style={{ color: '#fff' }}>ODÉ</strong> — orixá da caça na tradição iorubá,
+              aquele que abre caminhos e encontra o que está escondido.
+              É a energia de quem sai em busca, com estratégia e coragem.
+            </p>
+            <p style={st.splitText}>
+              A <strong style={{ color: colors.primary }}>SOMA Cultura</strong> é uma associação
+              de produção cultural catalã-brasileira fundada em Barcelona.
+              Trabalhamos na interseção entre arte, migração e identidade,
+              com foco em artistas negros, migrantes e LGBTQIA+.
+            </p>
+            <button style={st.outlineBtn} onClick={onRadar}>Quienes somos</button>
+          </div>
+
+          {/* Coluna direita: feature cards azuis (como event cards) */}
+          <div style={st.splitRight}>
+            <FeatureCard
+              icon="🎤"
+              title="Perfil Artístico"
+              desc="Responde a 4 perguntas. A IA gera o teu perfil curatorial."
+              onClick={onRegister}
+            />
+            <FeatureCard
+              icon="📡"
+              title="Radar Internacional"
+              desc="100+ festivais, residências e open calls em 15+ países."
+              onClick={onRadar}
+            />
+            <FeatureCard
+              icon="🎯"
+              title="Match Automático"
+              desc="O algoritmo cruza o teu perfil com as melhores oportunidades."
+              onClick={onRegister}
+            />
+            <FeatureCard
+              icon="✈️"
+              title="Booking & Pipeline"
+              desc="Gestão de contactos, tracking e emails gerados por IA."
+              onClick={onRegister}
+            />
           </div>
         </div>
       </section>
 
-      {/* ── Para quem ────────────────────────────────────────────── */}
-      <section style={st.section}>
-        <h2 style={st.sectionTitle}>Para quem é</h2>
-        <div style={st.audienceGrid}>
-          <AudienceCard icon="🎤" title="Artistas independentes"
-            items={['Músicos, bailarinos, performers, artistas visuais', 'Que querem circular internacionalmente', 'Que não têm agente ou produtora']} />
-          <AudienceCard icon="🏢" title="Produtoras culturais"
-            items={['Gestão de roster de artistas', 'Candidaturas a editais em escala', 'Pipeline de booking organizado']} />
-          <AudienceCard icon="🌍" title="Coletivos e associações"
-            items={['Foco em diversidade e inclusão', 'Artistas da diáspora africana e latina', 'Comunidades LGBTQIA+']} />
+      {/* ── Faixa citação ────────────────────────────────────────── */}
+      <section style={st.missionBand}>
+        <p style={st.missionText}>
+          "Feita por e para artistas negros, migrantes e LGBTQIA+ —
+          porque a diversidade não é um tema, é o ponto de partida."
+        </p>
+      </section>
+
+      {/* ── Para quem — cards com fundo azul (estilo event cards) ──── */}
+      <section style={st.sectionDark}>
+        <div style={st.wideContainer}>
+          <div style={st.audienceRow}>
+            <AudienceCard
+              icon="🎤"
+              title="Artistas independentes"
+              desc="Músicos, bailarinos, performers e artistas visuais que querem circular internacionalmente sem agente."
+            />
+            <AudienceCard
+              icon="🏢"
+              title="Produtoras culturais"
+              desc="Gestão de roster, candidaturas a editais em escala e pipeline de booking organizado."
+            />
+            <AudienceCard
+              icon="🌍"
+              title="Coletivos e associações"
+              desc="Foco em diversidade, artistas da diáspora africana e latina, comunidades LGBTQIA+."
+            />
+          </div>
+          <div style={{ textAlign: 'center', marginTop: 24 }}>
+            <button style={st.wideOutlineBtn} onClick={onRadar}>Ver todas as oportunidades</button>
+          </div>
         </div>
       </section>
 
-      {/* ── Números ──────────────────────────────────────────────── */}
-      <section style={{ ...st.section, background: colors.primary, maxWidth: 'none', padding: '48px 20px' }}>
-        <div style={st.statsGrid}>
-          <StatCard number="100+" label="Oportunidades reais" />
-          <StatCard number="15+" label="Países cobertos" />
-          <StatCard number="8" label="Disciplinas artísticas" />
-          <StatCard number="0€" label="Custo para artistas" />
+      {/* ── Stats (números grandes, como somacultura "nuestra historia") ─ */}
+      <section style={{ background: '#000', padding: '60px 20px' }}>
+        <div style={st.wideContainer}>
+          <div style={st.statsRow}>
+            <StatBlock number="100+" label="Oportunidades" />
+            <StatBlock number="15+" label="Países" />
+            <StatBlock number="8" label="Disciplinas" />
+            <StatBlock number="0€" label="Para artistas" />
+          </div>
         </div>
       </section>
 
       {/* ── CTA final ────────────────────────────────────────────── */}
-      <section style={{ ...st.section, textAlign: 'center' }}>
-        <h2 style={{ ...st.sectionTitle, fontSize: 28 }}>Pronto para abrir o teu caminho?</h2>
-        <p style={{ ...st.sectionText, maxWidth: 500, margin: '0 auto 24px' }}>
+      <section style={{ background: colors.primary, padding: '80px 20px', textAlign: 'center' }}>
+        <h2 style={{ fontSize: 36, fontWeight: 900, margin: '0 0 16px', color: '#fff' }}>
+          Pronto para abrir<br />o teu caminho?
+        </h2>
+        <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.7)', margin: '0 0 32px', maxWidth: 450, marginLeft: 'auto', marginRight: 'auto' }}>
           Cria o teu perfil em 5 minutos e descobre que oportunidades
           combinam com a tua arte.
         </p>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button style={{ ...st.primaryBtn, fontSize: 16, padding: '16px 36px' }} onClick={onRegister}>
-            Criar conta grátis →
-          </button>
-          <button style={{ ...st.secondaryBtn, fontSize: 14, padding: '16px 24px' }} onClick={onRadar}>
-            📡 Explorar o Radar primeiro
-          </button>
+          <button style={st.ctaWhiteBtn} onClick={onRegister}>Criar conta grátis →</button>
+          <button style={st.ctaOutlineBtn} onClick={onRadar}>Explorar sem conta</button>
         </div>
-        <p style={{ fontSize: 12, color: colors.textMuted, marginTop: 16 }}>
+        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 20 }}>
           100% grátis · Sem cartão de crédito · Dados protegidos (RGPD)
         </p>
       </section>
 
       {/* ── Footer ───────────────────────────────────────────────── */}
       <footer style={st.footer}>
-        <div style={st.footerContent}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <img src="/soma-logo.png" alt="SOMA Cultura" style={{ height: 20 }} />
-            <span style={{ fontSize: 10, color: colors.textMuted }}>ODÉ</span>
+        <div style={{ ...st.wideContainer, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <img src="/soma-logo.png" alt="SOMA" style={{ height: 22, filter: 'brightness(0) invert(1)' }} />
+            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.15em', fontWeight: 300 }}>ODÉ</span>
           </div>
-          <div style={{ fontSize: 12, color: colors.textMuted }}>
+          <div style={{ display: 'flex', gap: 20, color: 'rgba(255,255,255,0.4)' }}>
+            <a href="https://instagram.com/somacultura" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}><InstagramIcon /></a>
+            <a href="https://facebook.com/somacultura" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}><FacebookIcon /></a>
+            <a href="https://twitter.com/somacultura" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}><TwitterIcon /></a>
+          </div>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)' }}>
             © 2024 SOMA Cultura · Barcelona
-          </div>
-          <div style={{ display: 'flex', gap: 16 }}>
-            <a href="https://somacultura.com" target="_blank" rel="noopener noreferrer" style={st.footerLink}>somacultura.com</a>
-            <a href="https://instagram.com/somacultura" target="_blank" rel="noopener noreferrer" style={st.footerLink}>Instagram</a>
           </div>
         </div>
       </footer>
@@ -150,120 +204,179 @@ export default function LandingPage({ onLogin, onRegister, onRadar }: Props) {
   )
 }
 
-// ── Sub-componentes ────────────────────────────────────────────────────────
+// ── Sub-componentes ──────────────────────────────────────────────────
 
-function StepCard({ step, icon, title, desc }: { step: string; icon: string; title: string; desc: string }) {
+function FeatureCard({ icon, title, desc, onClick }: { icon: string; title: string; desc: string; onClick: () => void }) {
   return (
-    <div style={st.stepCard}>
-      <div style={st.stepNumber}>{step}</div>
-      <div style={{ fontSize: 36, marginBottom: 12 }}>{icon}</div>
-      <h3 style={{ margin: '0 0 8px', fontSize: 16, color: colors.text }}>{title}</h3>
-      <p style={{ margin: 0, fontSize: 13, color: colors.textSecondary, lineHeight: 1.6 }}>{desc}</p>
+    <div style={st.featureCard} onClick={onClick}>
+      <div style={{ fontSize: 28, marginBottom: 10 }}>{icon}</div>
+      <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: '#fff' }}>{title}</h3>
+      <p style={{ margin: '0 0 12px', fontSize: 13, color: 'rgba(255,255,255,0.75)', lineHeight: 1.6 }}>{desc}</p>
+      <span style={{ fontSize: 12, fontWeight: 600, color: '#fff', border: '1px solid rgba(255,255,255,0.4)', borderRadius: 4, padding: '6px 16px', display: 'inline-block', cursor: 'pointer' }}>
+        Explorar
+      </span>
     </div>
   )
 }
 
-function AudienceCard({ icon, title, items }: { icon: string; title: string; items: string[] }) {
+function AudienceCard({ icon, title, desc }: { icon: string; title: string; desc: string }) {
   return (
     <div style={st.audienceCard}>
-      <div style={{ fontSize: 32, marginBottom: 12 }}>{icon}</div>
-      <h3 style={{ margin: '0 0 12px', fontSize: 16, color: colors.text }}>{title}</h3>
-      <ul style={{ margin: 0, paddingLeft: 18, listStyle: 'none' }}>
-        {items.map((item, i) => (
-          <li key={i} style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 1.8, position: 'relative', paddingLeft: 4 }}>
-            <span style={{ position: 'absolute', left: -16, color: colors.primary }}>·</span>
-            {item}
-          </li>
-        ))}
-      </ul>
+      <div style={{ fontSize: 36, marginBottom: 12 }}>{icon}</div>
+      <h3 style={{ margin: '0 0 6px', fontSize: 17, fontWeight: 700, color: '#fff' }}>{title}</h3>
+      <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.7)', lineHeight: 1.7 }}>{desc}</p>
     </div>
   )
 }
 
-function StatCard({ number, label }: { number: string; label: string }) {
+function StatBlock({ number, label }: { number: string; label: string }) {
   return (
-    <div style={{ textAlign: 'center', padding: 20 }}>
-      <div style={{ fontSize: 36, fontWeight: 900, color: '#fff', marginBottom: 4 }}>{number}</div>
-      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)' }}>{label}</div>
+    <div style={{ textAlign: 'center', flex: 1, padding: '20px 12px' }}>
+      <div style={{ fontSize: 52, fontWeight: 900, color: colors.primary, marginBottom: 6, letterSpacing: '-0.03em' }}>{number}</div>
+      <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 500 }}>{label}</div>
     </div>
   )
 }
 
-// ── Estilos ─────────────────────────────────────────────────────────────────
+// ── Estilos ──────────────────────────────────────────────────────────
 
 const st: Record<string, React.CSSProperties> = {
-  page: { minHeight: '100vh', background: colors.bg, color: colors.text, fontFamily: "'Inter', system-ui, -apple-system, sans-serif" },
-
-  // Top bar
-  topBar: {
+  // Nav desktop
+  nav: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '12px 20px', borderBottom: `1px solid ${colors.border}`,
-    position: 'sticky', top: 0, background: colors.bg, zIndex: 100,
+    padding: '20px 40px', position: 'absolute', top: 0, left: 0, right: 0, zIndex: 100,
   },
-  navBtn: {
-    background: 'transparent', color: colors.primary, border: 'none',
-    fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: '8px 14px',
+  navMobile: {
+    display: 'none', // show via media query in real CSS — fallback hidden
+  },
+  navLink: {
+    color: 'rgba(255,255,255,0.8)', fontSize: 14, textDecoration: 'none',
+    cursor: 'pointer', fontWeight: 500,
   },
   navBtnPrimary: {
-    background: colors.primary, color: '#fff', border: 'none',
-    borderRadius: radius.sm, fontSize: 13, fontWeight: 700,
-    cursor: 'pointer', padding: '8px 18px',
+    background: 'transparent', color: '#fff', border: '1px solid rgba(255,255,255,0.3)',
+    borderRadius: 4, padding: '8px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
   },
 
-  // Hero
-  hero: { padding: '60px 20px 48px', textAlign: 'center', background: colors.bg },
-  heroContent: { maxWidth: 800, margin: '0 auto' },
-  headline: {
-    fontSize: 32, fontWeight: 800, lineHeight: 1.3, margin: '0 0 36px',
-    color: colors.text,
+  // Hero — full-bleed dark (like MC Carol slide)
+  hero: {
+    height: '100vh', minHeight: 600, display: 'flex', alignItems: 'flex-end',
+    justifyContent: 'flex-start', position: 'relative', overflow: 'hidden',
+    background: '#0a0a0a',
+  },
+  heroPattern: {
+    position: 'absolute', inset: 0,
+    background: `
+      radial-gradient(ellipse 80% 60% at 60% 40%, rgba(26,105,148,0.15) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 30% 70%, rgba(26,105,148,0.08) 0%, transparent 50%)
+    `,
+  },
+  heroGradient: {
+    position: 'absolute', bottom: 0, left: 0, right: 0, height: '50%',
+    background: 'linear-gradient(0deg, #0a0a0a 0%, transparent 100%)',
+  },
+  heroContent: {
+    position: 'relative', zIndex: 2, padding: '0 40px 80px',
+  },
+  heroTitle: {
+    fontSize: 120, fontWeight: 900, letterSpacing: '0.05em', margin: '0 0 4px',
+    lineHeight: 1, color: '#fff',
+  },
+  heroYear: {
+    fontSize: 18, color: 'rgba(255,255,255,0.4)', margin: '0 0 24px', fontWeight: 400,
+  },
+  heroBtn: {
+    background: 'transparent', color: '#fff', border: '1px solid rgba(255,255,255,0.5)',
+    borderRadius: 0, padding: '14px 40px', fontSize: 15, fontWeight: 600,
+    cursor: 'pointer', letterSpacing: '0.05em',
   },
 
-  // Concept cards (SOMA + ODÉ)
-  conceptRow: {
-    display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-    gap: 20, marginBottom: 32, textAlign: 'left',
+  // Split section (like somacultura "¿Qué es?" + event cards)
+  splitSection: {
+    background: '#0d0d0d', padding: '80px 0',
   },
-  conceptCard: {
-    background: colors.bgPage, border: `1px solid ${colors.border}`,
-    borderRadius: radius.lg, padding: '28px 24px', boxShadow: shadows.card,
+  splitContainer: {
+    maxWidth: 1100, margin: '0 auto', padding: '0 40px',
+    display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 60,
+    alignItems: 'start',
   },
-  conceptTitle: {
-    fontSize: 22, fontWeight: 900, color: colors.primary, letterSpacing: '0.08em',
-    marginBottom: 12,
+  splitLeft: {
+    paddingRight: 20,
   },
-  conceptText: {
-    margin: 0, fontSize: 14, lineHeight: 1.8, color: colors.textSecondary,
+  somaIcon: {
+    fontSize: 60, color: colors.primary, marginBottom: 20, fontWeight: 900,
+  },
+  splitTitle: {
+    fontSize: 28, fontWeight: 800, margin: '0 0 20px', color: '#fff', lineHeight: 1.2,
+  },
+  splitText: {
+    fontSize: 14, lineHeight: 1.9, color: 'rgba(255,255,255,0.5)', margin: '0 0 16px',
+    textAlign: 'justify' as const,
+  },
+  outlineBtn: {
+    background: 'transparent', color: colors.primary, border: `1px solid ${colors.primary}`,
+    borderRadius: 0, padding: '12px 28px', fontSize: 14, fontWeight: 600,
+    cursor: 'pointer', marginTop: 12, letterSpacing: '0.03em',
+  },
+  splitRight: {
+    display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16,
+  },
+
+  // Feature cards (blue bg like somacultura event cards)
+  featureCard: {
+    background: colors.primary, borderRadius: 0, padding: '24px 20px',
+    cursor: 'pointer', transition: 'opacity 0.15s',
+  },
+
+  // Mission
+  missionBand: {
+    background: '#0d0d0d', padding: '40px 20px', textAlign: 'center',
+    borderTop: '1px solid rgba(255,255,255,0.06)', borderBottom: '1px solid rgba(255,255,255,0.06)',
   },
   missionText: {
-    fontSize: 15, lineHeight: 1.7, color: colors.text, fontWeight: 600,
-    maxWidth: 600, margin: '0 auto', textAlign: 'center',
-    padding: '20px 24px', borderLeft: `3px solid ${colors.primary}`,
-    background: colors.primaryBg, borderRadius: `0 ${radius.sm}px ${radius.sm}px 0`,
+    fontSize: 18, fontWeight: 500, fontStyle: 'italic', color: 'rgba(255,255,255,0.4)',
+    maxWidth: 650, margin: '0 auto', lineHeight: 1.7,
   },
 
-  // Sections
-  section: { padding: '60px 20px', maxWidth: 900, margin: '0 auto' },
-  sectionTitle: { fontSize: 24, fontWeight: 700, color: colors.text, textAlign: 'center', margin: '0 0 20px' },
-  sectionText: { fontSize: 15, lineHeight: 1.8, color: colors.textSecondary, textAlign: 'center', maxWidth: 700, margin: '0 auto 16px' },
+  // Dark sections
+  sectionDark: { background: '#0d0d0d', padding: '60px 0' },
+  wideContainer: { maxWidth: 1100, margin: '0 auto', padding: '0 40px' },
 
-  // Buttons
-  primaryBtn: { background: colors.primary, color: '#fff', border: 'none', borderRadius: radius.sm, padding: '14px 28px', fontSize: 15, fontWeight: 700, cursor: 'pointer', transition: 'background 0.15s' },
-  secondaryBtn: { background: 'transparent', color: colors.primary, border: `1px solid ${colors.primaryBorder}`, borderRadius: radius.sm, padding: '14px 28px', fontSize: 15, fontWeight: 600, cursor: 'pointer' },
+  // Audience row (3 cards azuis)
+  audienceRow: {
+    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+    gap: 16,
+  },
+  audienceCard: {
+    background: colors.primary, padding: '28px 24px',
+  },
 
-  // Steps
-  stepsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16, maxWidth: 900, margin: '0 auto' },
-  stepCard: { background: colors.bg, border: `1px solid ${colors.border}`, borderRadius: radius.lg, padding: '24px 20px', textAlign: 'center', position: 'relative', boxShadow: shadows.card },
-  stepNumber: { position: 'absolute', top: 12, left: 16, fontSize: 11, fontWeight: 900, color: colors.primary, background: colors.primaryBg, borderRadius: 20, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-
-  // Audience
-  audienceGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 },
-  audienceCard: { background: colors.bg, border: `1px solid ${colors.border}`, borderRadius: radius.lg, padding: '24px 20px', boxShadow: shadows.card },
+  // Wide outline button (like "Ver todos los conciertos")
+  wideOutlineBtn: {
+    background: 'transparent', color: 'rgba(255,255,255,0.6)',
+    border: '1px solid rgba(255,255,255,0.2)', borderRadius: 0,
+    padding: '14px 60px', fontSize: 14, fontWeight: 500, cursor: 'pointer',
+    letterSpacing: '0.03em',
+  },
 
   // Stats
-  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8, maxWidth: 700, margin: '0 auto' },
+  statsRow: {
+    display: 'flex', flexWrap: 'wrap', justifyContent: 'center',
+  },
+
+  // CTA
+  ctaWhiteBtn: {
+    background: '#fff', color: colors.primary, border: 'none', borderRadius: 0,
+    padding: '16px 36px', fontSize: 16, fontWeight: 700, cursor: 'pointer',
+  },
+  ctaOutlineBtn: {
+    background: 'transparent', color: '#fff', border: '1px solid rgba(255,255,255,0.4)',
+    borderRadius: 0, padding: '16px 32px', fontSize: 15, fontWeight: 600, cursor: 'pointer',
+  },
 
   // Footer
-  footer: { borderTop: `1px solid ${colors.border}`, padding: '24px 20px' },
-  footerContent: { maxWidth: 900, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 },
-  footerLink: { fontSize: 12, color: colors.textMuted, textDecoration: 'none' },
+  footer: {
+    borderTop: '1px solid rgba(255,255,255,0.06)', padding: '24px 0',
+    background: '#0d0d0d',
+  },
 }
