@@ -1,4 +1,4 @@
-// src/components/LandingPage.tsx — Tema claro (Manual da Marca SOMA)
+// src/components/LandingPage.tsx — Landing com narrativa SOMA + ODÉ
 import { colors, shadows, radius } from '../theme'
 
 type Props = {
@@ -10,68 +10,80 @@ type Props = {
 export default function LandingPage({ onLogin, onRegister, onRadar }: Props) {
   return (
     <div style={st.page}>
-      {/* ── Hero ──────────────────────────────────────────────────── */}
+      {/* ── Top bar mínima ────────────────────────────────────────── */}
+      <nav style={st.topBar}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <img src="/soma-logo.png" alt="SOMA Cultura" style={{ height: 24 }} />
+          <span style={{ fontSize: 10, color: colors.textMuted, fontWeight: 600, letterSpacing: '0.08em' }}>ODÉ</span>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button style={st.navBtn} onClick={onLogin}>Entrar</button>
+          <button style={st.navBtnPrimary} onClick={onRegister}>Criar conta</button>
+        </div>
+      </nav>
+
+      {/* ── Hero: SOMA + ODÉ conceito ────────────────────────────── */}
       <header style={st.hero}>
         <div style={st.heroContent}>
-          <div style={st.logoRow}>
-            <img src="/soma-logo.png" alt="SOMA Cultura" style={{ height: 48 }} />
-            <span style={st.logoAccent}>ODÉ</span>
-          </div>
+          <img src="/soma-logo.png" alt="SOMA Cultura" style={{ height: 56, marginBottom: 8 }} />
+          <div style={{ fontSize: 14, color: colors.textMuted, letterSpacing: '0.3em', fontWeight: 300, marginBottom: 32 }}>ODÉ</div>
+
           <h1 style={st.headline}>
-            Conecta o teu talento<br />com o mundo
+            A soma de quem somos.<br />O caminho que abrimos.
           </h1>
-          <p style={st.subheadline}>
-            Plataforma de gestão cultural que cruza artistas com festivais,
-            residências e editais internacionais. Feita por e para artistas
-            negros, migrantes e LGBTQIA+.
-          </p>
-          <div style={st.heroButtons}>
-            <button style={st.primaryBtn} onClick={onRegister}>
-              Criar conta grátis →
-            </button>
-            <button style={st.secondaryBtn} onClick={onLogin}>
-              Já tenho conta
-            </button>
+
+          <div style={st.conceptRow}>
+            <div style={st.conceptCard}>
+              <div style={st.conceptTitle}>SOMA</div>
+              <p style={st.conceptText}>
+                Em matemática, <strong>soma</strong> é o resultado de juntar partes.
+                Na nossa visão, é o que acontece quando artistas, culturas
+                e territórios se encontram: algo maior do que a soma das partes.
+                A <strong style={{ color: colors.primary }}>SOMA Cultura</strong> é
+                uma associação de produção cultural catalã-brasileira fundada em
+                2018 em Barcelona, que trabalha na interseção entre arte,
+                migração e identidade.
+              </p>
+            </div>
+            <div style={st.conceptCard}>
+              <div style={st.conceptTitle}>ODÉ</div>
+              <p style={st.conceptText}>
+                <strong>Odé</strong> é o orixá da caça na tradição iorubá —
+                aquele que abre caminhos, que encontra o que está escondido
+                na floresta. É a energia de quem sai em busca, com estratégia
+                e coragem. Esta plataforma carrega esse nome porque faz
+                exatamente isso: <strong style={{ color: colors.primary }}>encontra os
+                melhores caminhos</strong> para a tua arte chegar mais longe.
+              </p>
+            </div>
           </div>
-          <div style={{ marginTop: 12 }}>
-            <button style={{ background: 'none', border: 'none', fontSize: 13, padding: '8px 16px', color: colors.textMuted, cursor: 'pointer' }} onClick={onRadar}>
-              📡 Explorar Radar sem conta
-            </button>
-          </div>
-          <p style={st.heroNote}>
-            100% grátis · Sem cartão de crédito · Dados protegidos
+
+          <p style={st.missionText}>
+            Feita por e para artistas negros, migrantes e LGBTQIA+ —
+            porque a diversidade não é um tema, é o ponto de partida.
           </p>
         </div>
       </header>
 
-      {/* ── O que é ──────────────────────────────────────────────── */}
-      <section style={st.section}>
-        <h2 style={st.sectionTitle}>O que é o SOMA ODÉ?</h2>
-        <p style={st.sectionText}>
-          O SOMA ODÉ é uma ferramenta criada pela <strong style={{ color: colors.primary }}>SOMA Cultura</strong> (Barcelona)
-          para ajudar artistas independentes a encontrar oportunidades internacionais —
-          festivais, residências artísticas, editais, open calls e bolsas —
-          de forma organizada e inteligente.
-        </p>
-        <p style={st.sectionText}>
-          Em vez de perder horas a procurar editais espalhados pela internet,
-          o SOMA ODÉ cruza o teu perfil artístico com mais de 100 oportunidades
-          reais na Europa, Brasil e África, e mostra-te as que mais combinam contigo.
-        </p>
-      </section>
-
-      {/* ── Como funciona ────────────────────────────────────────── */}
-      <section style={{ ...st.section, background: colors.bgPage, maxWidth: 'none', padding: '60px 20px' }}>
-        <h2 style={st.sectionTitle}>Como funciona</h2>
-        <div style={st.stepsGrid}>
-          <StepCard step="1" icon="🎤" title="Cria o teu perfil"
-            desc="Responde a 4 perguntas sobre a tua arte, público, referências e objetivos. A IA gera o teu perfil curatorial automaticamente." />
-          <StepCard step="2" icon="📡" title="Explora o Radar"
-            desc="Navega por 100+ festivais, residências e open calls. Filtra por país, disciplina, tipo e deadline." />
-          <StepCard step="3" icon="🎯" title="Recebe Matches"
-            desc="O algoritmo cruza o teu perfil com as oportunidades e mostra as que têm melhor score de compatibilidade." />
-          <StepCard step="4" icon="✈️" title="Gere o Booking"
-            desc="Adiciona venues à tua pipeline, acompanha o estado de cada contacto e gera emails de apresentação." />
+      {/* ── O que faz ────────────────────────────────────────────── */}
+      <section style={{ ...st.section, background: colors.bgPage, maxWidth: 'none' }}>
+        <div style={{ maxWidth: 900, margin: '0 auto' }}>
+          <h2 style={st.sectionTitle}>O que faz o SOMA ODÉ?</h2>
+          <p style={{ ...st.sectionText, marginBottom: 32 }}>
+            Uma plataforma de gestão cultural que cruza o teu perfil artístico
+            com festivais, residências, editais e open calls internacionais —
+            para que não percas mais tempo a procurar o que já existe para ti.
+          </p>
+          <div style={st.stepsGrid}>
+            <StepCard step="1" icon="🎤" title="Cria o teu perfil"
+              desc="Responde a 4 perguntas sobre a tua arte, público, referências e objetivos. A IA gera o teu perfil curatorial." />
+            <StepCard step="2" icon="📡" title="Explora o Radar"
+              desc="Navega por 100+ festivais, residências e open calls. Filtra por país, disciplina, tipo e deadline." />
+            <StepCard step="3" icon="🎯" title="Recebe Matches"
+              desc="O algoritmo cruza o teu perfil com as oportunidades e mostra as que têm melhor compatibilidade." />
+            <StepCard step="4" icon="✈️" title="Gere o Booking"
+              desc="Adiciona venues à tua pipeline, acompanha contactos e gera emails de apresentação." />
+          </div>
         </div>
       </section>
 
@@ -98,32 +110,24 @@ export default function LandingPage({ onLogin, onRegister, onRadar }: Props) {
         </div>
       </section>
 
-      {/* ── Sobre a SOMA ─────────────────────────────────────────── */}
-      <section style={st.section}>
-        <h2 style={st.sectionTitle}>Quem somos</h2>
-        <p style={st.sectionText}>
-          A <strong style={{ color: colors.primary }}>SOMA Cultura</strong> é uma associação
-          de produção cultural catalã-brasileira fundada em 2018 em Barcelona.
-          Trabalhamos na interseção entre arte, migração e identidade, com foco
-          em artistas negros, migrantes e LGBTQIA+.
-        </p>
-        <p style={st.sectionText}>
-          O nome <strong style={{ color: colors.primary }}>ODÉ</strong> vem do orixá da caça —
-          aquele que encontra caminhos. É isso que esta plataforma faz:
-          encontra os melhores caminhos para a tua arte chegar mais longe.
-        </p>
-      </section>
-
       {/* ── CTA final ────────────────────────────────────────────── */}
-      <section style={{ ...st.section, background: colors.bgPage, textAlign: 'center', maxWidth: 'none', padding: '60px 20px' }}>
-        <h2 style={{ ...st.sectionTitle, fontSize: 28 }}>Pronto para começar?</h2>
+      <section style={{ ...st.section, textAlign: 'center' }}>
+        <h2 style={{ ...st.sectionTitle, fontSize: 28 }}>Pronto para abrir o teu caminho?</h2>
         <p style={{ ...st.sectionText, maxWidth: 500, margin: '0 auto 24px' }}>
           Cria o teu perfil em 5 minutos e descobre que oportunidades
           combinam com a tua arte.
         </p>
-        <button style={{ ...st.primaryBtn, fontSize: 16, padding: '16px 36px' }} onClick={onRegister}>
-          Criar conta grátis →
-        </button>
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button style={{ ...st.primaryBtn, fontSize: 16, padding: '16px 36px' }} onClick={onRegister}>
+            Criar conta grátis →
+          </button>
+          <button style={{ ...st.secondaryBtn, fontSize: 14, padding: '16px 24px' }} onClick={onRadar}>
+            📡 Explorar o Radar primeiro
+          </button>
+        </div>
+        <p style={{ fontSize: 12, color: colors.textMuted, marginTop: 16 }}>
+          100% grátis · Sem cartão de crédito · Dados protegidos (RGPD)
+        </p>
       </section>
 
       {/* ── Footer ───────────────────────────────────────────────── */}
@@ -190,24 +194,61 @@ function StatCard({ number, label }: { number: string; label: string }) {
 const st: Record<string, React.CSSProperties> = {
   page: { minHeight: '100vh', background: colors.bg, color: colors.text, fontFamily: "'Inter', system-ui, -apple-system, sans-serif" },
 
-  // Hero
-  hero: { padding: '80px 20px 60px', textAlign: 'center', background: colors.bg },
-  heroContent: { maxWidth: 700, margin: '0 auto' },
-  logoRow: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 24 },
-  logoAccent: { fontSize: 28, fontWeight: 300, color: colors.textMuted, letterSpacing: '0.25em' },
-  headline: { fontSize: 40, fontWeight: 800, lineHeight: 1.15, margin: '0 0 16px', color: colors.text },
-  subheadline: { fontSize: 16, lineHeight: 1.7, color: colors.textSecondary, margin: '0 0 32px', maxWidth: 560, marginLeft: 'auto', marginRight: 'auto' },
-  heroButtons: { display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 16 },
-  heroNote: { fontSize: 12, color: colors.textMuted },
+  // Top bar
+  topBar: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    padding: '12px 20px', borderBottom: `1px solid ${colors.border}`,
+    position: 'sticky', top: 0, background: colors.bg, zIndex: 100,
+  },
+  navBtn: {
+    background: 'transparent', color: colors.primary, border: 'none',
+    fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: '8px 14px',
+  },
+  navBtnPrimary: {
+    background: colors.primary, color: '#fff', border: 'none',
+    borderRadius: radius.sm, fontSize: 13, fontWeight: 700,
+    cursor: 'pointer', padding: '8px 18px',
+  },
 
-  // Buttons
-  primaryBtn: { background: colors.primary, color: '#fff', border: 'none', borderRadius: radius.sm, padding: '14px 28px', fontSize: 15, fontWeight: 700, cursor: 'pointer', transition: 'background 0.15s' },
-  secondaryBtn: { background: 'transparent', color: colors.primary, border: `1px solid ${colors.primaryBorder}`, borderRadius: radius.sm, padding: '14px 28px', fontSize: 15, fontWeight: 600, cursor: 'pointer' },
+  // Hero
+  hero: { padding: '60px 20px 48px', textAlign: 'center', background: colors.bg },
+  heroContent: { maxWidth: 800, margin: '0 auto' },
+  headline: {
+    fontSize: 32, fontWeight: 800, lineHeight: 1.3, margin: '0 0 36px',
+    color: colors.text,
+  },
+
+  // Concept cards (SOMA + ODÉ)
+  conceptRow: {
+    display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+    gap: 20, marginBottom: 32, textAlign: 'left',
+  },
+  conceptCard: {
+    background: colors.bgPage, border: `1px solid ${colors.border}`,
+    borderRadius: radius.lg, padding: '28px 24px', boxShadow: shadows.card,
+  },
+  conceptTitle: {
+    fontSize: 22, fontWeight: 900, color: colors.primary, letterSpacing: '0.08em',
+    marginBottom: 12,
+  },
+  conceptText: {
+    margin: 0, fontSize: 14, lineHeight: 1.8, color: colors.textSecondary,
+  },
+  missionText: {
+    fontSize: 15, lineHeight: 1.7, color: colors.text, fontWeight: 600,
+    maxWidth: 600, margin: '0 auto', textAlign: 'center',
+    padding: '20px 24px', borderLeft: `3px solid ${colors.primary}`,
+    background: colors.primaryBg, borderRadius: `0 ${radius.sm}px ${radius.sm}px 0`,
+  },
 
   // Sections
   section: { padding: '60px 20px', maxWidth: 900, margin: '0 auto' },
   sectionTitle: { fontSize: 24, fontWeight: 700, color: colors.text, textAlign: 'center', margin: '0 0 20px' },
   sectionText: { fontSize: 15, lineHeight: 1.8, color: colors.textSecondary, textAlign: 'center', maxWidth: 700, margin: '0 auto 16px' },
+
+  // Buttons
+  primaryBtn: { background: colors.primary, color: '#fff', border: 'none', borderRadius: radius.sm, padding: '14px 28px', fontSize: 15, fontWeight: 700, cursor: 'pointer', transition: 'background 0.15s' },
+  secondaryBtn: { background: 'transparent', color: colors.primary, border: `1px solid ${colors.primaryBorder}`, borderRadius: radius.sm, padding: '14px 28px', fontSize: 15, fontWeight: 600, cursor: 'pointer' },
 
   // Steps
   stepsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16, maxWidth: 900, margin: '0 auto' },
