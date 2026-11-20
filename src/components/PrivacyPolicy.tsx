@@ -1,3 +1,4 @@
+import { colors, shadows, radius } from '../theme'
 // src/components/PrivacyPolicy.tsx
 // SOMA ODÉ v7 — Política de Privacidade (RGPD + LOPDGDD)
 
@@ -110,7 +111,7 @@ export default function PrivacyPolicy({ onBack }: Props) {
             <p style={{ marginTop: 8 }}>
               Se não ficares satisfeito/a com a nossa resposta, podes apresentar reclamação à{' '}
               <strong>AEPD — Agencia Española de Protección de Datos</strong> (
-              <a href="https://www.aepd.es" target="_blank" rel="noopener noreferrer" style={{ color: '#60b4e8' }}>www.aepd.es</a>).
+              <a href="https://www.aepd.es" target="_blank" rel="noopener noreferrer" style={{ color: colors.primary }}>www.aepd.es</a>).
             </p>
           </Section>
 
@@ -178,15 +179,15 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 const st: Record<string, React.CSSProperties> = {
-  page: { minHeight: '100vh', background: '#000', padding: '20px 20px 60px' },
+  page: { minHeight: '100vh', background: colors.bgPage, padding: '20px 20px 60px' },
   container: { maxWidth: 680, margin: '0 auto' },
-  backBtn: { background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 13, cursor: 'pointer', padding: '4px 0', marginBottom: 16 },
-  title: { margin: '0 0 4px', fontSize: 28, fontWeight: 700, color: '#60b4e8' },
-  updated: { margin: '0 0 28px', fontSize: 12, color: 'rgba(255,255,255,0.35)' },
-  content: { color: 'rgba(255,255,255,0.7)', fontSize: 14, lineHeight: 1.7 },
-  section: { marginBottom: 28, paddingBottom: 20, borderBottom: '1px solid rgba(255,255,255,0.06)' },
-  sectionTitle: { margin: '0 0 10px', fontSize: 17, fontWeight: 700, color: '#fff' },
+  backBtn: { background: 'none', border: 'none', color: colors.textSecondary, fontSize: 13, cursor: 'pointer', padding: '4px 0', marginBottom: 16 },
+  title: { margin: '0 0 4px', fontSize: 28, fontWeight: 700, color: colors.primary },
+  updated: { margin: '0 0 28px', fontSize: 12, color: colors.textMuted },
+  content: { color: colors.text, fontSize: 14, lineHeight: 1.7 },
+  section: { marginBottom: 28, paddingBottom: 20, borderBottom: `1px solid ${colors.border}` },
+  sectionTitle: { margin: '0 0 10px', fontSize: 17, fontWeight: 700, color: colors.text },
   list: { margin: '8px 0', paddingLeft: 20, display: 'flex', flexDirection: 'column' as const, gap: 6 },
-  aiBox: { background: 'rgba(96,180,232,0.06)', border: '1px solid rgba(96,180,232,0.15)', borderRadius: 10, padding: '14px 16px', marginTop: 8 },
-  footer: { textAlign: 'center' as const, padding: '24px 0', color: 'rgba(255,255,255,0.3)', fontSize: 12 },
+  aiBox: { background: colors.primaryBg, border: '1px solid rgba(96,180,232,0.15)', borderRadius: 10, padding: '14px 16px', marginTop: 8 },
+  footer: { textAlign: 'center' as const, padding: '24px 0', color: colors.textMuted, fontSize: 12 },
 }

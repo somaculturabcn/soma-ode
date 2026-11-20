@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthProvider'
 import { loadArtistsFromSupabase } from '../data/artistsSupabaseStore'
 import { addProposalToSupabase } from '../data/proposalsSupabaseStore'
 import type { Artist } from '../types/artist'
+import { colors, shadows, radius } from '../theme'
 
 type Props = {
   opportunity: any
@@ -155,36 +156,36 @@ const s: Record<string, React.CSSProperties> = {
   modal: {
     width: '100%',
     maxWidth: 500,
-    background: '#0a0a0a',
-    border: '1px solid rgba(255,255,255,0.12)',
+    background: colors.bg,
+    border: `1px solid ${colors.border}`,
     borderRadius: 12,
     padding: 24,
-    color: '#fff',
+    color: colors.text,
   },
-  title: { margin: 0, fontSize: 20, color: '#60b4e8' },
-  subtitle: { margin: '4px 0 18px', color: 'rgba(255,255,255,0.55)', fontSize: 13 },
+  title: { margin: 0, fontSize: 20, color: colors.primary },
+  subtitle: { margin: '4px 0 18px', color: colors.textSecondary, fontSize: 13 },
   label: {
     display: 'flex',
     flexDirection: 'column',
     gap: 6,
     marginBottom: 14,
     fontSize: 12,
-    color: 'rgba(255,255,255,0.7)',
+    color: colors.text,
     letterSpacing: '0.05em',
   },
   input: {
-    background: '#000',
-    color: '#fff',
-    border: '1px solid rgba(255,255,255,0.14)',
+    background: colors.bgPage,
+    color: colors.text,
+    border: `1px solid ${colors.border}`,
     borderRadius: 6,
     padding: '10px 12px',
     fontSize: 13,
     outline: 'none',
   },
   textarea: {
-    background: '#000',
-    color: '#fff',
-    border: '1px solid rgba(255,255,255,0.14)',
+    background: colors.bgPage,
+    color: colors.text,
+    border: `1px solid ${colors.border}`,
     borderRadius: 6,
     padding: 12,
     fontSize: 13,
@@ -193,9 +194,9 @@ const s: Record<string, React.CSSProperties> = {
   },
   actions: { display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 },
   cancelBtn: {
-    background: 'rgba(255,255,255,0.06)',
-    color: '#fff',
-    border: '1px solid rgba(255,255,255,0.12)',
+    background: colors.bgInput,
+    color: colors.text,
+    border: `1px solid ${colors.border}`,
     borderRadius: 6,
     padding: '10px 16px',
     fontSize: 13,
@@ -203,7 +204,7 @@ const s: Record<string, React.CSSProperties> = {
   },
   submitBtn: {
     background: '#1A6994',
-    color: '#fff',
+    color: colors.text,
     border: 'none',
     borderRadius: 6,
     padding: '10px 16px',
@@ -216,7 +217,7 @@ const s: Record<string, React.CSSProperties> = {
     background: 'rgba(110,243,165,0.12)',
     border: '1px solid rgba(110,243,165,0.3)',
     borderRadius: 8,
-    color: '#6ef3a5',
+    color: colors.success,
     textAlign: 'center',
     fontSize: 14,
   },

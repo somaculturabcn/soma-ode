@@ -2,6 +2,7 @@
 // SOMA ODÉ v7 — Banner de transparência sobre uso de IA (Art. 22 RGPD)
 
 import { useState } from 'react'
+import { colors, shadows, radius } from '../theme'
 
 type Props = {
   /** Contexto onde aparece: match, cartografia, comparacao */
@@ -57,7 +58,7 @@ export default function AiDisclosureBanner({ context, compact = false }: Props) 
 
 const st: Record<string, React.CSSProperties> = {
   banner: {
-    background: 'rgba(96,180,232,0.05)',
+    background: colors.primaryBg,
     border: '1px solid rgba(96,180,232,0.15)',
     borderRadius: 10,
     padding: '14px 16px',
@@ -75,19 +76,19 @@ const st: Record<string, React.CSSProperties> = {
     marginBottom: 12,
     cursor: 'pointer',
   },
-  compactText: { fontSize: 11, color: 'rgba(255,255,255,0.5)' },
-  expandBtn: { fontSize: 10, color: '#60b4e8', whiteSpace: 'nowrap' as const, flexShrink: 0 },
+  compactText: { fontSize: 11, color: colors.textSecondary },
+  expandBtn: { fontSize: 10, color: colors.primary, whiteSpace: 'nowrap' as const, flexShrink: 0 },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  headerText: { fontSize: 13, fontWeight: 600, color: '#60b4e8' },
-  collapseBtn: { fontSize: 14, color: 'rgba(255,255,255,0.3)', cursor: 'pointer', padding: '0 4px' },
-  detail: { margin: '0 0 10px', fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 },
+  headerText: { fontSize: 13, fontWeight: 600, color: colors.primary },
+  collapseBtn: { fontSize: 14, color: colors.textMuted, cursor: 'pointer', padding: '0 4px' },
+  detail: { margin: '0 0 10px', fontSize: 12, color: colors.textSecondary, lineHeight: 1.6 },
   footer: { display: 'flex', gap: 8, flexWrap: 'wrap' as const },
   badge: {
     fontSize: 10,
     fontWeight: 600,
     padding: '3px 8px',
     borderRadius: 6,
-    background: 'rgba(96,180,232,0.08)',
+    background: colors.primaryBg,
     color: 'rgba(96,180,232,0.7)',
     border: '1px solid rgba(96,180,232,0.12)',
   },

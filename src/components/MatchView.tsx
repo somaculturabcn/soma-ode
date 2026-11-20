@@ -46,6 +46,7 @@ import {
   parseCsv,
 } from '../utils/matchHelpers'
 import { searchWithGemini } from '../utils/geminiScout'
+import { colors, shadows, radius } from '../theme'
 
 export default function MatchView() {
   const { user } = useAuth()
@@ -510,7 +511,7 @@ export default function MatchView() {
               : `${filteredBase.length} de ${allOpportunities.length}`}
             {webResults.length > 0 && ` · ${webResults.length} novas`}
             {urgentCount > 0 && <span style={{ color: '#ff8a8a', marginLeft: 8 }}>⚠️ {urgentCount} urgentes</span>}
-            {isProducer && <span style={{ color: '#60b4e8', marginLeft: 8, fontSize: 11 }}>· visão producer</span>}
+            {isProducer && <span style={{ color: colors.primary, marginLeft: 8, fontSize: 11 }}>· visão producer</span>}
           </p>
         </div>
 
@@ -531,19 +532,19 @@ export default function MatchView() {
       {activeScout && (
         <div style={st.scoutBanner}>
           <div>
-            <span style={{ color: 'rgba(255,255,255,0.6)' }}>🔍</span>
+            <span style={{ color: colors.textSecondary }}>🔍</span>
             <strong> {activeScout.name}</strong>
             {activeScout.selectedDisciplines && activeScout.selectedDisciplines.length > 0 && (
-              <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginLeft: 8 }}>
+              <span style={{ color: colors.textSecondary, fontSize: 11, marginLeft: 8 }}>
                 [{safeArr(activeScout.selectedDisciplines).join(', ')}]
               </span>
             )}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {webLoading && <span style={{ color: '#60b4e8', fontSize: 12 }}>⟳ A pesquisar com Gemini...</span>}
+            {webLoading && <span style={{ color: colors.primary, fontSize: 12 }}>⟳ A pesquisar com Gemini...</span>}
             {webNote && !webLoading && (
-              <span style={{ fontSize: 12, color: webMethod === 'grounding' ? '#6ef3a5' : '#ffcf5c' }}>
+              <span style={{ fontSize: 12, color: webMethod === 'grounding' ? '#6ef3a5' : colors.admin }}>
                 {webMethod === 'grounding' ? '🌐' : '🧠'} {webNote}
               </span>
             )}
@@ -586,7 +587,7 @@ export default function MatchView() {
             <h2 style={st.sectionTitle}>
               {webMethod === 'grounding' ? '🌐 Google Search' : '🧠 Gemini'} — {webResults.length} encontradas
             </h2>
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: '4px 0 0' }}>
+            <p style={{ fontSize: 12, color: colors.textSecondary, margin: '4px 0 0' }}>
               Guarda as relevantes → edita deadline e notas → associa ao artista
             </p>
           </div>
@@ -599,7 +600,7 @@ export default function MatchView() {
           <div style={st.sectionHeader}>
             <h2 style={st.sectionTitle}>
               📁 Base — {filteredBase.length} relevantes
-              <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginLeft: 8 }}>
+              <span style={{ color: colors.textSecondary, fontSize: 11, marginLeft: 8 }}>
                 (score ≥ {SCORE_THRESHOLD}%)
               </span>
             </h2>

@@ -14,6 +14,7 @@ import { materialsCount, cartografiaCount } from '../types/artist'
 import CountryPicker from './CountryPicker'
 import ProjectDossierUpload from './ProjectDossierUpload'
 import type { ExtractedDossier } from '../services/pdfExtractor'
+import { colors, shadows, radius } from '../theme'
 
 const SECTIONS = [
   { id: '01', label: 'Identidade' },
@@ -397,7 +398,7 @@ export default function ArtistPortal() {
   // ── Nunca bloquear o artista — se não tem perfil, mostra formulário vazio ──
   if (!artist) return (
     <div style={pt.center}>
-      <p style={{ color: 'rgba(255,255,255,0.4)' }}>Erro ao carregar. Tenta recarregar a página.</p>
+      <p style={{ color: colors.textSecondary }}>Erro ao carregar. Tenta recarregar a página.</p>
     </div>
   )
 
@@ -414,7 +415,7 @@ export default function ArtistPortal() {
           <span style={{ fontSize: 24 }}>👋</span>
           <div>
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>Bem-vindo/a ao SOMA ODÉ!</div>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>
+            <div style={{ fontSize: 13, color: colors.text }}>
               O teu perfil foi criado. Preenche os teus dados e guarda — a equipa SOMA será notificada.
             </div>
           </div>
@@ -787,15 +788,15 @@ function Section07({ data, onChange, onSave, artistId }: {
             <div>
               <strong>Projeto {i + 1}: {p.name || 'Sem nome'}</strong>
               {p.dossierFileName && (
-                <span style={{ fontSize: 11, color: '#6ef3a5', marginLeft: 8 }}>📄 {p.dossierFileName}</span>
+                <span style={{ fontSize: 11, color: colors.success, marginLeft: 8 }}>📄 {p.dossierFileName}</span>
               )}
               {p.projectKeywords && p.projectKeywords.length > 0 && (
-                <div style={{ fontSize: 11, color: '#ffcf5c', marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: colors.admin, marginTop: 4 }}>
                   {Array.isArray(p.projectKeywords) ? p.projectKeywords.join(', ') : p.projectKeywords}
                 </div>
               )}
             </div>
-            <span style={{ color: '#60b4e8', fontSize: 18 }}>{expanded === p.id ? '▲' : '▼'}</span>
+            <span style={{ color: colors.primary, fontSize: 18 }}>{expanded === p.id ? '▲' : '▼'}</span>
           </div>
           {expanded === p.id && (
             <div style={{ marginTop: 14 }}>
@@ -960,12 +961,12 @@ function C({ label, checked, onChange }: { label: string; checked: boolean; onCh
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 
 const pt: Record<string, React.CSSProperties> = {
-  center: { padding: 60, textAlign: 'center', color: '#fff' },
-  emptyInline: { padding: 40, textAlign: 'center', color: 'rgba(255,255,255,0.5)' },
-  wrap: { maxWidth: 1100, margin: '0 auto', padding: '32px 22px', color: '#fff' },
+  center: { padding: 60, textAlign: 'center', color: colors.text },
+  emptyInline: { padding: 40, textAlign: 'center', color: colors.textSecondary },
+  wrap: { maxWidth: 1100, margin: '0 auto', padding: '32px 22px', color: colors.text },
   welcomeBanner: {
     display: 'flex', alignItems: 'center', gap: 16,
-    background: 'rgba(110,243,165,0.08)', border: '1px solid rgba(110,243,165,0.25)',
+    background: colors.successBg, border: '1px solid rgba(110,243,165,0.25)',
     borderRadius: 12, padding: '16px 20px', marginBottom: 24,
   },
   hero: {
@@ -973,58 +974,58 @@ const pt: Record<string, React.CSSProperties> = {
     marginBottom: 28, flexWrap: 'wrap', gap: 20,
     paddingBottom: 22, borderBottom: '1px solid rgba(255,255,255,0.1)',
   },
-  title: { margin: 0, fontSize: 32, color: '#fff', fontWeight: 700 },
-  subtitle: { margin: '6px 0 0', color: 'rgba(255,255,255,0.55)', fontSize: 14 },
+  title: { margin: 0, fontSize: 32, color: colors.text, fontWeight: 700 },
+  subtitle: { margin: '6px 0 0', color: colors.textSecondary, fontSize: 14 },
   heroStats: { display: 'flex', gap: 28 },
   stat: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 },
-  statLabel: { fontSize: 10, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.1em', textTransform: 'uppercase' },
-  statValue: { fontSize: 22, fontWeight: 700, color: '#60b4e8' },
+  statLabel: { fontSize: 10, color: colors.textSecondary, letterSpacing: '0.1em', textTransform: 'uppercase' },
+  statValue: { fontSize: 22, fontWeight: 700, color: colors.primary },
   tabs: { display: 'flex', gap: 8, marginBottom: 24 },
-  tab: { background: 'transparent', color: 'rgba(255,255,255,0.65)', border: '1px solid rgba(255,255,255,0.14)', padding: '10px 18px', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 },
-  tabActive: { background: '#1A6994', color: '#fff', border: '1px solid #1A6994' },
-  badge: { background: '#ffcf5c', color: '#000', fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 10 },
+  tab: { background: 'transparent', color: colors.textSecondary, border: `1px solid ${colors.border}`, padding: '10px 18px', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 },
+  tabActive: { background: '#1A6994', color: colors.text, border: '1px solid #1A6994' },
+  badge: { background: colors.admin, color: '#000', fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 10 },
   sectionTabs: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 },
-  sectionTab: { padding: '7px 12px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.6)', borderRadius: 8, fontSize: 12, cursor: 'pointer' },
-  sectionTabActive: { background: '#1A6994', color: '#fff', border: '1px solid #1A6994' },
-  sectionBox: { background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 24 },
-  h2: { color: '#60b4e8', fontSize: 13, letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: 0, marginBottom: 20, textAlign: 'center' },
-  hint: { color: 'rgba(255,255,255,0.45)', fontSize: 12, marginBottom: 16, lineHeight: 1.5 },
+  sectionTab: { padding: '7px 12px', background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textSecondary, borderRadius: 8, fontSize: 12, cursor: 'pointer' },
+  sectionTabActive: { background: '#1A6994', color: colors.text, border: '1px solid #1A6994' },
+  sectionBox: { background: colors.bg, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 24 },
+  h2: { color: colors.primary, fontSize: 13, letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: 0, marginBottom: 20, textAlign: 'center' },
+  hint: { color: colors.textSecondary, fontSize: 12, marginBottom: 16, lineHeight: 1.5 },
   message: { borderRadius: 8, padding: 10, marginBottom: 14, fontSize: 13 },
   footer: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 },
-  btn: { background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '10px 16px', fontSize: 13, cursor: 'pointer' },
-  primaryBtn: { background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 800, cursor: 'pointer' },
+  btn: { background: colors.bgInput, color: colors.text, border: `1px solid ${colors.border}`, borderRadius: 8, padding: '10px 16px', fontSize: 13, cursor: 'pointer' },
+  primaryBtn: { background: '#1A6994', color: colors.text, border: 'none', borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 800, cursor: 'pointer' },
   dangerBtn: { background: 'rgba(255,70,70,0.12)', color: '#ff8a8a', border: '1px solid rgba(255,70,70,0.25)', borderRadius: 8, padding: '8px 12px', fontSize: 12, cursor: 'pointer' },
   grid2: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 14 },
   field: { display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 14 },
-  fieldLabel: { fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', textTransform: 'uppercase' },
-  input: { background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' },
-  textarea: { background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8, padding: 12, fontSize: 13, minHeight: 90, outline: 'none', resize: 'vertical', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' },
+  fieldLabel: { fontSize: 11, color: colors.textSecondary, letterSpacing: '0.1em', textTransform: 'uppercase' },
+  input: { background: colors.bgInput, color: colors.text, border: `1px solid ${colors.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' },
+  textarea: { background: colors.bgInput, color: colors.text, border: `1px solid ${colors.border}`, borderRadius: 8, padding: 12, fontSize: 13, minHeight: 90, outline: 'none', resize: 'vertical', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' },
   chipGrid: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6, marginBottom: 14 },
-  chip: { padding: '8px 14px', background: 'transparent', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 24, fontSize: 13, cursor: 'pointer' },
-  chipActive: { background: 'rgba(26,105,148,0.3)', color: '#fff', border: '1px solid #1A6994' },
+  chip: { padding: '8px 14px', background: 'transparent', color: colors.textSecondary, border: `1px solid ${colors.border}`, borderRadius: 24, fontSize: 13, cursor: 'pointer' },
+  chipActive: { background: 'rgba(26,105,148,0.3)', color: colors.text, border: '1px solid #1A6994' },
   checkRow: { display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 14 },
-  checkItem: { display: 'flex', alignItems: 'center', gap: 8, color: 'rgba(255,255,255,0.7)', fontSize: 13, cursor: 'pointer' },
-  detail: { background: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 14, marginBottom: 12 },
-  summary: { fontSize: 14, fontWeight: 600, color: '#fff', cursor: 'pointer', marginBottom: 14 },
+  checkItem: { display: 'flex', alignItems: 'center', gap: 8, color: colors.text, fontSize: 13, cursor: 'pointer' },
+  detail: { background: colors.bgPage, border: `1px solid ${colors.border}`, borderRadius: 10, padding: 14, marginBottom: 12 },
+  summary: { fontSize: 14, fontWeight: 600, color: colors.text, cursor: 'pointer', marginBottom: 14 },
   somaBox: { marginTop: 20, padding: 18, background: 'rgba(26,105,148,0.07)', border: '1px solid rgba(26,105,148,0.35)', borderRadius: 10 },
-  somaLabel: { fontSize: 11, color: '#60b4e8', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10 },
-  somaTag: { fontSize: 10, color: 'rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: 10 },
-  somaText: { margin: 0, color: 'rgba(255,255,255,0.85)', fontSize: 14, lineHeight: 1.7, fontStyle: 'italic' },
-  projectCard: { background: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 16, marginTop: 14 },
-  dossierSection: { marginTop: 20, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.07)' },
-  dossierTitle: { fontSize: 13, fontWeight: 700, color: '#60b4e8', marginBottom: 8 },
+  somaLabel: { fontSize: 11, color: colors.primary, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10 },
+  somaTag: { fontSize: 10, color: colors.textMuted, background: colors.bgInput, padding: '2px 8px', borderRadius: 10 },
+  somaText: { margin: 0, color: colors.text, fontSize: 14, lineHeight: 1.7, fontStyle: 'italic' },
+  projectCard: { background: colors.bgPage, border: `1px solid ${colors.border}`, borderRadius: 10, padding: 16, marginTop: 14 },
+  dossierSection: { marginTop: 20, paddingTop: 16, borderTop: `1px solid ${colors.border}` },
+  dossierTitle: { fontSize: 13, fontWeight: 700, color: colors.primary, marginBottom: 8 },
   proposalsList: { display: 'grid', gap: 14 },
-  proposalCard: { background: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 18 },
+  proposalCard: { background: colors.bgPage, border: `1px solid ${colors.border}`, borderRadius: 10, padding: 18 },
   proposalHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: 10, alignItems: 'center' },
   statusBadge: { color: '#000', padding: '3px 10px', borderRadius: 14, fontSize: 11, fontWeight: 700 },
-  deadline: { color: '#ffcf5c', fontSize: 12, fontWeight: 600 },
-  proposalTitle: { margin: '0 0 6px', fontSize: 18, color: '#fff' },
-  proposalMeta: { margin: '0 0 12px', color: 'rgba(255,255,255,0.55)', fontSize: 13 },
-  notesBox: { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: 12, marginBottom: 12 },
-  notesLabel: { fontSize: 11, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.05em' },
-  notes: { margin: '4px 0 0', color: 'rgba(255,255,255,0.85)', lineHeight: 1.5, fontSize: 13 },
-  linkButton: { background: 'transparent', color: '#60b4e8', border: '1px solid rgba(96,180,232,0.3)', padding: '6px 12px', borderRadius: 6, fontSize: 13, cursor: 'pointer', marginBottom: 12 },
+  deadline: { color: colors.admin, fontSize: 12, fontWeight: 600 },
+  proposalTitle: { margin: '0 0 6px', fontSize: 18, color: colors.text },
+  proposalMeta: { margin: '0 0 12px', color: colors.textSecondary, fontSize: 13 },
+  notesBox: { background: colors.bgInput, border: `1px solid ${colors.border}`, borderRadius: 8, padding: 12, marginBottom: 12 },
+  notesLabel: { fontSize: 11, color: colors.textSecondary, letterSpacing: '0.05em' },
+  notes: { margin: '4px 0 0', color: colors.text, lineHeight: 1.5, fontSize: 13 },
+  linkButton: { background: 'transparent', color: colors.primary, border: '1px solid rgba(96,180,232,0.3)', padding: '6px 12px', borderRadius: 6, fontSize: 13, cursor: 'pointer', marginBottom: 12 },
   actions: { display: 'flex', gap: 10, marginTop: 14 },
-  acceptBtn: { background: 'rgba(110,243,165,0.18)', color: '#6ef3a5', border: '1px solid rgba(110,243,165,0.35)', padding: '10px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' },
+  acceptBtn: { background: 'rgba(110,243,165,0.18)', color: colors.success, border: '1px solid rgba(110,243,165,0.35)', padding: '10px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' },
   refuseBtn: { background: 'rgba(255,70,70,0.12)', color: '#ff8a8a', border: '1px solid rgba(255,70,70,0.25)', padding: '10px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' },
 }

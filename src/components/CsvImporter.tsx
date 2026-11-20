@@ -6,6 +6,7 @@
 import { useState, useRef } from 'react'
 import type { Opportunity, OpportunityType } from '../types/opportunity'
 import { addManualOpportunity } from '../data/manualOpportunitiesStore'
+import { colors, shadows, radius } from '../theme'
 
 interface Props {
   onClose: () => void
@@ -218,8 +219,8 @@ export default function CsvImporter({ onClose, onImported }: Props) {
 
             <div style={st.dropzone} onClick={() => fileRef.current?.click()}>
               <div style={{ fontSize: 32, marginBottom: 8 }}>📄</div>
-              <div style={{ color: '#60b4e8', fontWeight: 600, fontSize: 14 }}>Clica para selecionar CSV</div>
-              <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, marginTop: 4 }}>
+              <div style={{ color: colors.primary, fontWeight: 600, fontSize: 14 }}>Clica para selecionar CSV</div>
+              <div style={{ color: colors.textMuted, fontSize: 12, marginTop: 4 }}>
                 Suporta CSV, TSV (tab), separador ; ou ,
               </div>
             </div>
@@ -232,8 +233,8 @@ export default function CsvImporter({ onClose, onImported }: Props) {
         {step === 'preview' && (
           <div style={st.body}>
             <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>
-                {parsed.headers.length} colunas · {parsed.rows.length} linhas · <strong style={{ color: '#6ef3a5' }}>{opportunities.length} oportunidades válidas</strong>
+              <span style={{ fontSize: 13, color: colors.textSecondary }}>
+                {parsed.headers.length} colunas · {parsed.rows.length} linhas · <strong style={{ color: colors.success }}>{opportunities.length} oportunidades válidas</strong>
               </span>
               <button onClick={() => { setStep('upload'); setError('') }} style={st.backBtn}>← Voltar</button>
             </div>
@@ -256,7 +257,7 @@ export default function CsvImporter({ onClose, onImported }: Props) {
                   {opportunities.slice(0, 50).map((o, i) => (
                     <tr key={o.id}>
                       <td style={st.td}>{i + 1}</td>
-                      <td style={{ ...st.td, fontWeight: 600, color: '#fff' }}>{o.title}</td>
+                      <td style={{ ...st.td, fontWeight: 600, color: colors.text }}>{o.title}</td>
                       <td style={st.td}>{o.organization}</td>
                       <td style={st.td}>{o.country}</td>
                       <td style={st.td}>{o.city}</td>
@@ -270,7 +271,7 @@ export default function CsvImporter({ onClose, onImported }: Props) {
             </div>
 
             {opportunities.length > 50 && (
-              <div style={{ textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>
+              <div style={{ textAlign: 'center', fontSize: 12, color: colors.textMuted, marginTop: 8 }}>
                 Mostrando 50 de {opportunities.length}
               </div>
             )}
@@ -288,10 +289,10 @@ export default function CsvImporter({ onClose, onImported }: Props) {
           <div style={st.body}>
             <div style={{ textAlign: 'center', padding: '40px 0' }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
-              <div style={{ fontSize: 18, color: '#6ef3a5', fontWeight: 700, marginBottom: 8 }}>
+              <div style={{ fontSize: 18, color: colors.success, fontWeight: 700, marginBottom: 8 }}>
                 {opportunities.length} oportunidade{opportunities.length !== 1 ? 's' : ''} importada{opportunities.length !== 1 ? 's' : ''}!
               </div>
-              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>
+              <p style={{ color: colors.textSecondary, fontSize: 13 }}>
                 Já aparecem no Radar. Podes editá-las individualmente ou apagá-las.
               </p>
               <button onClick={onClose} style={{ ...st.importBtn, marginTop: 16 }}>Fechar</button>
@@ -312,27 +313,27 @@ const st: Record<string, React.CSSProperties> = {
     zIndex: 1000, padding: 16,
   },
   box: {
-    background: '#050505', border: '1px solid #1A6994', borderRadius: 16,
+    background: colors.bgPage, border: '1px solid #1A6994', borderRadius: 16,
     width: 'min(960px, 96vw)', maxHeight: '94vh', display: 'flex', flexDirection: 'column',
     boxShadow: '0 0 40px rgba(26,105,148,0.3)',
   },
   header: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '18px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)',
+    padding: '18px 24px', borderBottom: `1px solid ${colors.border}`,
   },
-  title: { margin: 0, fontSize: 20, color: '#fff', fontWeight: 800 },
+  title: { margin: 0, fontSize: 20, color: colors.text, fontWeight: 800 },
   closeBtn: {
-    background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)',
+    background: 'none', border: 'none', color: colors.textMuted,
     fontSize: 18, cursor: 'pointer', padding: 4,
   },
   body: { padding: '20px 24px', flex: 1, overflowY: 'auto' },
-  desc: { color: 'rgba(255,255,255,0.5)', fontSize: 13, lineHeight: 1.7, margin: '0 0 16px' },
+  desc: { color: colors.textSecondary, fontSize: 13, lineHeight: 1.7, margin: '0 0 16px' },
   expectedCols: {
     background: 'rgba(96,180,232,0.04)', border: '1px solid rgba(96,180,232,0.1)',
     borderRadius: 8, padding: '12px 14px', marginBottom: 16,
   },
-  colsTitle: { fontSize: 11, color: '#60b4e8', fontWeight: 600, marginBottom: 4, textTransform: 'uppercase' },
-  colsList: { fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6 },
+  colsTitle: { fontSize: 11, color: colors.primary, fontWeight: 600, marginBottom: 4, textTransform: 'uppercase' },
+  colsList: { fontSize: 12, color: colors.textSecondary, lineHeight: 1.6 },
   dropzone: {
     border: '2px dashed rgba(96,180,232,0.25)', borderRadius: 12,
     padding: '40px 20px', textAlign: 'center', cursor: 'pointer',
@@ -341,30 +342,30 @@ const st: Record<string, React.CSSProperties> = {
   error: {
     marginTop: 12, padding: '10px 14px', background: 'rgba(249,112,102,0.1)',
     border: '1px solid rgba(249,112,102,0.2)', borderRadius: 8,
-    color: '#f97066', fontSize: 13,
+    color: colors.danger, fontSize: 13,
   },
-  tableWrap: { overflowX: 'auto', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' },
+  tableWrap: { overflowX: 'auto', borderRadius: 8, border: `1px solid ${colors.border}` },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 12 },
   th: {
-    textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid rgba(255,255,255,0.08)',
-    color: '#60b4e8', fontWeight: 600, fontSize: 11, textTransform: 'uppercase',
+    textAlign: 'left', padding: '8px 10px', borderBottom: `1px solid ${colors.border}`,
+    color: colors.primary, fontWeight: 600, fontSize: 11, textTransform: 'uppercase',
     whiteSpace: 'nowrap',
   },
   td: {
     padding: '7px 10px', borderBottom: '1px solid rgba(255,255,255,0.03)',
-    color: 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap', maxWidth: 200,
+    color: colors.textSecondary, whiteSpace: 'nowrap', maxWidth: 200,
     overflow: 'hidden', textOverflow: 'ellipsis',
   },
   actions: { display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 },
   cancelBtn: {
-    background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)',
+    background: colors.bgInput, color: colors.textSecondary,
     border: 'none', borderRadius: 8, padding: '10px 18px', fontSize: 13, cursor: 'pointer',
   },
   importBtn: {
-    background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8,
+    background: '#1A6994', color: colors.text, border: 'none', borderRadius: 8,
     padding: '10px 22px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
   },
   backBtn: {
-    background: 'none', border: 'none', color: '#60b4e8', fontSize: 12, cursor: 'pointer',
+    background: 'none', border: 'none', color: colors.primary, fontSize: 12, cursor: 'pointer',
   },
 }

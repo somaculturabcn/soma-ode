@@ -5,6 +5,7 @@
 
 import { useState } from 'react'
 import DeadlineBadge from './DeadlineBadge'
+import { colors, shadows, radius } from '../theme'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -59,9 +60,9 @@ const STATUS_LABELS: Record<ContractStatus, string> = {
 
 const STATUS_COLORS: Record<ContractStatus, { bg: string; color: string }> = {
   em_negociacao: { bg: 'rgba(239,159,39,0.15)', color: '#EF9F27' },
-  pendente_assinatura: { bg: 'rgba(96,180,232,0.15)', color: '#60b4e8' },
+  pendente_assinatura: { bg: 'rgba(96,180,232,0.15)', color: colors.primary },
   activo: { bg: 'rgba(29,158,117,0.15)', color: '#5dcaa5' },
-  concluido: { bg: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.4)' },
+  concluido: { bg: 'rgba(255,255,255,0.07)', color: colors.textSecondary },
   cancelado: { bg: 'rgba(220,60,60,0.12)', color: 'rgba(220,80,80,0.7)' },
 }
 
@@ -100,9 +101,9 @@ function empty(): Omit<Contract, 'id' | 'createdAt' | 'updatedAt'> {
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 
 const s = {
-  wrap: { maxWidth: 860, margin: '0 auto', padding: '24px 20px', color: '#fff', background: '#000', minHeight: '100vh' } as React.CSSProperties,
+  wrap: { maxWidth: 860, margin: '0 auto', padding: '24px 20px', color: colors.text, background: colors.bgPage, minHeight: '100vh' } as React.CSSProperties,
   title: { color: '#1A6994', fontSize: 26, fontWeight: 700, letterSpacing: '0.04em', marginBottom: 4 } as React.CSSProperties,
-  sub: { color: 'rgba(255,255,255,0.35)', fontSize: 12, letterSpacing: '0.1em', marginBottom: 28 } as React.CSSProperties,
+  sub: { color: colors.textMuted, fontSize: 12, letterSpacing: '0.1em', marginBottom: 28 } as React.CSSProperties,
   section: { marginBottom: 22 } as React.CSSProperties,
   sectionTitle: {
     fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' as const,
@@ -112,28 +113,28 @@ const s = {
   row: { display: 'flex', gap: 10, marginBottom: 10 } as React.CSSProperties,
   input: {
     width: '100%', padding: '10px 12px', marginBottom: 10,
-    background: '#0a0a0a', color: '#fff',
+    background: colors.bg, color: colors.text,
     border: '0.5px solid rgba(255,255,255,0.12)',
     borderRadius: 6, fontSize: 13, outline: 'none',
   } as React.CSSProperties,
-  half: { width: '48%', padding: '10px 12px', background: '#0a0a0a', color: '#fff', border: '0.5px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13, outline: 'none' } as React.CSSProperties,
+  half: { width: '48%', padding: '10px 12px', background: colors.bg, color: colors.text, border: '0.5px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13, outline: 'none' } as React.CSSProperties,
   select: {
     width: '100%', padding: '10px 12px', marginBottom: 10,
-    background: '#0a0a0a', color: '#fff',
+    background: colors.bg, color: colors.text,
     border: '0.5px solid rgba(255,255,255,0.12)',
     borderRadius: 6, fontSize: 13, outline: 'none', cursor: 'pointer',
   } as React.CSSProperties,
   textarea: {
     width: '100%', padding: '10px 12px', marginBottom: 10,
-    background: '#0a0a0a', color: '#fff',
+    background: colors.bg, color: colors.text,
     border: '0.5px solid rgba(255,255,255,0.12)',
     borderRadius: 6, fontSize: 13, outline: 'none',
     resize: 'vertical' as const, minHeight: 70, fontFamily: 'inherit',
   } as React.CSSProperties,
-  btn: { padding: '10px 20px', background: '#1A6994', border: 'none', color: '#fff', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' } as React.CSSProperties,
-  btnSec: { padding: '8px 14px', background: 'transparent', border: '0.5px solid rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.6)', borderRadius: 6, fontSize: 12, cursor: 'pointer' } as React.CSSProperties,
+  btn: { padding: '10px 20px', background: '#1A6994', border: 'none', color: colors.text, borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' } as React.CSSProperties,
+  btnSec: { padding: '8px 14px', background: 'transparent', border: '0.5px solid rgba(255,255,255,0.2)', color: colors.textSecondary, borderRadius: 6, fontSize: 12, cursor: 'pointer' } as React.CSSProperties,
   btnDanger: { padding: '6px 12px', background: 'transparent', border: '0.5px solid rgba(220,60,60,0.4)', color: 'rgba(220,80,80,0.8)', borderRadius: 6, fontSize: 11, cursor: 'pointer' } as React.CSSProperties,
-  card: { border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '16px 18px', marginBottom: 12, background: '#050505' } as React.CSSProperties,
+  card: { border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '16px 18px', marginBottom: 12, background: colors.bgPage } as React.CSSProperties,
 }
 
 // ─── Componente ───────────────────────────────────────────────────────────────
@@ -227,11 +228,11 @@ export default function ContractManager() {
             {[
               { label: 'Activos', value: active, color: '#5dcaa5' },
               { label: 'Em negociação', value: pending, color: '#EF9F27' },
-              { label: 'Total captado (€)', value: `${totalFee.toLocaleString('pt-PT')} €`, color: '#60b4e8' },
+              { label: 'Total captado (€)', value: `${totalFee.toLocaleString('pt-PT')} €`, color: colors.primary },
               { label: `Fee SOMA (€)`, value: `${Math.round(totalSoma).toLocaleString('pt-PT')} €`, color: '#1A6994' },
             ].map(m => (
-              <div key={m.label} style={{ background: '#050505', border: '0.5px solid rgba(255,255,255,0.07)', borderRadius: 8, padding: '12px 14px' }}>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 6, textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>{m.label}</div>
+              <div key={m.label} style={{ background: colors.bgPage, border: '0.5px solid rgba(255,255,255,0.07)', borderRadius: 8, padding: '12px 14px' }}>
+                <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 6, textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>{m.label}</div>
                 <div style={{ fontSize: 20, fontWeight: 700, color: m.color }}>{m.value}</div>
               </div>
             ))}
@@ -248,7 +249,7 @@ export default function ContractManager() {
                   fontWeight: filterStatus === st ? 700 : 400,
                   background: filterStatus === st ? 'rgba(26,105,148,0.25)' : 'transparent',
                   border: `0.5px solid ${filterStatus === st ? '#1A6994' : 'rgba(255,255,255,0.12)'}`,
-                  color: filterStatus === st ? '#60b4e8' : 'rgba(255,255,255,0.45)',
+                  color: filterStatus === st ? colors.primary : 'rgba(255,255,255,0.45)',
                 }}
               >
                 {st === 'todos' ? 'Todos' : STATUS_LABELS[st]}
@@ -264,7 +265,7 @@ export default function ContractManager() {
 
         {/* Lista vazia */}
         {contracts.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(255,255,255,0.2)', fontSize: 14 }}>
+          <div style={{ textAlign: 'center', padding: '60px 0', color: colors.textMuted, fontSize: 14 }}>
             Nenhum contrato ainda.<br />Clica em "+ Novo contrato" para começar.
           </div>
         )}
@@ -279,16 +280,16 @@ export default function ContractManager() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' as const }}>
-                    <span style={{ fontWeight: 700, fontSize: 14, color: '#fff' }}>{c.title}</span>
+                    <span style={{ fontWeight: 700, fontSize: 14, color: colors.text }}>{c.title}</span>
                     <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, fontWeight: 600, background: stStyle.bg, color: stStyle.color }}>
                       {STATUS_LABELS[c.status]}
                     </span>
-                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>{TYPE_LABELS[c.type]}</span>
+                    <span style={{ fontSize: 10, color: colors.textMuted }}>{TYPE_LABELS[c.type]}</span>
                     {c.endDate && (c.status === 'activo' || c.status === 'pendente_assinatura') && (
                       <DeadlineBadge deadline={c.endDate} />
                     )}
                   </div>
-                  <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+                  <div style={{ color: colors.textSecondary, fontSize: 12 }}>
                     🎭 {c.artistName} · 🏛 {c.counterpart}
                   </div>
                 </div>
@@ -297,14 +298,14 @@ export default function ContractManager() {
                   <div style={{ fontWeight: 700, fontSize: 16, color: '#5dcaa5' }}>
                     {c.fee.toLocaleString('pt-PT')} {c.currency}
                   </div>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>
+                  <div style={{ fontSize: 11, color: colors.textMuted }}>
                     SOMA: {somaFee.toLocaleString('pt-PT')} {c.currency} ({c.feePercentageSoma}%)
                   </div>
                 </div>
               </div>
 
               {/* Datas */}
-              <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'rgba(255,255,255,0.35)', marginBottom: 8, flexWrap: 'wrap' as const }}>
+              <div style={{ display: 'flex', gap: 16, fontSize: 12, color: colors.textMuted, marginBottom: 8, flexWrap: 'wrap' as const }}>
                 {c.startDate && <span>📅 Início: {new Date(c.startDate).toLocaleDateString('pt-PT')}</span>}
                 {c.endDate && <span>📅 Fim: {new Date(c.endDate).toLocaleDateString('pt-PT')}</span>}
                 {c.signedDate && <span>✍️ Assinado: {new Date(c.signedDate).toLocaleDateString('pt-PT')}</span>}
@@ -312,14 +313,14 @@ export default function ContractManager() {
 
               {/* Condições */}
               {c.conditions && (
-                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginBottom: 6 }}>
+                <div style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>
                   📋 {c.conditions}
                 </div>
               )}
 
               {/* Notas */}
               {c.notes && (
-                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic', marginBottom: 6 }}>
+                <div style={{ fontSize: 12, color: colors.textMuted, fontStyle: 'italic', marginBottom: 6 }}>
                   {c.notes}
                 </div>
               )}
@@ -436,7 +437,7 @@ export default function ContractManager() {
           <input style={{ ...s.half }} placeholder="% fee SOMA (normalmente 20)"
             type="number" value={form.feePercentageSoma}
             onChange={e => set('feePercentageSoma', Number(e.target.value))} />
-          <div style={{ ...s.half, display: 'flex', alignItems: 'center', color: '#5dcaa5', fontSize: 13, padding: '10px 12px', background: '#0a0a0a', borderRadius: 6, border: '0.5px solid rgba(255,255,255,0.12)' }}>
+          <div style={{ ...s.half, display: 'flex', alignItems: 'center', color: '#5dcaa5', fontSize: 13, padding: '10px 12px', background: colors.bg, borderRadius: 6, border: '0.5px solid rgba(255,255,255,0.12)' }}>
             Fee SOMA: {Math.round(form.fee * form.feePercentageSoma / 100).toLocaleString('pt-PT')} {form.currency}
           </div>
         </div>
@@ -447,17 +448,17 @@ export default function ContractManager() {
         <div style={s.sectionTitle}>03 · Datas</div>
         <div style={s.row}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 4 }}>Data de início / actuação</div>
+            <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 4 }}>Data de início / actuação</div>
             <input style={{ ...s.input, marginBottom: 0 }} type="date"
               value={form.startDate} onChange={e => set('startDate', e.target.value)} />
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 4 }}>Data de fim (se aplicável)</div>
+            <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 4 }}>Data de fim (se aplicável)</div>
             <input style={{ ...s.input, marginBottom: 0 }} type="date"
               value={form.endDate ?? ''} onChange={e => set('endDate', e.target.value)} />
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 4 }}>Data de assinatura</div>
+            <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 4 }}>Data de assinatura</div>
             <input style={{ ...s.input, marginBottom: 0 }} type="date"
               value={form.signedDate ?? ''} onChange={e => set('signedDate', e.target.value)} />
           </div>

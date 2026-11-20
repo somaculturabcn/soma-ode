@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react'
 import { realOpportunities } from '../data/realOpportunities'
 import { logActivity } from '../services/activityLog'
+import { colors, shadows, radius } from '../theme'
 
 const BOOKING_KEY = 'soma_booking_contacts'
 const PROFILE_KEY = 'soma_artist_profile'
@@ -25,10 +26,10 @@ interface BookingContact {
 
 const STATUS_CONFIG: Record<BookingStatus, { label: string; color: string; bg: string }> = {
   pendente:   { label: 'Pendente',   color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
-  enviado:    { label: 'Enviado',    color: '#60b4e8', bg: 'rgba(96,180,232,0.1)' },
-  respondido: { label: 'Respondido', color: '#ffcf5c', bg: 'rgba(255,207,92,0.1)' },
-  confirmado: { label: 'Confirmado', color: '#6ef3a5', bg: 'rgba(110,243,165,0.1)' },
-  rejeitado:  { label: 'Rejeitado',  color: '#f97066', bg: 'rgba(249,112,102,0.1)' },
+  enviado:    { label: 'Enviado',    color: colors.primary, bg: 'rgba(96,180,232,0.1)' },
+  respondido: { label: 'Respondido', color: colors.admin, bg: 'rgba(255,207,92,0.1)' },
+  confirmado: { label: 'Confirmado', color: colors.success, bg: 'rgba(110,243,165,0.1)' },
+  rejeitado:  { label: 'Rejeitado',  color: colors.danger, bg: 'rgba(249,112,102,0.1)' },
 }
 
 export default function BookingManager() {
@@ -90,8 +91,8 @@ export default function BookingManager() {
       {/* Stats */}
       <div style={st.statsRow}>
         <StatBox label="Total" value={stats.total} color="#94a3b8" />
-        <StatBox label="Enviados" value={stats.enviado} color="#60b4e8" />
-        <StatBox label="Respondidos" value={stats.respondido} color="#ffcf5c" />
+        <StatBox label="Enviados" value={stats.enviado} color={colors.primary} />
+        <StatBox label="Respondidos" value={stats.respondido} color={colors.admin} />
         <StatBox label="Confirmados" value={stats.confirmado} color="#6ef3a5" />
       </div>
 
@@ -191,15 +192,15 @@ function ContactRow({ contact, selected, onToggle, onStatusChange, onNotesChange
           style={{ accentColor: '#1A6994', width: 16, height: 16 }} />
         <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => setExpanded(!expanded)}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <strong style={{ fontSize: 14, color: '#fff' }}>{contact.venueName}</strong>
+            <strong style={{ fontSize: 14, color: colors.text }}>{contact.venueName}</strong>
             <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, color: cfg.color, background: cfg.bg }}>{cfg.label}</span>
           </div>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
+          <div style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
             {contact.city} ({contact.country}) · {contact.contactPerson || contact.contactEmail || '—'}
           </div>
         </div>
         <select value={contact.status} onChange={e => onStatusChange(e.target.value as BookingStatus)}
-          style={{ background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '4px 8px', fontSize: 11 }}>
+          style={{ background: colors.bgInput, color: colors.text, border: `1px solid ${colors.border}`, borderRadius: 6, padding: '4px 8px', fontSize: 11 }}>
           {(Object.keys(STATUS_CONFIG) as BookingStatus[]).map(s => (
             <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
           ))}
@@ -207,7 +208,7 @@ function ContactRow({ contact, selected, onToggle, onStatusChange, onNotesChange
       </div>
 
       {expanded && (
-        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${colors.border}` }}>
           <textarea
             value={contact.notes}
             onChange={e => onNotesChange(e.target.value)}
@@ -217,9 +218,9 @@ function ContactRow({ contact, selected, onToggle, onStatusChange, onNotesChange
           />
           <div style={{ display: 'flex', gap: 8, marginTop: 8, justifyContent: 'flex-end' }}>
             {contact.contactEmail && (
-              <a href={`mailto:${contact.contactEmail}`} style={{ fontSize: 11, color: '#60b4e8', textDecoration: 'none' }}>📧 Enviar email</a>
+              <a href={`mailto:${contact.contactEmail}`} style={{ fontSize: 11, color: colors.primary, textDecoration: 'none' }}>📧 Enviar email</a>
             )}
-            <button onClick={onRemove} style={{ fontSize: 11, color: '#f97066', background: 'none', border: 'none', cursor: 'pointer' }}>🗑 Remover</button>
+            <button onClick={onRemove} style={{ fontSize: 11, color: colors.danger, background: 'none', border: 'none', cursor: 'pointer' }}>🗑 Remover</button>
           </div>
         </div>
       )}
@@ -266,7 +267,7 @@ function AddFromRadar({ existingIds, onAdd }: {
 
   return (
     <div>
-      <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 16 }}>
+      <p style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 16 }}>
         Seleciona festivais e venues do Radar para adicionar ao teu pipeline de booking ({available.length} disponíveis)
       </p>
 
@@ -280,8 +281,8 @@ function AddFromRadar({ existingIds, onAdd }: {
                 <input type="checkbox" checked={selected.has(o.id)} onChange={() => toggle(o.id)}
                   style={{ accentColor: '#1A6994', width: 16, height: 16 }} />
                 <div>
-                  <div style={{ fontSize: 13, color: '#fff' }}>{o.title}</div>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
+                  <div style={{ fontSize: 13, color: colors.text }}>{o.title}</div>
+                  <div style={{ fontSize: 11, color: colors.textSecondary }}>
                     {o.city || ''} ({o.country}) · {o.type}
                   </div>
                 </div>
@@ -344,12 +345,12 @@ SOMA Cultura — Barcelona
   return (
     <div>
       <div style={{ marginBottom: 16 }}>
-        <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: 4 }}>Nome do artista</label>
+        <label style={{ fontSize: 11, color: colors.textSecondary, display: 'block', marginBottom: 4 }}>Nome do artista</label>
         <input style={st.input} value={artistName} onChange={e => setArtistName(e.target.value)}
           placeholder="Ex: Mimosa" />
       </div>
 
-      <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 12 }}>
+      <p style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 12 }}>
         {contacts.length > 0
           ? `Vai gerar emails para ${contacts.length} contacto(s) — pendentes ou selecionados no pipeline.`
           : 'Nenhum contacto pendente ou selecionado. Vai ao pipeline e seleciona contactos.'}
@@ -362,9 +363,9 @@ SOMA Cultura — Barcelona
       {generated && (
         <div style={{ marginTop: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <h3 style={{ margin: 0, fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>Emails gerados</h3>
+            <h3 style={{ margin: 0, fontSize: 14, color: colors.text }}>Emails gerados</h3>
             <button onClick={() => navigator.clipboard.writeText(generated)}
-              style={{ fontSize: 11, color: '#60b4e8', background: 'none', border: '1px solid rgba(96,180,232,0.3)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}>
+              style={{ fontSize: 11, color: colors.primary, background: 'none', border: '1px solid rgba(96,180,232,0.3)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}>
               📋 Copiar tudo
             </button>
           </div>
@@ -379,9 +380,9 @@ SOMA Cultura — Barcelona
 
 function StatBox({ label, value, color }: { label: string; value: number; color: string }) {
   return (
-    <div style={{ flex: 1, background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
+    <div style={{ flex: 1, background: colors.bg, border: `1px solid ${colors.border}`, borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
       <div style={{ fontSize: 24, fontWeight: 900, color }}>{value}</div>
-      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{label}</div>
+      <div style={{ fontSize: 11, color: colors.textSecondary }}>{label}</div>
     </div>
   )
 }
@@ -390,7 +391,7 @@ function FilterChip({ label, active, onClick, color }: { label: string; active: 
   return (
     <button onClick={onClick} style={{
       background: active ? (color ? `${color}20` : 'rgba(26,105,148,0.2)') : 'rgba(255,255,255,0.04)',
-      color: active ? (color || '#60b4e8') : 'rgba(255,255,255,0.5)',
+      color: active ? (color || colors.primary) : 'rgba(255,255,255,0.5)',
       border: `1px solid ${active ? (color ? `${color}40` : 'rgba(26,105,148,0.4)') : 'rgba(255,255,255,0.1)'}`,
       borderRadius: 20, padding: '5px 12px', fontSize: 12, cursor: 'pointer', fontWeight: active ? 700 : 400,
     }}>
@@ -402,19 +403,19 @@ function FilterChip({ label, active, onClick, color }: { label: string; active: 
 // ── Estilos ─────────────────────────────────────────────────────────────────
 
 const st: Record<string, React.CSSProperties> = {
-  page: { maxWidth: 1100, margin: '0 auto', padding: '28px 20px', color: '#fff' },
+  page: { maxWidth: 1100, margin: '0 auto', padding: '28px 20px', color: colors.text },
   headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 12 },
-  title: { margin: 0, fontSize: 28, color: '#60b4e8' },
-  sub: { margin: '4px 0 0', color: 'rgba(255,255,255,0.4)', fontSize: 13 },
-  tabBtn: { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
-  tabActive: { background: 'rgba(26,105,148,0.15)', color: '#fff', borderColor: 'rgba(26,105,148,0.4)' },
+  title: { margin: 0, fontSize: 28, color: colors.primary },
+  sub: { margin: '4px 0 0', color: colors.textSecondary, fontSize: 13 },
+  tabBtn: { background: colors.bgInput, color: colors.textSecondary, border: `1px solid ${colors.border}`, borderRadius: 8, padding: '8px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
+  tabActive: { background: colors.primaryBg, color: colors.text, borderColor: 'rgba(26,105,148,0.4)' },
   statsRow: { display: 'flex', gap: 10, marginBottom: 20 },
-  empty: { textAlign: 'center', color: 'rgba(255,255,255,0.4)', padding: 40, border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 12, fontSize: 14 },
-  contactCard: { background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.06)', borderLeft: '3px solid #94a3b8', borderRadius: 10, padding: '12px 14px' },
-  notesInput: { background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 10px', fontSize: 12, resize: 'vertical' as const, fontFamily: 'inherit', boxSizing: 'border-box' as const },
-  addRow: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, cursor: 'pointer' },
-  addBtn: { marginTop: 14, background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8, padding: '12px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', width: '100%' },
-  input: { background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8, padding: '10px 12px', fontSize: 14, width: '100%', boxSizing: 'border-box' as const, outline: 'none' },
-  generateBtn: { background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8, padding: '12px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer' },
-  emailOutput: { background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: 16, fontSize: 12, color: 'rgba(255,255,255,0.7)', whiteSpace: 'pre-wrap', lineHeight: 1.6, maxHeight: 500, overflowY: 'auto', fontFamily: 'monospace' },
+  empty: { textAlign: 'center', color: colors.textSecondary, padding: 40, border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 12, fontSize: 14 },
+  contactCard: { background: colors.bg, border: `1px solid ${colors.border}`, borderLeft: '3px solid #94a3b8', borderRadius: 10, padding: '12px 14px' },
+  notesInput: { background: colors.bgInput, color: colors.text, border: `1px solid ${colors.border}`, borderRadius: 8, padding: '8px 10px', fontSize: 12, resize: 'vertical' as const, fontFamily: 'inherit', boxSizing: 'border-box' as const },
+  addRow: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', border: `1px solid ${colors.border}`, borderRadius: 8, cursor: 'pointer' },
+  addBtn: { marginTop: 14, background: '#1A6994', color: colors.text, border: 'none', borderRadius: 8, padding: '12px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', width: '100%' },
+  input: { background: colors.bgInput, color: colors.text, border: `1px solid ${colors.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 14, width: '100%', boxSizing: 'border-box' as const, outline: 'none' },
+  generateBtn: { background: '#1A6994', color: colors.text, border: 'none', borderRadius: 8, padding: '12px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer' },
+  emailOutput: { background: colors.bg, border: `1px solid ${colors.border}`, borderRadius: 10, padding: 16, fontSize: 12, color: colors.text, whiteSpace: 'pre-wrap', lineHeight: 1.6, maxHeight: 500, overflowY: 'auto', fontFamily: 'monospace' },
 }

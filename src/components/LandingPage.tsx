@@ -1,7 +1,5 @@
-// src/components/LandingPage.tsx
-// SOMA ODÉ — Landing page pública
-
-import { useState } from 'react'
+// src/components/LandingPage.tsx — Tema claro (Manual da Marca SOMA)
+import { colors, shadows, radius } from '../theme'
 
 type Props = {
   onLogin: () => void
@@ -10,15 +8,13 @@ type Props = {
 }
 
 export default function LandingPage({ onLogin, onRegister, onRadar }: Props) {
-  const [showVideo, setShowVideo] = useState(false)
-
   return (
     <div style={st.page}>
       {/* ── Hero ──────────────────────────────────────────────────── */}
       <header style={st.hero}>
         <div style={st.heroContent}>
           <div style={st.logoRow}>
-            <span style={st.logo}>SOMA</span>
+            <img src="/soma-logo.png" alt="SOMA Cultura" style={{ height: 48 }} />
             <span style={st.logoAccent}>ODÉ</span>
           </div>
           <h1 style={st.headline}>
@@ -38,7 +34,7 @@ export default function LandingPage({ onLogin, onRegister, onRadar }: Props) {
             </button>
           </div>
           <div style={{ marginTop: 12 }}>
-            <button style={{ ...st.secondaryBtn, border: 'none', fontSize: 13, padding: '8px 16px', color: 'rgba(255,255,255,0.4)' }} onClick={onRadar}>
+            <button style={{ background: 'none', border: 'none', fontSize: 13, padding: '8px 16px', color: colors.textMuted, cursor: 'pointer' }} onClick={onRadar}>
               📡 Explorar Radar sem conta
             </button>
           </div>
@@ -52,7 +48,7 @@ export default function LandingPage({ onLogin, onRegister, onRadar }: Props) {
       <section style={st.section}>
         <h2 style={st.sectionTitle}>O que é o SOMA ODÉ?</h2>
         <p style={st.sectionText}>
-          O SOMA ODÉ é uma ferramenta criada pela <strong style={{ color: '#60b4e8' }}>SOMA Cultura</strong> (Barcelona)
+          O SOMA ODÉ é uma ferramenta criada pela <strong style={{ color: colors.primary }}>SOMA Cultura</strong> (Barcelona)
           para ajudar artistas independentes a encontrar oportunidades internacionais —
           festivais, residências artísticas, editais, open calls e bolsas —
           de forma organizada e inteligente.
@@ -65,7 +61,7 @@ export default function LandingPage({ onLogin, onRegister, onRadar }: Props) {
       </section>
 
       {/* ── Como funciona ────────────────────────────────────────── */}
-      <section style={{ ...st.section, background: '#050505' }}>
+      <section style={{ ...st.section, background: colors.bgPage, maxWidth: 'none', padding: '60px 20px' }}>
         <h2 style={st.sectionTitle}>Como funciona</h2>
         <div style={st.stepsGrid}>
           <StepCard step="1" icon="🎤" title="Cria o teu perfil"
@@ -93,7 +89,7 @@ export default function LandingPage({ onLogin, onRegister, onRadar }: Props) {
       </section>
 
       {/* ── Números ──────────────────────────────────────────────── */}
-      <section style={{ ...st.section, background: '#050505' }}>
+      <section style={{ ...st.section, background: colors.primary, maxWidth: 'none', padding: '48px 20px' }}>
         <div style={st.statsGrid}>
           <StatCard number="100+" label="Oportunidades reais" />
           <StatCard number="15+" label="Países cobertos" />
@@ -106,20 +102,20 @@ export default function LandingPage({ onLogin, onRegister, onRadar }: Props) {
       <section style={st.section}>
         <h2 style={st.sectionTitle}>Quem somos</h2>
         <p style={st.sectionText}>
-          A <strong style={{ color: '#60b4e8' }}>SOMA Cultura</strong> é uma associação
+          A <strong style={{ color: colors.primary }}>SOMA Cultura</strong> é uma associação
           de produção cultural catalã-brasileira fundada em 2018 em Barcelona.
           Trabalhamos na interseção entre arte, migração e identidade, com foco
           em artistas negros, migrantes e LGBTQIA+.
         </p>
         <p style={st.sectionText}>
-          O nome <strong style={{ color: '#ffcf5c' }}>ODÉ</strong> vem do orixá da caça —
+          O nome <strong style={{ color: colors.primary }}>ODÉ</strong> vem do orixá da caça —
           aquele que encontra caminhos. É isso que esta plataforma faz:
           encontra os melhores caminhos para a tua arte chegar mais longe.
         </p>
       </section>
 
       {/* ── CTA final ────────────────────────────────────────────── */}
-      <section style={{ ...st.section, background: '#050505', textAlign: 'center' }}>
+      <section style={{ ...st.section, background: colors.bgPage, textAlign: 'center', maxWidth: 'none', padding: '60px 20px' }}>
         <h2 style={{ ...st.sectionTitle, fontSize: 28 }}>Pronto para começar?</h2>
         <p style={{ ...st.sectionText, maxWidth: 500, margin: '0 auto 24px' }}>
           Cria o teu perfil em 5 minutos e descobre que oportunidades
@@ -133,11 +129,11 @@ export default function LandingPage({ onLogin, onRegister, onRadar }: Props) {
       {/* ── Footer ───────────────────────────────────────────────── */}
       <footer style={st.footer}>
         <div style={st.footerContent}>
-          <div>
-            <span style={{ fontSize: 16, fontWeight: 900, color: '#1A6994', letterSpacing: '0.1em' }}>SOMA</span>
-            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginLeft: 6 }}>ODÉ</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <img src="/soma-logo.png" alt="SOMA Cultura" style={{ height: 20 }} />
+            <span style={{ fontSize: 10, color: colors.textMuted }}>ODÉ</span>
           </div>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>
+          <div style={{ fontSize: 12, color: colors.textMuted }}>
             © 2024 SOMA Cultura · Barcelona
           </div>
           <div style={{ display: 'flex', gap: 16 }}>
@@ -157,8 +153,8 @@ function StepCard({ step, icon, title, desc }: { step: string; icon: string; tit
     <div style={st.stepCard}>
       <div style={st.stepNumber}>{step}</div>
       <div style={{ fontSize: 36, marginBottom: 12 }}>{icon}</div>
-      <h3 style={{ margin: '0 0 8px', fontSize: 16, color: '#fff' }}>{title}</h3>
-      <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 }}>{desc}</p>
+      <h3 style={{ margin: '0 0 8px', fontSize: 16, color: colors.text }}>{title}</h3>
+      <p style={{ margin: 0, fontSize: 13, color: colors.textSecondary, lineHeight: 1.6 }}>{desc}</p>
     </div>
   )
 }
@@ -167,11 +163,11 @@ function AudienceCard({ icon, title, items }: { icon: string; title: string; ite
   return (
     <div style={st.audienceCard}>
       <div style={{ fontSize: 32, marginBottom: 12 }}>{icon}</div>
-      <h3 style={{ margin: '0 0 12px', fontSize: 16, color: '#fff' }}>{title}</h3>
+      <h3 style={{ margin: '0 0 12px', fontSize: 16, color: colors.text }}>{title}</h3>
       <ul style={{ margin: 0, paddingLeft: 18, listStyle: 'none' }}>
         {items.map((item, i) => (
-          <li key={i} style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.8, position: 'relative', paddingLeft: 4 }}>
-            <span style={{ position: 'absolute', left: -16, color: '#1A6994' }}>·</span>
+          <li key={i} style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 1.8, position: 'relative', paddingLeft: 4 }}>
+            <span style={{ position: 'absolute', left: -16, color: colors.primary }}>·</span>
             {item}
           </li>
         ))}
@@ -183,8 +179,8 @@ function AudienceCard({ icon, title, items }: { icon: string; title: string; ite
 function StatCard({ number, label }: { number: string; label: string }) {
   return (
     <div style={{ textAlign: 'center', padding: 20 }}>
-      <div style={{ fontSize: 36, fontWeight: 900, color: '#1A6994', marginBottom: 4 }}>{number}</div>
-      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>{label}</div>
+      <div style={{ fontSize: 36, fontWeight: 900, color: '#fff', marginBottom: 4 }}>{number}</div>
+      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)' }}>{label}</div>
     </div>
   )
 }
@@ -192,42 +188,41 @@ function StatCard({ number, label }: { number: string; label: string }) {
 // ── Estilos ─────────────────────────────────────────────────────────────────
 
 const st: Record<string, React.CSSProperties> = {
-  page: { minHeight: '100vh', background: '#000', color: '#fff', fontFamily: 'system-ui, -apple-system, sans-serif' },
+  page: { minHeight: '100vh', background: colors.bg, color: colors.text, fontFamily: "'Inter', system-ui, -apple-system, sans-serif" },
 
   // Hero
-  hero: { padding: '80px 20px 60px', textAlign: 'center', background: 'linear-gradient(180deg, #050a10 0%, #000 100%)' },
+  hero: { padding: '80px 20px 60px', textAlign: 'center', background: colors.bg },
   heroContent: { maxWidth: 700, margin: '0 auto' },
-  logoRow: { display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 10, marginBottom: 24 },
-  logo: { fontSize: 48, fontWeight: 900, letterSpacing: '0.12em', color: '#1A6994' },
-  logoAccent: { fontSize: 32, fontWeight: 300, color: '#ffcf5c', letterSpacing: '0.25em' },
-  headline: { fontSize: 40, fontWeight: 800, lineHeight: 1.15, margin: '0 0 16px', color: '#fff' },
-  subheadline: { fontSize: 16, lineHeight: 1.7, color: 'rgba(255,255,255,0.55)', margin: '0 0 32px', maxWidth: 560, marginLeft: 'auto', marginRight: 'auto' },
+  logoRow: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 24 },
+  logoAccent: { fontSize: 28, fontWeight: 300, color: colors.textMuted, letterSpacing: '0.25em' },
+  headline: { fontSize: 40, fontWeight: 800, lineHeight: 1.15, margin: '0 0 16px', color: colors.text },
+  subheadline: { fontSize: 16, lineHeight: 1.7, color: colors.textSecondary, margin: '0 0 32px', maxWidth: 560, marginLeft: 'auto', marginRight: 'auto' },
   heroButtons: { display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 16 },
-  heroNote: { fontSize: 12, color: 'rgba(255,255,255,0.3)' },
+  heroNote: { fontSize: 12, color: colors.textMuted },
 
   // Buttons
-  primaryBtn: { background: '#1A6994', color: '#fff', border: 'none', borderRadius: 10, padding: '14px 28px', fontSize: 15, fontWeight: 700, cursor: 'pointer', transition: 'background 0.15s' },
-  secondaryBtn: { background: 'transparent', color: '#60b4e8', border: '1px solid rgba(96,180,232,0.3)', borderRadius: 10, padding: '14px 28px', fontSize: 15, fontWeight: 600, cursor: 'pointer' },
+  primaryBtn: { background: colors.primary, color: '#fff', border: 'none', borderRadius: radius.sm, padding: '14px 28px', fontSize: 15, fontWeight: 700, cursor: 'pointer', transition: 'background 0.15s' },
+  secondaryBtn: { background: 'transparent', color: colors.primary, border: `1px solid ${colors.primaryBorder}`, borderRadius: radius.sm, padding: '14px 28px', fontSize: 15, fontWeight: 600, cursor: 'pointer' },
 
   // Sections
   section: { padding: '60px 20px', maxWidth: 900, margin: '0 auto' },
-  sectionTitle: { fontSize: 24, fontWeight: 700, color: '#fff', textAlign: 'center', margin: '0 0 20px' },
-  sectionText: { fontSize: 15, lineHeight: 1.8, color: 'rgba(255,255,255,0.55)', textAlign: 'center', maxWidth: 700, margin: '0 auto 16px' },
+  sectionTitle: { fontSize: 24, fontWeight: 700, color: colors.text, textAlign: 'center', margin: '0 0 20px' },
+  sectionText: { fontSize: 15, lineHeight: 1.8, color: colors.textSecondary, textAlign: 'center', maxWidth: 700, margin: '0 auto 16px' },
 
   // Steps
   stepsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16, maxWidth: 900, margin: '0 auto' },
-  stepCard: { background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '24px 20px', textAlign: 'center', position: 'relative' },
-  stepNumber: { position: 'absolute', top: 12, left: 16, fontSize: 11, fontWeight: 900, color: '#1A6994', background: 'rgba(26,105,148,0.15)', borderRadius: 20, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  stepCard: { background: colors.bg, border: `1px solid ${colors.border}`, borderRadius: radius.lg, padding: '24px 20px', textAlign: 'center', position: 'relative', boxShadow: shadows.card },
+  stepNumber: { position: 'absolute', top: 12, left: 16, fontSize: 11, fontWeight: 900, color: colors.primary, background: colors.primaryBg, borderRadius: 20, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' },
 
   // Audience
   audienceGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 },
-  audienceCard: { background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '24px 20px' },
+  audienceCard: { background: colors.bg, border: `1px solid ${colors.border}`, borderRadius: radius.lg, padding: '24px 20px', boxShadow: shadows.card },
 
   // Stats
   statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8, maxWidth: 700, margin: '0 auto' },
 
   // Footer
-  footer: { borderTop: '1px solid rgba(255,255,255,0.06)', padding: '24px 20px' },
+  footer: { borderTop: `1px solid ${colors.border}`, padding: '24px 20px' },
   footerContent: { maxWidth: 900, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 },
-  footerLink: { fontSize: 12, color: 'rgba(255,255,255,0.4)', textDecoration: 'none' },
+  footerLink: { fontSize: 12, color: colors.textMuted, textDecoration: 'none' },
 }

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { colors, shadows, radius } from '../theme'
 
 type DocType = 'contrato' | 'dossier' | 'email' | 'proposta' | 'carta' | 'release'
 
@@ -557,7 +558,7 @@ const styles: Record<string, React.CSSProperties> = {
     maxWidth: 1100,
     margin: '0 auto',
     padding: '32px 24px',
-    color: '#fff',
+    color: colors.text,
   },
   header: {
     display: 'flex',
@@ -568,12 +569,12 @@ const styles: Record<string, React.CSSProperties> = {
   },
   title: {
     margin: 0,
-    color: '#60b4e8',
+    color: colors.primary,
     fontSize: 32,
   },
   subtitle: {
     margin: '6px 0 0',
-    color: 'rgba(255,255,255,0.55)',
+    color: colors.textSecondary,
     fontSize: 14,
   },
   actions: {
@@ -587,9 +588,9 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 22,
   },
   quickCard: {
-    background: '#111',
-    border: '1px solid rgba(255,255,255,0.1)',
-    color: '#fff',
+    background: colors.bgInput,
+    border: `1px solid ${colors.border}`,
+    color: colors.text,
     borderRadius: 12,
     padding: 16,
     cursor: 'pointer',
@@ -606,9 +607,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
   input: {
     width: '100%',
-    background: '#0a0a0a',
-    color: '#fff',
-    border: '1px solid rgba(255,255,255,0.14)',
+    background: colors.bg,
+    color: colors.text,
+    border: `1px solid ${colors.border}`,
     borderRadius: 8,
     padding: '10px 12px',
     fontSize: 13,
@@ -616,9 +617,9 @@ const styles: Record<string, React.CSSProperties> = {
     outline: 'none',
   },
   select: {
-    background: '#0a0a0a',
-    color: '#fff',
-    border: '1px solid rgba(255,255,255,0.14)',
+    background: colors.bg,
+    color: colors.text,
+    border: `1px solid ${colors.border}`,
     borderRadius: 8,
     padding: '10px 12px',
     fontSize: 13,
@@ -631,15 +632,15 @@ const styles: Record<string, React.CSSProperties> = {
   },
   empty: {
     gridColumn: '1 / -1',
-    color: 'rgba(255,255,255,0.38)',
+    color: colors.textMuted,
     textAlign: 'center',
     padding: 50,
     border: '1px dashed rgba(255,255,255,0.14)',
     borderRadius: 12,
   },
   card: {
-    background: '#111',
-    border: '1px solid rgba(255,255,255,0.09)',
+    background: colors.bgInput,
+    border: `1px solid ${colors.border}`,
     borderRadius: 12,
     padding: 16,
   },
@@ -651,14 +652,14 @@ const styles: Record<string, React.CSSProperties> = {
   },
   badge: {
     background: 'rgba(26,105,148,0.25)',
-    color: '#60b4e8',
+    color: colors.primary,
     borderRadius: 20,
     padding: '3px 9px',
     fontSize: 11,
     fontWeight: 700,
   },
   status: {
-    color: 'rgba(255,255,255,0.42)',
+    color: colors.textSecondary,
     fontSize: 11,
   },
   cardTitle: {
@@ -666,12 +667,12 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 17,
   },
   meta: {
-    color: 'rgba(255,255,255,0.45)',
+    color: colors.textSecondary,
     fontSize: 12,
     minHeight: 18,
   },
   preview: {
-    color: 'rgba(255,255,255,0.6)',
+    color: colors.textSecondary,
     fontSize: 13,
     lineHeight: 1.45,
     minHeight: 70,
@@ -684,7 +685,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   primaryBtn: {
     background: '#1A6994',
-    color: '#fff',
+    color: colors.text,
     border: 'none',
     borderRadius: 8,
     padding: '10px 14px',
@@ -693,9 +694,9 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
   },
   secondaryBtn: {
-    background: 'rgba(255,255,255,0.06)',
-    color: '#fff',
-    border: '1px solid rgba(255,255,255,0.12)',
+    background: colors.bgInput,
+    color: colors.text,
+    border: `1px solid ${colors.border}`,
     borderRadius: 8,
     padding: '9px 12px',
     fontSize: 12,
@@ -724,7 +725,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: 'min(1000px, 100%)',
     maxHeight: '92vh',
     overflowY: 'auto',
-    background: '#000',
+    background: colors.bgPage,
     border: '1px solid #1A6994',
     borderRadius: 16,
     padding: 22,
@@ -738,11 +739,11 @@ const styles: Record<string, React.CSSProperties> = {
   modalTitle: {
     margin: 0,
     fontSize: 24,
-    color: '#60b4e8',
+    color: colors.primary,
   },
   modalSubtitle: {
     margin: '4px 0 0',
-    color: 'rgba(255,255,255,0.45)',
+    color: colors.textSecondary,
     fontSize: 12,
   },
   formGrid: {
@@ -755,7 +756,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     gap: 6,
-    color: 'rgba(255,255,255,0.55)',
+    color: colors.textSecondary,
     fontSize: 12,
   },
   editorActions: {
@@ -767,9 +768,9 @@ const styles: Record<string, React.CSSProperties> = {
   textarea: {
     width: '100%',
     minHeight: 420,
-    background: '#050505',
-    color: '#fff',
-    border: '1px solid rgba(255,255,255,0.14)',
+    background: colors.bgPage,
+    color: colors.text,
+    border: `1px solid ${colors.border}`,
     borderRadius: 10,
     padding: 16,
     fontSize: 14,

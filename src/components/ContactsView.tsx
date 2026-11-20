@@ -19,6 +19,7 @@ import {
   saveManualContacts,
 } from '../data/manualContactsStore'
 import { addPipelineItem, getPipeline } from '../data/pipelineStore'
+import { colors, shadows, radius } from '../theme'
 
 type OwnedContact = Contact & {
   ownerUserId?: string
@@ -828,42 +829,42 @@ export default function ContactsView() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  wrap: { maxWidth: 1100, margin: '0 auto', padding: '24px 20px', color: '#fff' },
+  wrap: { maxWidth: 1100, margin: '0 auto', padding: '24px 20px', color: colors.text },
   header: { marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 },
   headerActions: { display: 'flex', gap: 10, flexWrap: 'wrap' },
-  title: { margin: 0, fontSize: 24, color: '#fff' },
+  title: { margin: 0, fontSize: 24, color: colors.text },
   subtitle: { margin: '4px 0 0', color: '#bbb', fontSize: 14 },
-  importSummary: { margin: '4px 0 0', color: '#6ef3a5', fontSize: 12 },
+  importSummary: { margin: '4px 0 0', color: colors.success, fontSize: 12 },
   toolbar: { display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' },
   search: {
-    flex: '1 1 300px', padding: '10px 14px', background: '#0a0a0a', color: '#fff',
+    flex: '1 1 300px', padding: '10px 14px', background: colors.bg, color: colors.text,
     border: '0.5px solid rgba(255,255,255,0.12)', borderRadius: 8, fontSize: 13, outline: 'none',
   },
   select: {
-    padding: '10px 14px', background: '#0a0a0a', color: '#fff',
+    padding: '10px 14px', background: colors.bg, color: colors.text,
     border: '0.5px solid rgba(255,255,255,0.12)', borderRadius: 8, fontSize: 13, outline: 'none', cursor: 'pointer',
   },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 },
-  card: { background: '#111', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '14px 16px' },
+  card: { background: colors.bgInput, border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '14px 16px' },
   cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
-  name: { fontSize: 15, fontWeight: 700, color: '#fff' },
-  org: { fontSize: 13, color: 'rgba(255,255,255,0.55)', marginTop: 3 },
+  name: { fontSize: 15, fontWeight: 700, color: colors.text },
+  org: { fontSize: 13, color: colors.textSecondary, marginTop: 3 },
   badges: { display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' },
-  role: { fontSize: 10, padding: '2px 8px', background: 'rgba(26,105,148,0.15)', color: '#60b4e8', borderRadius: 10, whiteSpace: 'nowrap' },
+  role: { fontSize: 10, padding: '2px 8px', background: colors.primaryBg, color: colors.primary, borderRadius: 10, whiteSpace: 'nowrap' },
   duplicateBadge: { fontSize: 10, padding: '2px 8px', background: 'rgba(255,80,80,0.16)', color: '#ff8a8a', borderRadius: 10 },
-  manualBadge: { fontSize: 10, padding: '2px 8px', background: 'rgba(110,243,165,0.12)', color: '#6ef3a5', borderRadius: 10 },
-  somaBadge: { fontSize: 10, padding: '2px 8px', background: 'rgba(255,207,92,0.12)', color: '#ffcf5c', borderRadius: 10 },
+  manualBadge: { fontSize: 10, padding: '2px 8px', background: 'rgba(110,243,165,0.12)', color: colors.success, borderRadius: 10 },
+  somaBadge: { fontSize: 10, padding: '2px 8px', background: 'rgba(255,207,92,0.12)', color: colors.admin, borderRadius: 10 },
   contactLines: { display: 'flex', flexDirection: 'column', gap: 5, marginTop: 8 },
   link: { fontSize: 12, color: '#7ab6ff', textDecoration: 'none', wordBreak: 'break-all' },
-  meta: { fontSize: 12, color: 'rgba(255,255,255,0.55)' },
-  notes: { fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 10, lineHeight: 1.5 },
+  meta: { fontSize: 12, color: colors.textSecondary },
+  notes: { fontSize: 12, color: colors.textSecondary, marginTop: 10, lineHeight: 1.5 },
   actions: { display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12, flexWrap: 'wrap' },
   pipelineBtn: {
-    background: 'rgba(110,243,165,0.08)', border: '1px solid rgba(110,243,165,0.25)',
-    color: '#6ef3a5', padding: '8px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer',
+    background: colors.successBg, border: '1px solid rgba(110,243,165,0.25)',
+    color: colors.success, padding: '8px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer',
   },
   importBtn: {
-    background: 'rgba(255,207,92,0.10)', color: '#ffcf5c',
+    background: 'rgba(255,207,92,0.10)', color: colors.admin,
     border: '1px solid rgba(255,207,92,0.30)', borderRadius: 8,
     padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
   },
@@ -873,18 +874,18 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
   },
   clearAllBtn: {
-    background: 'rgba(255,255,255,0.06)', color: '#ddd',
-    border: '1px solid rgba(255,255,255,0.18)', borderRadius: 8,
+    background: colors.bgInput, color: '#ddd',
+    border: `1px solid ${colors.border}`, borderRadius: 8,
     padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
   },
   primaryBtn: {
-    background: '#1676a3', color: '#fff',
-    border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8,
+    background: '#1676a3', color: colors.text,
+    border: `1px solid ${colors.border}`, borderRadius: 8,
     padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
   },
   secondaryBtn: {
-    background: 'rgba(255,255,255,0.06)', color: '#fff',
-    border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8,
+    background: colors.bgInput, color: colors.text,
+    border: `1px solid ${colors.border}`, borderRadius: 8,
     padding: '8px 12px', fontSize: 12, cursor: 'pointer',
   },
   dangerBtn: {
@@ -898,16 +899,16 @@ const styles: Record<string, React.CSSProperties> = {
   },
   modal: {
     width: 'min(820px, 100%)', maxHeight: '90vh', overflowY: 'auto',
-    background: '#050505', border: '1px solid #1676a3', borderRadius: 14, padding: 22,
+    background: colors.bgPage, border: '1px solid #1676a3', borderRadius: 14, padding: 22,
   },
-  modalTitle: { margin: '0 0 18px', color: '#fff', fontSize: 22 },
+  modalTitle: { margin: '0 0 18px', color: colors.text, fontSize: 22 },
   formGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 },
   input: {
-    background: '#111', color: '#fff', border: '1px solid #1676a3',
+    background: colors.bgInput, color: colors.text, border: '1px solid #1676a3',
     borderRadius: 8, padding: '11px 12px', fontSize: 13, outline: 'none',
   },
   textarea: {
-    width: '100%', minHeight: 110, marginTop: 10, background: '#111', color: '#fff',
+    width: '100%', minHeight: 110, marginTop: 10, background: colors.bgInput, color: colors.text,
     border: '1px solid #1676a3', borderRadius: 8, padding: 12, fontSize: 13,
     outline: 'none', resize: 'vertical', boxSizing: 'border-box',
   },

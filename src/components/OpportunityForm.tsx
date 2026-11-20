@@ -7,6 +7,7 @@ import type { Opportunity, OpportunityType, RequirementKey } from '../types/oppo
 import { addManualOpportunity } from '../data/manualOpportunitiesStore'
 import { contactsSOMA } from '../data/contactsSOMA'
 import { getManualContacts, type Contact } from '../data/manualContactsStore'
+import { colors, shadows, radius } from '../theme'
 
 interface Props {
   onClose: () => void
@@ -531,14 +532,14 @@ const styles: Record<string, CSSProperties> = {
   },
 
   formBox: {
-    background: '#050505',
+    background: colors.bgPage,
     border: '1px solid #1A6994',
     borderRadius: 16,
     padding: 28,
     width: 'min(960px, 94vw)',
     maxHeight: '92vh',
     overflowY: 'auto',
-    color: '#fff',
+    color: colors.text,
     boxShadow: '0 0 40px rgba(26,105,148,0.35)',
   },
 
@@ -546,12 +547,12 @@ const styles: Record<string, CSSProperties> = {
     margin: '0 0 24px',
     fontSize: 26,
     fontWeight: 900,
-    color: '#fff',
+    color: colors.text,
     textAlign: 'center',
   },
 
   section: {
-    borderTop: '1px solid rgba(255,255,255,0.08)',
+    borderTop: `1px solid ${colors.border}`,
     paddingTop: 16,
     marginTop: 16,
   },
@@ -559,7 +560,7 @@ const styles: Record<string, CSSProperties> = {
   sectionTitle: {
     margin: '0 0 12px',
     fontSize: 13,
-    color: '#60b4e8',
+    color: colors.primary,
     textTransform: 'uppercase',
     letterSpacing: '0.08em',
   },
@@ -573,7 +574,7 @@ const styles: Record<string, CSSProperties> = {
   input: {
     background: '#101010',
     border: '1px solid #1A6994',
-    color: '#fff',
+    color: colors.text,
     padding: '11px 12px',
     borderRadius: 8,
     outline: 'none',
@@ -584,7 +585,7 @@ const styles: Record<string, CSSProperties> = {
     gridColumn: '1 / -1',
     background: '#101010',
     border: '1px solid #1A6994',
-    color: '#fff',
+    color: colors.text,
     padding: '11px 12px',
     borderRadius: 8,
     outline: 'none',
@@ -594,7 +595,7 @@ const styles: Record<string, CSSProperties> = {
   select: {
     background: '#101010',
     border: '1px solid #1A6994',
-    color: '#fff',
+    color: colors.text,
     padding: '11px 12px',
     borderRadius: 8,
     outline: 'none',
@@ -605,7 +606,7 @@ const styles: Record<string, CSSProperties> = {
     gridColumn: '1 / -1',
     background: '#101010',
     border: '1px solid #1A6994',
-    color: '#fff',
+    color: colors.text,
     padding: 12,
     borderRadius: 8,
     minHeight: 100,
@@ -618,7 +619,7 @@ const styles: Record<string, CSSProperties> = {
     display: 'flex',
     gap: 8,
     alignItems: 'center',
-    color: '#fff',
+    color: colors.text,
   },
 
   smallCheck: {
@@ -627,8 +628,8 @@ const styles: Record<string, CSSProperties> = {
     gap: 6,
     alignItems: 'center',
     color: '#ddd',
-    background: 'rgba(255,255,255,0.04)',
-    border: '1px solid rgba(255,255,255,0.08)',
+    background: colors.bgInput,
+    border: `1px solid ${colors.border}`,
     padding: '6px 10px',
     borderRadius: 999,
   },
@@ -647,8 +648,8 @@ const styles: Record<string, CSSProperties> = {
   },
 
   reqBtn: {
-    background: 'rgba(255,255,255,0.04)',
-    border: '1px solid rgba(255,255,255,0.12)',
+    background: colors.bgInput,
+    border: `1px solid ${colors.border}`,
     color: '#bbb',
     borderRadius: 999,
     padding: '7px 12px',
@@ -659,7 +660,7 @@ const styles: Record<string, CSSProperties> = {
   reqBtnActive: {
     background: 'rgba(26,105,148,0.35)',
     border: '1px solid #1A6994',
-    color: '#fff',
+    color: colors.text,
   },
 
   label: {
@@ -688,7 +689,7 @@ const styles: Record<string, CSSProperties> = {
 
   save: {
     background: '#1A6994',
-    color: '#fff',
+    color: colors.text,
     border: 'none',
     padding: '10px 18px',
     borderRadius: 8,

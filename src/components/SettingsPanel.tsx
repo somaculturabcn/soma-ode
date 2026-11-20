@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react'
 import { saveApiKey, hasApiKey } from '../services/aiService'
 import { getActivityLog, downloadActivityCSV, clearActivityLog, logActivity } from '../services/activityLog'
+import { colors, shadows, radius } from '../theme'
 
 export default function SettingsPanel() {
   const [apiKey, setApiKey] = useState('')
@@ -152,7 +153,7 @@ export default function SettingsPanel() {
         )}
         <p style={{ ...st.hint, marginTop: 8 }}>
           Obtém a tua chave em{' '}
-          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" style={{ color: '#60b4e8' }}>
+          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" style={{ color: colors.primary }}>
             aistudio.google.com/apikey
           </a>
         </p>
@@ -174,7 +175,7 @@ export default function SettingsPanel() {
 
         {/* Exportar */}
         <div style={{ marginBottom: 14 }}>
-          <h3 style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: '0 0 6px' }}>📦 Exportar os meus dados</h3>
+          <h3 style={{ fontSize: 13, fontWeight: 700, color: colors.text, margin: '0 0 6px' }}>📦 Exportar os meus dados</h3>
           <p style={st.hint}>
             Descarrega todos os teus dados em formato JSON — perfil, artistas, oportunidades, booking e configurações.
           </p>
@@ -185,14 +186,14 @@ export default function SettingsPanel() {
 
         {/* Info sobre consentimento */}
         <div style={{ marginBottom: 14 }}>
-          <h3 style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: '0 0 6px' }}>📋 Consentimento</h3>
+          <h3 style={{ fontSize: 13, fontWeight: 700, color: colors.text, margin: '0 0 6px' }}>📋 Consentimento</h3>
           <ConsentInfo />
         </div>
 
         {/* Apagar */}
         <div style={{ marginBottom: 14 }}>
-          <h3 style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: '0 0 6px' }}>🗑️ Apagar todos os meus dados</h3>
-          <p style={{ ...st.hint, color: '#f97066' }}>
+          <h3 style={{ fontSize: 13, fontWeight: 700, color: colors.text, margin: '0 0 6px' }}>🗑️ Apagar todos os meus dados</h3>
+          <p style={{ ...st.hint, color: colors.danger }}>
             Ação irreversível. Remove todos os teus dados pessoais da plataforma: perfil, artistas, contatos, oportunidades e configurações. Conforme Art. 17 do RGPD (Direito ao Esquecimento).
           </p>
           <button style={st.dangerBtn} onClick={deleteAllDataRgpd}>
@@ -202,7 +203,7 @@ export default function SettingsPanel() {
 
         {/* IA */}
         <div>
-          <h3 style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: '0 0 6px' }}>🤖 Uso de Inteligência Artificial</h3>
+          <h3 style={{ fontSize: 13, fontWeight: 700, color: colors.text, margin: '0 0 6px' }}>🤖 Uso de Inteligência Artificial</h3>
           <p style={st.hint}>
             A SOMA ODÉ utiliza o modelo Gemini 2.5 Flash (Google) para gerar perfis artísticos na Cartografia e sugestões de Match com oportunidades. Nenhum dado pessoal é enviado para treinar modelos de IA. Tens direito a pedir revisão humana de qualquer decisão automatizada (Art. 22 RGPD).
           </p>
@@ -250,9 +251,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-      <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>{label}</span>
-      <span style={{ fontSize: 13, color: '#fff' }}>{value}</span>
+    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: `1px solid ${colors.border}` }}>
+      <span style={{ fontSize: 13, color: colors.textSecondary }}>{label}</span>
+      <span style={{ fontSize: 13, color: colors.text }}>{value}</span>
     </div>
   )
 }
@@ -264,7 +265,7 @@ function ActivityLogSection() {
   return (
     <div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <button style={{ background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+        <button style={{ background: '#1A6994', color: colors.text, border: 'none', borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
           onClick={() => {
             logActivity('SETTINGS', 'exportar', 'Exportou log de atividade para CSV')
             downloadActivityCSV()
@@ -272,7 +273,7 @@ function ActivityLogSection() {
           📊 Exportar CSV ({log.length} registos)
         </button>
         {log.length > 0 && (
-          <button style={{ background: 'rgba(249,112,102,0.1)', color: '#f97066', border: '1px solid rgba(249,112,102,0.3)', borderRadius: 8, padding: '8px 14px', fontSize: 12, cursor: 'pointer' }}
+          <button style={{ background: 'rgba(249,112,102,0.1)', color: colors.danger, border: '1px solid rgba(249,112,102,0.3)', borderRadius: 8, padding: '8px 14px', fontSize: 12, cursor: 'pointer' }}
             onClick={() => {
               if (confirm('Apagar todo o registo de atividade?')) {
                 clearActivityLog()
@@ -285,14 +286,14 @@ function ActivityLogSection() {
       </div>
       {recent.length > 0 && (
         <div>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 6 }}>Últimas ações:</div>
+          <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 6 }}>Últimas ações:</div>
           {recent.map(e => (
             <div key={e.id} style={{ display: 'flex', gap: 8, padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.03)', fontSize: 11 }}>
-              <span style={{ color: 'rgba(255,255,255,0.25)', minWidth: 115, flexShrink: 0 }}>
+              <span style={{ color: colors.textMuted, minWidth: 115, flexShrink: 0 }}>
                 {new Date(e.timestamp).toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
               </span>
-              <span style={{ color: '#60b4e8', minWidth: 60, flexShrink: 0 }}>{e.module}</span>
-              <span style={{ color: 'rgba(255,255,255,0.5)' }}>{e.detail}</span>
+              <span style={{ color: colors.primary, minWidth: 60, flexShrink: 0 }}>{e.module}</span>
+              <span style={{ color: colors.textSecondary }}>{e.detail}</span>
             </div>
           ))}
         </div>
@@ -316,16 +317,16 @@ function ConsentInfo() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-        <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Data do consentimento</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${colors.border}` }}>
+        <span style={{ fontSize: 12, color: colors.textSecondary }}>Data do consentimento</span>
         <span style={{ fontSize: 12, color: consentAt === '—' ? '#f97066' : '#6ef3a5' }}>{consentAt}</span>
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
-        <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Versão da política</span>
-        <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{consentVersion}</span>
+        <span style={{ fontSize: 12, color: colors.textSecondary }}>Versão da política</span>
+        <span style={{ fontSize: 12, color: colors.textSecondary }}>{consentVersion}</span>
       </div>
       {consentAt === '—' && (
-        <p style={{ fontSize: 11, color: '#f97066', marginTop: 6, lineHeight: 1.4 }}>
+        <p style={{ fontSize: 11, color: colors.danger, marginTop: 6, lineHeight: 1.4 }}>
           ⚠️ Sem registo de consentimento. Contas criadas antes da v7 devem aceitar a nova Política de Privacidade.
         </p>
       )}
@@ -353,7 +354,7 @@ function StorageInfo() {
         } catch { /* */ }
         return (
           <div key={key} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{label}</span>
+            <span style={{ fontSize: 12, color: colors.textSecondary }}>{label}</span>
             <span style={{ fontSize: 12, color: size === '—' ? 'rgba(255,255,255,0.2)' : '#6ef3a5' }}>{size}</span>
           </div>
         )
@@ -365,13 +366,13 @@ function StorageInfo() {
 // ── Estilos ─────────────────────────────────────────────────────────────────
 
 const st: Record<string, React.CSSProperties> = {
-  page: { maxWidth: 600, margin: '0 auto', padding: '28px 20px', color: '#fff' },
-  title: { margin: '0 0 24px', fontSize: 28, color: '#60b4e8' },
-  section: { background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '18px 20px', marginBottom: 16 },
-  sectionTitle: { margin: '0 0 12px', fontSize: 15, color: '#fff', fontWeight: 700 },
-  hint: { margin: '0 0 10px', fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.5 },
-  input: { background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none', boxSizing: 'border-box' as const },
-  primaryBtn: { background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' as const },
-  dangerBtn: { background: 'rgba(249,112,102,0.1)', color: '#f97066', border: '1px solid rgba(249,112,102,0.3)', borderRadius: 8, padding: '8px 14px', fontSize: 12, cursor: 'pointer' },
-  linkBtn: { background: 'none', border: 'none', color: '#f97066', fontSize: 12, cursor: 'pointer', padding: 0 },
+  page: { maxWidth: 600, margin: '0 auto', padding: '28px 20px', color: colors.text },
+  title: { margin: '0 0 24px', fontSize: 28, color: colors.primary },
+  section: { background: colors.bg, border: `1px solid ${colors.border}`, borderRadius: 12, padding: '18px 20px', marginBottom: 16 },
+  sectionTitle: { margin: '0 0 12px', fontSize: 15, color: colors.text, fontWeight: 700 },
+  hint: { margin: '0 0 10px', fontSize: 12, color: colors.textSecondary, lineHeight: 1.5 },
+  input: { background: colors.bgInput, color: colors.text, border: `1px solid ${colors.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none', boxSizing: 'border-box' as const },
+  primaryBtn: { background: '#1A6994', color: colors.text, border: 'none', borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' as const },
+  dangerBtn: { background: 'rgba(249,112,102,0.1)', color: colors.danger, border: '1px solid rgba(249,112,102,0.3)', borderRadius: 8, padding: '8px 14px', fontSize: 12, cursor: 'pointer' },
+  linkBtn: { background: 'none', border: 'none', color: colors.danger, fontSize: 12, cursor: 'pointer', padding: 0 },
 }

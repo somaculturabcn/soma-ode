@@ -4,6 +4,7 @@
 
 import { useRef, useState } from 'react'
 import { extractAndStorePdf, type ExtractedDossier } from '../services/pdfExtractor'
+import { colors, shadows, radius } from '../theme'
 
 interface Props {
   projectId: string
@@ -186,7 +187,7 @@ const s: Record<string, React.CSSProperties> = {
     gap: 8,
     width: '100%',
     background: 'rgba(26,105,148,0.07)',
-    color: '#60b4e8',
+    color: colors.primary,
     border: '1px dashed rgba(26,105,148,0.35)',
     borderRadius: 8,
     padding: '10px 14px',
@@ -200,7 +201,7 @@ const s: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: 8,
     fontSize: 12,
-    color: '#60b4e8',
+    color: colors.primary,
   },
 
   spinner: {
@@ -214,7 +215,7 @@ const s: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
-    background: 'rgba(110,243,165,0.05)',
+    background: colors.successBg,
     border: '1px solid rgba(110,243,165,0.18)',
     borderRadius: 8,
     padding: '10px 14px',
@@ -234,7 +235,7 @@ const s: Record<string, React.CSSProperties> = {
   fileName: {
     fontSize: 12,
     fontWeight: 700,
-    color: '#6ef3a5',
+    color: colors.success,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
@@ -242,7 +243,7 @@ const s: Record<string, React.CSSProperties> = {
 
   fileMeta: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.4)',
+    color: colors.textSecondary,
     marginTop: 2,
   },
 
@@ -256,8 +257,8 @@ const s: Record<string, React.CSSProperties> = {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 4,
-    background: 'rgba(26,105,148,0.15)',
-    color: '#60b4e8',
+    background: colors.primaryBg,
+    color: colors.primary,
     border: '1px solid rgba(26,105,148,0.3)',
     borderRadius: 6,
     padding: '5px 11px',
@@ -269,8 +270,8 @@ const s: Record<string, React.CSSProperties> = {
 
   replaceBtn: {
     background: 'transparent',
-    color: 'rgba(255,255,255,0.4)',
-    border: '1px solid rgba(255,255,255,0.1)',
+    color: colors.textSecondary,
+    border: `1px solid ${colors.border}`,
     borderRadius: 6,
     padding: '5px 10px',
     fontSize: 11,
@@ -284,13 +285,13 @@ const s: Record<string, React.CSSProperties> = {
     gap: 8,
     marginTop: 6,
     fontSize: 11,
-    color: '#60b4e8',
+    color: colors.primary,
   },
 
   successMsg: {
     marginTop: 6,
     fontSize: 11,
-    color: '#6ef3a5',
+    color: colors.success,
   },
 
   errorMsg: {
@@ -309,7 +310,7 @@ const s: Record<string, React.CSSProperties> = {
 
   retryBtn: {
     background: 'transparent',
-    color: 'rgba(255,255,255,0.4)',
+    color: colors.textSecondary,
     border: 'none',
     fontSize: 11,
     cursor: 'pointer',

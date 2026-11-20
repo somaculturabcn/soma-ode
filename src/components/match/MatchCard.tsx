@@ -13,6 +13,7 @@ import {
 } from '../../types/matchTypes'
 import { daysLeft, deadlineLabel } from '../../utils/matchHelpers'
 import { st } from './matchStyles'
+import { colors, shadows, radius } from '../../theme'
 
 interface MatchCardProps {
   op: Opportunity
@@ -42,7 +43,7 @@ export default function MatchCard({
 }: MatchCardProps) {
   const dl = deadlineLabel(op.deadline)
   const hasScore = !isWeb && activeScout && op._matchScore !== undefined
-  const scoreColor = (op._matchScore || 0) >= 60 ? '#6ef3a5' : (op._matchScore || 0) >= 35 ? '#ffcf5c' : 'rgba(255,255,255,0.4)'
+  const scoreColor = (op._matchScore || 0) >= 60 ? '#6ef3a5' : (op._matchScore || 0) >= 35 ? colors.admin : 'rgba(255,255,255,0.4)'
   const typeKey = (op.type || '').toLowerCase()
   const typeColor = TYPE_COLORS[typeKey] || 'rgba(255,255,255,0.5)'
   const typeIcon = TYPE_ICONS[typeKey] || '📌'
@@ -68,7 +69,7 @@ export default function MatchCard({
 
           {recInfo && !isWeb && <span style={{ fontSize: 10, color: recInfo.color, opacity: 0.8 }}>{recInfo.label}</span>}
           {hasScore && <span style={{ fontSize: 11, fontWeight: 700, color: scoreColor }}>{op._matchScore}%</span>}
-          {isShared && !isWeb && <span style={{ fontSize: 10, color: '#60b4e8' }}>🔗 partilhada</span>}
+          {isShared && !isWeb && <span style={{ fontSize: 10, color: colors.primary }}>🔗 partilhada</span>}
           {op.isPrivate && !isWeb && <span style={{ fontSize: 10, color: '#ff8a8a' }}>🔒 privada</span>}
         </div>
 

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import {
+import { colors, shadows, radius } from '../theme'
   loadOrganizationById,
   saveOrganization,
   type ProducerOrganization,
@@ -324,11 +325,11 @@ const s: Record<string, React.CSSProperties> = {
     margin: '0 auto',
   },
   center: {
-    color: '#fff',
+    color: colors.text,
     padding: 40,
   },
   hero: {
-    background: '#111',
+    background: colors.bgInput,
     border: '1px solid #333',
     borderRadius: 18,
     padding: 24,
@@ -377,7 +378,7 @@ const s: Record<string, React.CSSProperties> = {
     gap: 18,
   },
   sidebar: {
-    background: '#111',
+    background: colors.bgInput,
     border: '1px solid #333',
     borderRadius: 16,
     padding: 12,
@@ -397,11 +398,11 @@ const s: Record<string, React.CSSProperties> = {
   },
   sectionBtnActive: {
     background: '#1A6994',
-    color: '#fff',
+    color: colors.text,
     borderColor: '#2d8bbe',
   },
   card: {
-    background: '#111',
+    background: colors.bgInput,
     border: '1px solid #333',
     borderRadius: 16,
     padding: 22,
@@ -419,7 +420,7 @@ const s: Record<string, React.CSSProperties> = {
     fontSize: 14,
     fontWeight: 800,
     marginBottom: 6,
-    color: '#fff',
+    color: colors.text,
   },
   helper: {
     display: 'block',
@@ -430,10 +431,10 @@ const s: Record<string, React.CSSProperties> = {
   input: {
     width: '100%',
     boxSizing: 'border-box',
-    background: '#000',
+    background: colors.bgPage,
     border: '1px solid #444',
     borderRadius: 10,
-    color: '#fff',
+    color: colors.text,
     padding: '12px 13px',
     fontSize: 14,
   },
@@ -441,10 +442,10 @@ const s: Record<string, React.CSSProperties> = {
     width: '100%',
     minHeight: 120,
     boxSizing: 'border-box',
-    background: '#000',
+    background: colors.bgPage,
     border: '1px solid #444',
     borderRadius: 10,
-    color: '#fff',
+    color: colors.text,
     padding: '12px 13px',
     fontSize: 14,
     resize: 'vertical',

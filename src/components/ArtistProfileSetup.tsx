@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react'
 import { generateArtistProfile, hasApiKey, type ArtistProfileAI } from '../services/aiService'
 import { logActivity } from '../services/activityLog'
+import { colors, shadows, radius } from '../theme'
 
 const STORAGE_KEY = 'soma_artist_profile'
 const ANSWERS_KEY = 'soma_artist_answers'
@@ -84,9 +85,9 @@ export default function ArtistProfileSetup() {
           <div style={st.summary}>{profile.summary}</div>
 
           <div style={st.grid}>
-            <ProfileBlock title="Disciplinas" items={profile.disciplines} color="#60b4e8" />
+            <ProfileBlock title="Disciplinas" items={profile.disciplines} color={colors.primary} />
             <ProfileBlock title="Keywords" items={profile.keywords} color="#c084fc" />
-            <ProfileBlock title="Temas" items={profile.themes} color="#ffcf5c" />
+            <ProfileBlock title="Temas" items={profile.themes} color={colors.admin} />
             <ProfileBlock title="Países-alvo" items={profile.targetCountries} color="#6ef3a5" />
             <ProfileBlock title="Idiomas" items={profile.languages} color="#f97066" />
           </div>
@@ -106,7 +107,7 @@ export default function ArtistProfileSetup() {
             </div>
           </div>
 
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: 20 }}>
+          <p style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center', marginTop: 20 }}>
             Este perfil alimenta o Radar e o Match — quanto mais completas as respostas, melhor os resultados.
           </p>
         </div>
@@ -120,8 +121,8 @@ export default function ArtistProfileSetup() {
       <div style={st.page}>
         <div style={{ ...st.card, textAlign: 'center', padding: '60px 40px' }}>
           <div style={{ fontSize: 48, marginBottom: 16, animation: 'pulse 1.5s infinite' }}>🔮</div>
-          <h2 style={{ color: '#fff', margin: '0 0 8px' }}>A gerar o teu perfil...</h2>
-          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14 }}>A IA está a analisar as tuas respostas</p>
+          <h2 style={{ color: colors.text, margin: '0 0 8px' }}>A gerar o teu perfil...</h2>
+          <p style={{ color: colors.textSecondary, fontSize: 14 }}>A IA está a analisar as tuas respostas</p>
         </div>
       </div>
     )
@@ -150,8 +151,8 @@ export default function ArtistProfileSetup() {
         {/* Pergunta */}
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>{q.emoji}</div>
-          <h2 style={{ color: '#fff', margin: '0 0 4px', fontSize: 24 }}>{q.title}</h2>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Pergunta {(step as number) + 1} de 4</p>
+          <h2 style={{ color: colors.text, margin: '0 0 4px', fontSize: 24 }}>{q.title}</h2>
+          <p style={{ color: colors.textSecondary, fontSize: 13 }}>Pergunta {(step as number) + 1} de 4</p>
         </div>
 
         {/* Resposta */}
@@ -195,7 +196,7 @@ function ProfileBlock({ title, items, color }: { title: string; items: string[];
   if (!items.length) return null
   return (
     <div>
-      <h4 style={{ margin: '0 0 6px', fontSize: 11, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{title}</h4>
+      <h4 style={{ margin: '0 0 6px', fontSize: 11, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{title}</h4>
       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
         {items.map((item, i) => (
           <span key={i} style={{
@@ -212,17 +213,17 @@ function ProfileBlock({ title, items, color }: { title: string; items: string[];
 
 const st: Record<string, React.CSSProperties> = {
   page: { maxWidth: 700, margin: '0 auto', padding: '32px 20px' },
-  card: { background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: '28px 24px' },
-  title: { margin: 0, fontSize: 24, color: '#fff', fontWeight: 700 },
-  sub: { margin: '4px 0 0', fontSize: 13, color: 'rgba(255,255,255,0.4)' },
-  summary: { fontSize: 15, color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, marginBottom: 20, padding: '14px 16px', background: 'rgba(26,105,148,0.08)', border: '1px solid rgba(26,105,148,0.2)', borderRadius: 10 },
+  card: { background: colors.bg, border: `1px solid ${colors.border}`, borderRadius: 16, padding: '28px 24px' },
+  title: { margin: 0, fontSize: 24, color: colors.text, fontWeight: 700 },
+  sub: { margin: '4px 0 0', fontSize: 13, color: colors.textSecondary },
+  summary: { fontSize: 15, color: colors.text, lineHeight: 1.6, marginBottom: 20, padding: '14px 16px', background: 'rgba(26,105,148,0.08)', border: '1px solid rgba(26,105,148,0.2)', borderRadius: 10 },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16, marginBottom: 20 },
   sectionGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
-  infoBox: { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: '14px 16px' },
-  infoTitle: { margin: '0 0 6px', fontSize: 13, color: 'rgba(255,255,255,0.7)' },
-  infoText: { margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 },
-  textarea: { width: '100%', minHeight: 140, background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 10, padding: 16, fontSize: 14, lineHeight: 1.6, outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' as const },
-  primaryBtn: { background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer' },
-  secondaryBtn: { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '10px 16px', fontSize: 13, cursor: 'pointer' },
+  infoBox: { background: colors.bgInput, border: `1px solid ${colors.border}`, borderRadius: 10, padding: '14px 16px' },
+  infoTitle: { margin: '0 0 6px', fontSize: 13, color: colors.text },
+  infoText: { margin: 0, fontSize: 13, color: colors.textSecondary, lineHeight: 1.5 },
+  textarea: { width: '100%', minHeight: 140, background: colors.bgInput, color: colors.text, border: `1px solid ${colors.border}`, borderRadius: 10, padding: 16, fontSize: 14, lineHeight: 1.6, outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' as const },
+  primaryBtn: { background: '#1A6994', color: colors.text, border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer' },
+  secondaryBtn: { background: colors.bgInput, color: colors.text, border: `1px solid ${colors.border}`, borderRadius: 8, padding: '10px 16px', fontSize: 13, cursor: 'pointer' },
   errorMsg: { padding: '10px 14px', borderRadius: 8, fontSize: 13, marginTop: 12, border: '1px solid rgba(255,100,100,0.3)', color: '#ff8a8a', background: 'rgba(255,100,100,0.08)' },
 }

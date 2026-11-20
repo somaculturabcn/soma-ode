@@ -8,6 +8,7 @@ import { getManualOpportunities, deleteManualOpportunity } from '../data/manualO
 import type { Opportunity } from '../types/opportunity'
 import OpportunityForm from './OpportunityForm'
 import CsvImporter from './CsvImporter'
+import { colors, shadows, radius } from '../theme'
 
 // ── Constantes ──────────────────────────────────────────────────────────────
 
@@ -32,7 +33,7 @@ const TYPE_LABELS: Record<string, string> = {
   open_call: 'Open Call', showcase: 'Showcase', grant: 'Edital/Grant', funding: 'Funding', commission: 'Commission',
 }
 const TYPE_COLORS: Record<string, string> = {
-  festival: '#60b4e8', venue: '#94a3b8', residency: '#c084fc', open_call: '#ffcf5c',
+  festival: colors.primary, venue: '#94a3b8', residency: '#c084fc', open_call: colors.admin,
   showcase: '#fb923c', grant: '#6ef3a5', funding: '#f97066', commission: '#e879f9',
 }
 
@@ -46,11 +47,11 @@ function daysUntil(deadline: string | undefined): number | null {
 }
 
 function deadlineLabel(days: number | null): { text: string; color: string } {
-  if (days === null) return { text: 'Sem prazo', color: 'rgba(255,255,255,0.3)' }
-  if (days < 0) return { text: 'Encerrado', color: '#f97066' }
-  if (days <= 7) return { text: `${days}d — URGENTE`, color: '#f97066' }
-  if (days <= 30) return { text: `${days} dias`, color: '#ffcf5c' }
-  return { text: `${days} dias`, color: '#6ef3a5' }
+  if (days === null) return { text: 'Sem prazo', color: colors.textMuted }
+  if (days < 0) return { text: 'Encerrado', color: colors.danger }
+  if (days <= 7) return { text: `${days}d — URGENTE`, color: colors.danger }
+  if (days <= 30) return { text: `${days} dias`, color: colors.admin }
+  return { text: `${days} dias`, color: colors.success }
 }
 
 // ── Componente ──────────────────────────────────────────────────────────────
@@ -242,7 +243,7 @@ function Chip({ label, active, onClick, color }: { label: string; active: boolea
   const border = active
     ? (color ? `${color}50` : 'rgba(26,105,148,0.5)')
     : 'rgba(255,255,255,0.1)'
-  const textColor = active ? (color || '#60b4e8') : 'rgba(255,255,255,0.5)'
+  const textColor = active ? (color || colors.primary) : 'rgba(255,255,255,0.5)'
 
   return (
     <button onClick={onClick} style={{
@@ -276,8 +277,8 @@ function OpportunityCard({ opp, expanded, onToggle, highlight, isAdmin, onDelete
       </div>
 
       {/* Title */}
-      <h3 style={{ margin: '0 0 4px', fontSize: 15, color: '#fff', lineHeight: 1.3 }}>{opp.title}</h3>
-      <p style={{ margin: '0 0 8px', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+      <h3 style={{ margin: '0 0 4px', fontSize: 15, color: colors.text, lineHeight: 1.3 }}>{opp.title}</h3>
+      <p style={{ margin: '0 0 8px', fontSize: 12, color: colors.textSecondary }}>
         {opp.organization && `${opp.organization} · `}{opp.city || ''}{opp.country ? ` (${opp.country})` : ''}
       </p>
 
@@ -291,20 +292,20 @@ function OpportunityCard({ opp, expanded, onToggle, highlight, isAdmin, onDelete
 
       {/* Expanded */}
       {expanded && (
-        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          {opp.description && <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5, margin: '0 0 8px' }}>{opp.description}</p>}
-          {opp.contactEmail && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: '0 0 4px' }}>📧 {opp.contactEmail}</p>}
-          {opp.contactPerson && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: '0 0 4px' }}>👤 {opp.contactPerson}</p>}
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
+          {opp.description && <p style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 1.5, margin: '0 0 8px' }}>{opp.description}</p>}
+          {opp.contactEmail && <p style={{ fontSize: 12, color: colors.textSecondary, margin: '0 0 4px' }}>📧 {opp.contactEmail}</p>}
+          {opp.contactPerson && <p style={{ fontSize: 12, color: colors.textSecondary, margin: '0 0 4px' }}>👤 {opp.contactPerson}</p>}
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
             {opp.url && (
-              <a href={opp.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#60b4e8', textDecoration: 'none' }}
+              <a href={opp.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: colors.primary, textDecoration: 'none' }}
                 onClick={e => e.stopPropagation()}>
                 🔗 Ver página oficial →
               </a>
             )}
             {isAdmin && opp.source && onDelete && (
               <button onClick={e => onDelete(opp.id, e)} style={{
-                marginLeft: 'auto', background: 'rgba(249,112,102,0.1)', color: '#f97066',
+                marginLeft: 'auto', background: 'rgba(249,112,102,0.1)', color: colors.danger,
                 border: '1px solid rgba(249,112,102,0.2)', borderRadius: 6,
                 padding: '4px 10px', fontSize: 11, cursor: 'pointer', fontWeight: 600,
               }}>🗑 Apagar</button>
@@ -319,31 +320,31 @@ function OpportunityCard({ opp, expanded, onToggle, highlight, isAdmin, onDelete
 // ── Estilos ─────────────────────────────────────────────────────────────────
 
 const st: Record<string, React.CSSProperties> = {
-  page: { maxWidth: 1100, margin: '0 auto', padding: '28px 20px', color: '#fff' },
+  page: { maxWidth: 1100, margin: '0 auto', padding: '28px 20px', color: colors.text },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
-  title: { margin: 0, fontSize: 28, color: '#60b4e8' },
-  sub: { margin: '4px 0 0', color: 'rgba(255,255,255,0.4)', fontSize: 13 },
+  title: { margin: 0, fontSize: 28, color: colors.primary },
+  sub: { margin: '4px 0 0', color: colors.textSecondary, fontSize: 13 },
   counter: { textAlign: 'right', flexShrink: 0 },
   counterNum: { display: 'block', fontSize: 32, fontWeight: 900, color: '#1A6994' },
-  counterLabel: { fontSize: 11, color: 'rgba(255,255,255,0.4)' },
+  counterLabel: { fontSize: 11, color: colors.textSecondary },
 
-  searchInput: { width: '100%', background: '#0a0a0a', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '12px 16px', fontSize: 14, outline: 'none', marginBottom: 16, boxSizing: 'border-box' as const },
+  searchInput: { width: '100%', background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`, borderRadius: 10, padding: '12px 16px', fontSize: 14, outline: 'none', marginBottom: 16, boxSizing: 'border-box' as const },
 
   filterSection: { marginBottom: 10 },
-  filterLabel: { fontSize: 11, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 },
+  filterLabel: { fontSize: 11, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 },
   chips: { display: 'flex', gap: 5, flexWrap: 'wrap' },
-  checkLabel: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 20, cursor: 'pointer' },
+  checkLabel: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: colors.textSecondary, marginBottom: 20, cursor: 'pointer' },
 
   section: { marginBottom: 28 },
-  sectionTitle: { fontSize: 14, color: 'rgba(255,255,255,0.6)', fontWeight: 600, margin: '0 0 12px' },
+  sectionTitle: { fontSize: 14, color: colors.textSecondary, fontWeight: 600, margin: '0 0 12px' },
 
   highlightGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 10 },
 
-  card: { background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '14px 16px', cursor: 'pointer', transition: 'border-color 0.15s' },
-  tag: { fontSize: 11, background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)', padding: '2px 8px', borderRadius: 20 },
-  costTag: { fontSize: 11, background: 'rgba(110,243,165,0.1)', color: '#6ef3a5', padding: '2px 8px', borderRadius: 20 },
-  empty: { textAlign: 'center', color: 'rgba(255,255,255,0.4)', padding: 40, border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 12, fontSize: 14 },
-  adminBtn: { background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' },
-  adminBtnAlt: { background: 'rgba(96,180,232,0.1)', color: '#60b4e8', border: '1px solid rgba(96,180,232,0.2)', borderRadius: 8, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' },
+  card: { background: colors.bg, border: `1px solid ${colors.border}`, borderRadius: 12, padding: '14px 16px', cursor: 'pointer', transition: 'border-color 0.15s' },
+  tag: { fontSize: 11, background: colors.bgInput, color: colors.textSecondary, padding: '2px 8px', borderRadius: 20 },
+  costTag: { fontSize: 11, background: 'rgba(110,243,165,0.1)', color: colors.success, padding: '2px 8px', borderRadius: 20 },
+  empty: { textAlign: 'center', color: colors.textSecondary, padding: 40, border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 12, fontSize: 14 },
+  adminBtn: { background: '#1A6994', color: colors.text, border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' },
+  adminBtnAlt: { background: 'rgba(96,180,232,0.1)', color: colors.primary, border: '1px solid rgba(96,180,232,0.2)', borderRadius: 8, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' },
 }

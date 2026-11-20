@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
+import { colors, shadows, radius } from '../theme'
 
 type Props = {
   onNavigate: (tab: string) => void
@@ -59,8 +60,8 @@ function AdminDashboard({ onNavigate }: Props) {
       {/* Métricas */}
       <div style={s.metricsGrid}>
         {[
-          { label: 'Artistas', value: stats.artists, icon: '🎤', tab: 'ARTISTAS', color: '#6ef3a5' },
-          { label: 'Oportunidades', value: stats.opportunities, icon: '🎯', tab: 'OPORTUNIDADES', color: '#60b4e8' },
+          { label: 'Artistas', value: stats.artists, icon: '🎤', tab: 'ARTISTAS', color: colors.success },
+          { label: 'Oportunidades', value: stats.opportunities, icon: '🎯', tab: 'OPORTUNIDADES', color: colors.primary },
           { label: 'Projetos', value: stats.projects, icon: '🗂', tab: 'PROJETOS', color: '#c084fc' },
           { label: 'Contratos', value: stats.contracts, icon: '📝', tab: 'CONTRATOS', color: '#fbbf24' },
           { label: 'Eventos', value: stats.events, icon: '🎪', tab: 'EVENTOS', color: '#f97316' },
@@ -146,7 +147,7 @@ function ProducerDashboard({ onNavigate }: Props) {
     <div style={s.page}>
       <div style={{ ...s.welcomeBlock, background: 'linear-gradient(135deg, rgba(26,105,148,0.15) 0%, rgba(0,0,0,0) 60%)' }}>
         <div style={s.welcomeLeft}>
-          <div style={{ ...s.somaTag, color: '#60b4e8', borderColor: 'rgba(26,105,148,0.4)' }}>SOMA ODÉ · PRODUTOR/A</div>
+          <div style={{ ...s.somaTag, color: colors.primary, borderColor: 'rgba(26,105,148,0.4)' }}>SOMA ODÉ · PRODUTOR/A</div>
           <h1 style={s.welcomeTitle}>{greeting}! 👋</h1>
           {displayName && <div style={s.orgName}>{displayName}</div>}
           <p style={s.welcomeSub}>O teu espaço de gestão de projetos, artistas e oportunidades de circulação.</p>
@@ -158,9 +159,9 @@ function ProducerDashboard({ onNavigate }: Props) {
       <div style={{ ...s.metricsGrid, gridTemplateColumns: 'repeat(4, 1fr)' }}>
         {[
           { label: 'Projetos', value: stats.projects, icon: '🗂', tab: 'PROJETOS', color: '#c084fc' },
-          { label: 'Oportunidades', value: stats.opportunities, icon: '🎯', tab: 'OPORTUNIDADES', color: '#60b4e8' },
+          { label: 'Oportunidades', value: stats.opportunities, icon: '🎯', tab: 'OPORTUNIDADES', color: colors.primary },
           { label: 'Contratos', value: stats.contracts, icon: '📝', tab: 'CONTRATOS', color: '#fbbf24' },
-          { label: 'Pipeline', value: 0, icon: '📊', tab: 'PIPELINE', color: '#6ef3a5' },
+          { label: 'Pipeline', value: 0, icon: '📊', tab: 'PIPELINE', color: colors.success },
         ].map(m => (
           <button key={m.tab} style={s.metricCard} onClick={() => onNavigate(m.tab)}>
             <div style={s.metricIcon}>{m.icon}</div>
@@ -182,7 +183,7 @@ function ProducerDashboard({ onNavigate }: Props) {
               { step: '4', text: 'Adiciona artistas ao teu roster', action: () => onNavigate('ARTISTAS'), done: false },
             ].map(item => (
               <button key={item.step} style={{ ...s.stepCard, opacity: item.done ? 0.5 : 1 }} onClick={item.action}>
-                <div style={{ ...s.stepNum, background: item.done ? '#6ef3a5' : 'rgba(26,105,148,0.3)', color: item.done ? '#000' : '#60b4e8' }}>
+                <div style={{ ...s.stepNum, background: item.done ? '#6ef3a5' : 'rgba(26,105,148,0.3)', color: item.done ? '#000' : colors.primary }}>
                   {item.done ? '✓' : item.step}
                 </div>
                 <span style={s.stepText}>{item.text}</span>
@@ -205,7 +206,7 @@ function ProducerDashboard({ onNavigate }: Props) {
               <button key={sc.tab} style={s.quickLink} onClick={() => onNavigate(sc.tab)}>
                 <span>{sc.icon}</span>
                 <span style={s.quickLinkLabel}>{sc.label}</span>
-                <span style={{ color: 'rgba(255,255,255,0.3)', marginLeft: 'auto' }}>→</span>
+                <span style={{ color: colors.textMuted, marginLeft: 'auto' }}>→</span>
               </button>
             ))}
           </div>
@@ -244,7 +245,7 @@ function ArtistDashboard({ onNavigate }: Props) {
     <div style={s.page}>
       <div style={{ ...s.welcomeBlock, background: 'linear-gradient(135deg, rgba(110,243,165,0.08) 0%, rgba(0,0,0,0) 60%)' }}>
         <div style={s.welcomeLeft}>
-          <div style={{ ...s.somaTag, color: '#6ef3a5', borderColor: 'rgba(110,243,165,0.3)' }}>SOMA ODÉ · ARTISTA</div>
+          <div style={{ ...s.somaTag, color: colors.success, borderColor: 'rgba(110,243,165,0.3)' }}>SOMA ODÉ · ARTISTA</div>
           <h1 style={s.welcomeTitle}>{greeting}, {displayName} 🎤</h1>
           <p style={s.welcomeSub}>O teu portal de circulação internacional. Gere o teu perfil, acompanha propostas e oportunidades.</p>
         </div>
@@ -269,14 +270,14 @@ function ArtistDashboard({ onNavigate }: Props) {
           <div style={s.artistCardIcon}>👤</div>
           <div style={s.artistCardTitle}>O meu perfil</div>
           <div style={s.artistCardDesc}>Actualiza a tua bio, disciplinas, Cartografia SOMA e materiais</div>
-          <div style={{ ...s.artistCardBtn, background: 'rgba(110,243,165,0.1)', color: '#6ef3a5', borderColor: 'rgba(110,243,165,0.3)' }}>Editar perfil →</div>
+          <div style={{ ...s.artistCardBtn, background: 'rgba(110,243,165,0.1)', color: colors.success, borderColor: 'rgba(110,243,165,0.3)' }}>Editar perfil →</div>
         </button>
 
         <button style={{ ...s.artistCard, borderColor: 'rgba(96,180,232,0.3)' }} onClick={() => onNavigate('PORTAL')}>
           <div style={s.artistCardIcon}>📬</div>
           <div style={s.artistCardTitle}>Propostas recebidas</div>
           <div style={s.artistCardDesc}>Consulta e responde às propostas de apresentação e colaboração</div>
-          <div style={{ ...s.artistCardBtn, background: 'rgba(96,180,232,0.1)', color: '#60b4e8', borderColor: 'rgba(96,180,232,0.3)' }}>Ver propostas →</div>
+          <div style={{ ...s.artistCardBtn, background: 'rgba(96,180,232,0.1)', color: colors.primary, borderColor: 'rgba(96,180,232,0.3)' }}>Ver propostas →</div>
         </button>
 
         <button style={{ ...s.artistCard, borderColor: 'rgba(192,132,252,0.3)' }} onClick={() => onNavigate('PORTAL')}>
@@ -319,47 +320,47 @@ export default function DashboardHome({ onNavigate }: Props) {
 
 // ─── ESTILOS ─────────────────────────────────────────────────────────────────
 const s: Record<string, React.CSSProperties> = {
-  page: { padding: '28px 32px', maxWidth: 1100, margin: '0 auto', color: '#fff', fontFamily: 'system-ui, sans-serif' },
-  welcomeBlock: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', background: 'linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(0,0,0,0) 60%)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: '28px 32px', marginBottom: 28 },
+  page: { padding: '28px 32px', maxWidth: 1100, margin: '0 auto', color: colors.text, fontFamily: 'system-ui, sans-serif' },
+  welcomeBlock: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', background: 'linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(0,0,0,0) 60%)', border: `1px solid ${colors.border}`, borderRadius: 16, padding: '28px 32px', marginBottom: 28 },
   welcomeLeft: { flex: 1 },
-  somaTag: { display: 'inline-block', fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 20, padding: '3px 10px', marginBottom: 12 },
-  welcomeTitle: { fontSize: 28, fontWeight: 800, margin: '0 0 10px', color: '#fff', lineHeight: 1.2 },
-  orgName: { fontSize: 16, fontWeight: 600, color: '#60b4e8', marginBottom: 8 },
-  welcomeSub: { fontSize: 14, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6, margin: 0, maxWidth: 520 },
+  somaTag: { display: 'inline-block', fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', color: colors.textSecondary, border: `1px solid ${colors.border}`, borderRadius: 20, padding: '3px 10px', marginBottom: 12 },
+  welcomeTitle: { fontSize: 28, fontWeight: 800, margin: '0 0 10px', color: colors.text, lineHeight: 1.2 },
+  orgName: { fontSize: 16, fontWeight: 600, color: colors.primary, marginBottom: 8 },
+  welcomeSub: { fontSize: 14, color: colors.textSecondary, lineHeight: 1.6, margin: 0, maxWidth: 520 },
   somaLogo: { fontSize: 72, fontWeight: 900, letterSpacing: '0.08em', color: 'rgba(255,255,255,0.04)', flexShrink: 0, lineHeight: 1 },
   metricsGrid: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 28 },
-  metricCard: { background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '20px 16px', textAlign: 'center', cursor: 'pointer', transition: 'border-color .2s', fontFamily: 'inherit' },
+  metricCard: { background: colors.bg, border: `1px solid ${colors.border}`, borderRadius: 12, padding: '20px 16px', textAlign: 'center', cursor: 'pointer', transition: 'border-color .2s', fontFamily: 'inherit' },
   metricIcon: { fontSize: 24, marginBottom: 10 },
   metricValue: { fontSize: 32, fontWeight: 800, lineHeight: 1, marginBottom: 6 },
-  metricLabel: { fontSize: 12, color: 'rgba(255,255,255,0.45)', fontWeight: 500 },
+  metricLabel: { fontSize: 12, color: colors.textSecondary, fontWeight: 500 },
   section: { marginBottom: 24 },
-  sectionTitle: { fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.08em', marginBottom: 14, textTransform: 'uppercase' },
+  sectionTitle: { fontSize: 13, fontWeight: 600, color: colors.textSecondary, letterSpacing: '0.08em', marginBottom: 14, textTransform: 'uppercase' },
   shortcutsGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 },
-  shortcutCard: { display: 'flex', alignItems: 'center', gap: 14, background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '14px 16px', cursor: 'pointer', textAlign: 'left', color: '#fff', fontFamily: 'inherit' },
+  shortcutCard: { display: 'flex', alignItems: 'center', gap: 14, background: colors.bg, border: `1px solid ${colors.border}`, borderRadius: 10, padding: '14px 16px', cursor: 'pointer', textAlign: 'left', color: colors.text, fontFamily: 'inherit' },
   scIcon: { fontSize: 22, flexShrink: 0 },
-  scLabel: { fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 2 },
-  scDesc: { fontSize: 11, color: 'rgba(255,255,255,0.4)' },
+  scLabel: { fontSize: 13, fontWeight: 600, color: colors.text, marginBottom: 2 },
+  scDesc: { fontSize: 11, color: colors.textSecondary },
   twoCol: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 },
-  block: { background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 20 },
-  stepCard: { display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, padding: '10px 14px', cursor: 'pointer', textAlign: 'left', color: '#fff', fontFamily: 'inherit', width: '100%' },
+  block: { background: colors.bg, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 20 },
+  stepCard: { display: 'flex', alignItems: 'center', gap: 12, background: colors.bgInput, border: `1px solid ${colors.border}`, borderRadius: 8, padding: '10px 14px', cursor: 'pointer', textAlign: 'left', color: colors.text, fontFamily: 'inherit', width: '100%' },
   stepNum: { width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 },
   stepText: { fontSize: 13, flex: 1 },
-  stepArrow: { color: 'rgba(255,255,255,0.3)', fontSize: 14 },
-  quickLink: { display: 'flex', alignItems: 'center', gap: 12, background: 'transparent', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, padding: '10px 14px', cursor: 'pointer', color: '#fff', fontFamily: 'inherit', width: '100%' },
+  stepArrow: { color: colors.textMuted, fontSize: 14 },
+  quickLink: { display: 'flex', alignItems: 'center', gap: 12, background: 'transparent', border: `1px solid ${colors.border}`, borderRadius: 8, padding: '10px 14px', cursor: 'pointer', color: colors.text, fontFamily: 'inherit', width: '100%' },
   quickLinkLabel: { fontSize: 13, flex: 1, textAlign: 'left' },
   alertCard: { display: 'flex', alignItems: 'center', gap: 16, background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 12, padding: '16px 20px', marginBottom: 24 },
   alertIcon: { fontSize: 24, flexShrink: 0 },
   alertTitle: { fontSize: 14, fontWeight: 600, color: '#fbbf24', marginBottom: 2 },
-  alertSub: { fontSize: 12, color: 'rgba(255,255,255,0.5)' },
+  alertSub: { fontSize: 12, color: colors.textSecondary },
   alertBtn: { background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)', color: '#fbbf24', borderRadius: 8, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0, fontFamily: 'inherit' },
   artistCards: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 },
-  artistCard: { background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '24px 20px', cursor: 'pointer', textAlign: 'left', color: '#fff', fontFamily: 'inherit', display: 'flex', flexDirection: 'column', gap: 10 },
+  artistCard: { background: colors.bg, border: `1px solid ${colors.border}`, borderRadius: 14, padding: '24px 20px', cursor: 'pointer', textAlign: 'left', color: colors.text, fontFamily: 'inherit', display: 'flex', flexDirection: 'column', gap: 10 },
   artistCardIcon: { fontSize: 32 },
   artistCardTitle: { fontSize: 16, fontWeight: 700 },
-  artistCardDesc: { fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5, flex: 1 },
+  artistCardDesc: { fontSize: 12, color: colors.textSecondary, lineHeight: 1.5, flex: 1 },
   artistCardBtn: { display: 'inline-block', fontSize: 12, fontWeight: 600, padding: '6px 14px', borderRadius: 20, border: '1px solid', marginTop: 4, width: 'fit-content' },
   somaInfo: { background: 'rgba(26,105,148,0.08)', border: '1px solid rgba(26,105,148,0.2)', borderRadius: 12, padding: '20px 24px' },
-  somaInfoTitle: { fontSize: 13, fontWeight: 600, color: '#60b4e8', marginBottom: 8 },
-  somaInfoText: { fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6, margin: '0 0 10px' },
-  somaInfoLink: { fontSize: 12, color: '#60b4e8', textDecoration: 'none' },
+  somaInfoTitle: { fontSize: 13, fontWeight: 600, color: colors.primary, marginBottom: 8 },
+  somaInfoText: { fontSize: 13, color: colors.textSecondary, lineHeight: 1.6, margin: '0 0 10px' },
+  somaInfoLink: { fontSize: 12, color: colors.primary, textDecoration: 'none' },
 }

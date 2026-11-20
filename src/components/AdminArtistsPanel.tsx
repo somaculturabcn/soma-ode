@@ -7,6 +7,7 @@ import type { Artist, ParsedMaterial } from '../types/artist'
 import { emptyArtist } from '../types/artist'
 import { loadArtistsFromSupabase, saveArtistToSupabase, deleteArtistFromSupabase } from '../data/artistsSupabaseStore'
 import MaterialReader from './MaterialReader'
+import { colors, shadows, radius } from '../theme'
 
 // ── Sub-componentes ──────────────────────────────────────────────────────
 
@@ -156,8 +157,8 @@ function ArtistFormModal({ artist, onSave, onClose }: {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 16, marginTop: 16 }}>
-      <h3 style={{ margin: '0 0 12px', fontSize: 12, color: '#60b4e8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{title}</h3>
+    <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: 16, marginTop: 16 }}>
+      <h3 style={{ margin: '0 0 12px', fontSize: 12, color: colors.primary, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{title}</h3>
       {children}
     </div>
   )
@@ -273,17 +274,17 @@ export default function AdminArtistsPanel() {
   }
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto', padding: '28px 20px', color: '#fff' }}>
+    <div style={{ maxWidth: 1000, margin: '0 auto', padding: '28px 20px', color: colors.text }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 24, color: '#60b4e8' }}>🎤 Gestão de Artistas</h1>
-          <span style={{ fontSize: 11, color: '#ffcf5c', background: 'rgba(255,207,92,0.1)', padding: '2px 8px', borderRadius: 4, marginTop: 4, display: 'inline-block' }}>
+          <h1 style={{ margin: 0, fontSize: 24, color: colors.primary }}>🎤 Gestão de Artistas</h1>
+          <span style={{ fontSize: 11, color: colors.admin, background: 'rgba(255,207,92,0.1)', padding: '2px 8px', borderRadius: 4, marginTop: 4, display: 'inline-block' }}>
             ADMIN — {artists.length} artista{artists.length !== 1 ? 's' : ''} registado{artists.length !== 1 ? 's' : ''}
           </span>
         </div>
         <button onClick={() => setEditing('new')} style={{
-          background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8,
+          background: '#1A6994', color: colors.text, border: 'none', borderRadius: 8,
           padding: '10px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
         }}>
           + Novo Artista
@@ -294,8 +295,8 @@ export default function AdminArtistsPanel() {
       <input
         style={{
           width: '100%', boxSizing: 'border-box',
-          background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)',
-          borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#fff',
+          background: colors.bg, border: `1px solid ${colors.border}`,
+          borderRadius: 8, padding: '10px 14px', fontSize: 14, color: colors.text,
           marginBottom: 16, outline: 'none',
         }}
         placeholder="🔍 Buscar por nome, disciplina, cidade..."
@@ -305,14 +306,14 @@ export default function AdminArtistsPanel() {
 
       {/* Loading */}
       {loading && (
-        <div style={{ textAlign: 'center', padding: 40, color: 'rgba(255,255,255,0.4)' }}>
+        <div style={{ textAlign: 'center', padding: 40, color: colors.textSecondary }}>
           A carregar artistas...
         </div>
       )}
 
       {/* Empty */}
       {!loading && filtered.length === 0 && (
-        <div style={{ textAlign: 'center', padding: 40, color: 'rgba(255,255,255,0.3)', fontSize: 14 }}>
+        <div style={{ textAlign: 'center', padding: 40, color: colors.textMuted, fontSize: 14 }}>
           {search ? 'Nenhum artista encontrado com esses filtros.' : 'Ainda não há artistas registados. Clica em "+ Novo Artista" para começar.'}
         </div>
       )}
@@ -324,7 +325,7 @@ export default function AdminArtistsPanel() {
             const isExpanded = expandedId === a.id
             return (
               <div key={a.id} style={{
-                background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.06)',
+                background: colors.bg, border: `1px solid ${colors.border}`,
                 borderRadius: 12, overflow: 'hidden',
               }}>
                 {/* Row header */}
@@ -336,15 +337,15 @@ export default function AdminArtistsPanel() {
                     <div style={{
                       width: 36, height: 36, borderRadius: '50%', background: 'rgba(96,180,232,0.12)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 16, color: '#60b4e8', fontWeight: 700, flexShrink: 0,
+                      fontSize: 16, color: colors.primary, fontWeight: 700, flexShrink: 0,
                     }}>
                       {(a.name || a.artisticName || '?').charAt(0).toUpperCase()}
                     </div>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, color: '#fff', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontWeight: 700, color: colors.text, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {a.name || a.artisticName || 'Sem nome'}
                       </div>
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: 11, color: colors.textSecondary, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         {a.base && <span>📍 {a.base}</span>}
                         {(a.disciplines || []).length > 0 && <span>🎭 {a.disciplines.slice(0, 3).join(', ')}</span>}
                         {a.email && <span>✉ {a.email}</span>}
@@ -359,13 +360,13 @@ export default function AdminArtistsPanel() {
                     }}>
                       {a.active !== false ? 'Ativo' : 'Inativo'}
                     </span>
-                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>{isExpanded ? '▲' : '▼'}</span>
+                    <span style={{ fontSize: 12, color: colors.textMuted }}>{isExpanded ? '▲' : '▼'}</span>
                   </div>
                 </div>
 
                 {/* Expanded details */}
                 {isExpanded && (
-                  <div style={{ padding: '0 16px 16px', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                  <div style={{ padding: '0 16px 16px', borderTop: `1px solid ${colors.border}` }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8, marginTop: 12 }}>
                       <DetailItem label="Nome legal" value={a.legalName} />
                       <DetailItem label="Pronomes" value={a.pronouns} />
@@ -381,14 +382,14 @@ export default function AdminArtistsPanel() {
                       <DetailItem label="Instagram" value={a.instagram} />
                     </div>
                     {a.bio && (
-                      <div style={{ marginTop: 10, fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6, maxHeight: 100, overflow: 'auto' }}>
+                      <div style={{ marginTop: 10, fontSize: 12, color: colors.textSecondary, lineHeight: 1.6, maxHeight: 100, overflow: 'auto' }}>
                         {a.bio}
                       </div>
                     )}
                     {/* Materiais parseados */}
                     {a.parsedMaterials && a.parsedMaterials.length > 0 && (
                       <div style={{ marginTop: 10, padding: '8px 10px', background: 'rgba(96,180,232,0.04)', borderRadius: 8 }}>
-                        <span style={{ fontSize: 11, color: '#60b4e8', fontWeight: 600 }}>
+                        <span style={{ fontSize: 11, color: colors.primary, fontWeight: 600 }}>
                           📄 {a.parsedMaterials.length} material(is) · {a.parsedMaterials.reduce((s, m) => s + (m.festivalsPlayed?.length || 0), 0)} festivais · {a.parsedMaterials.reduce((s, m) => s + (m.pressOutlets?.length || 0), 0)} imprensa · {a.parsedMaterials.reduce((s, m) => s + (m.countriesPerformed?.length || 0), 0)} países
                         </span>
                       </div>
@@ -437,15 +438,15 @@ function DetailItem({ label, value }: { label: string; value?: string }) {
   if (!value) return null
   return (
     <div>
-      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', marginBottom: 2 }}>{label}</div>
-      <div style={{ fontSize: 13, color: '#fff' }}>{value}</div>
+      <div style={{ fontSize: 10, color: colors.textMuted, textTransform: 'uppercase', marginBottom: 2 }}>{label}</div>
+      <div style={{ fontSize: 13, color: colors.text }}>{value}</div>
     </div>
   )
 }
 
 function actBtn(bg: string): React.CSSProperties {
   return {
-    background: bg, color: '#fff', border: 'none', borderRadius: 6,
+    background: bg, color: colors.text, border: 'none', borderRadius: 6,
     padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
   }
 }
@@ -454,12 +455,12 @@ function actBtn(bg: string): React.CSSProperties {
 
 const inp = {
   label: {
-    display: 'block', fontSize: 11, color: 'rgba(255,255,255,0.4)',
+    display: 'block', fontSize: 11, color: colors.textSecondary,
     marginBottom: 4, textTransform: 'uppercase' as const, letterSpacing: '0.04em',
   },
   input: {
     width: '100%', boxSizing: 'border-box' as const,
-    background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.12)',
+    background: colors.bgInput, color: colors.text, border: `1px solid ${colors.border}`,
     borderRadius: 8, padding: '9px 12px', fontSize: 13, outline: 'none',
     fontFamily: 'inherit',
   },
@@ -472,17 +473,17 @@ const modal: Record<string, React.CSSProperties> = {
     zIndex: 1000, padding: 16,
   },
   box: {
-    background: '#050505', border: '1px solid #1A6994', borderRadius: 16,
+    background: colors.bgPage, border: '1px solid #1A6994', borderRadius: 16,
     width: 'min(900px, 96vw)', maxHeight: '94vh', display: 'flex', flexDirection: 'column',
     boxShadow: '0 0 40px rgba(26,105,148,0.3)',
   },
   header: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '18px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)',
+    padding: '18px 24px', borderBottom: `1px solid ${colors.border}`,
   },
-  title: { margin: 0, fontSize: 20, color: '#fff', fontWeight: 800 },
+  title: { margin: 0, fontSize: 20, color: colors.text, fontWeight: 800 },
   closeBtn: {
-    background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)',
+    background: 'none', border: 'none', color: colors.textMuted,
     fontSize: 18, cursor: 'pointer', padding: 4,
   },
   scroll: {
@@ -490,14 +491,14 @@ const modal: Record<string, React.CSSProperties> = {
   },
   actions: {
     display: 'flex', justifyContent: 'flex-end', gap: 10,
-    padding: '14px 24px', borderTop: '1px solid rgba(255,255,255,0.06)',
+    padding: '14px 24px', borderTop: `1px solid ${colors.border}`,
   },
   cancelBtn: {
-    background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)',
+    background: colors.bgInput, color: colors.textSecondary,
     border: 'none', borderRadius: 8, padding: '10px 18px', fontSize: 13, cursor: 'pointer',
   },
   saveBtn: {
-    background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8,
+    background: '#1A6994', color: colors.text, border: 'none', borderRadius: 8,
     padding: '10px 22px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
   },
 }

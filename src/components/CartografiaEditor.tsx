@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import type { Cartografia } from '../types/artist';
 import AiDisclosureBanner from './AiDisclosureBanner';
+import { colors, shadows, radius } from '../theme'
 
 interface CartografiaEditorProps {
   value: Cartografia | undefined;
@@ -33,11 +34,11 @@ const s = {
     fontSize: 12,
     fontWeight: 600,
     letterSpacing: '0.08em',
-    color: '#60b4e8',
+    color: colors.primary,
   } as React.CSSProperties,
   dimHint: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.35)',
+    color: colors.textMuted,
     marginLeft: 8,
     fontWeight: 400,
     letterSpacing: 0,
@@ -56,7 +57,7 @@ const s = {
   fieldLabel: {
     display: 'block',
     fontSize: 11,
-    color: 'rgba(255,255,255,0.55)',
+    color: colors.textSecondary,
     marginTop: 10,
     marginBottom: 4,
     letterSpacing: '0.03em',
@@ -64,7 +65,7 @@ const s = {
   fieldLabelStrategic: {
     display: 'block',
     fontSize: 11,
-    color: '#ffcf5c',
+    color: colors.admin,
     marginTop: 10,
     marginBottom: 4,
     letterSpacing: '0.03em',
@@ -73,8 +74,8 @@ const s = {
   textarea: {
     width: '100%',
     padding: '10px 12px',
-    background: '#0a0a0a',
-    color: '#fff',
+    background: colors.bg,
+    color: colors.text,
     border: '0.5px solid rgba(255,255,255,0.12)',
     borderRadius: 6,
     fontSize: 13,
@@ -87,8 +88,8 @@ const s = {
   input: {
     width: '100%',
     padding: '10px 12px',
-    background: '#0a0a0a',
-    color: '#fff',
+    background: colors.bg,
+    color: colors.text,
     border: '0.5px solid rgba(255,255,255,0.12)',
     borderRadius: 6,
     fontSize: 13,
@@ -100,7 +101,7 @@ const s = {
     padding: '8px 12px',
     background: 'transparent',
     border: '0.5px solid rgba(255,255,255,0.2)',
-    color: 'rgba(255,255,255,0.6)',
+    color: colors.textSecondary,
     borderRadius: 6,
     fontSize: 12,
     cursor: 'pointer',
@@ -112,11 +113,11 @@ const s = {
     alignItems: 'center',
     gap: 6,
     padding: '3px 10px',
-    background: 'rgba(26,105,148,0.15)',
+    background: colors.primaryBg,
     border: '0.5px solid rgba(26,105,148,0.3)',
     borderRadius: 20,
     fontSize: 12,
-    color: '#60b4e8',
+    color: colors.primary,
   } as React.CSSProperties,
   tagStrategic: {
     display: 'inline-flex',
@@ -127,7 +128,7 @@ const s = {
     border: '0.5px solid rgba(255,207,92,0.35)',
     borderRadius: 20,
     fontSize: 12,
-    color: '#ffcf5c',
+    color: colors.admin,
   } as React.CSSProperties,
   tagRemove: { cursor: 'pointer', opacity: 0.6, fontSize: 14, lineHeight: 1 } as React.CSSProperties,
   compact: {
@@ -138,7 +139,7 @@ const s = {
   } as React.CSSProperties,
   compactHint: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.5)',
+    color: colors.textSecondary,
     marginBottom: 12,
     lineHeight: 1.5,
   } as React.CSSProperties,
@@ -209,11 +210,11 @@ function rotaStatus(c: Cartografia | undefined): DimStatus {
 function statusLabel(st: DimStatus): { label: string; color: string; bg: string } {
   switch (st) {
     case 'vazia':
-      return { label: 'vazia', color: 'rgba(255,255,255,0.4)', bg: 'rgba(255,255,255,0.06)' };
+      return { label: 'vazia', color: colors.textSecondary, bg: 'rgba(255,255,255,0.06)' };
     case 'rascunho':
-      return { label: 'rascunho', color: '#ffcf5c', bg: 'rgba(255,207,92,0.12)' };
+      return { label: 'rascunho', color: colors.admin, bg: 'rgba(255,207,92,0.12)' };
     case 'em_conversa':
-      return { label: 'em conversa', color: '#60b4e8', bg: 'rgba(26,105,148,0.15)' };
+      return { label: 'em conversa', color: colors.primary, bg: 'rgba(26,105,148,0.15)' };
     case 'validada':
       return { label: 'validada', color: '#5dcaa5', bg: 'rgba(93,202,165,0.15)' };
   }

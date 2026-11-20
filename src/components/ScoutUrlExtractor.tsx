@@ -3,6 +3,7 @@
 // Cola URL → IA extrai oportunidade → revisar → guardar
 
 import { useState } from 'react'
+import { colors, shadows, radius } from '../theme'
 
 type ExtractedOpportunity = {
   title: string
@@ -332,24 +333,24 @@ export default function ScoutUrlExtractor({ onSave }: Props) {
 
 const styles: Record<string, React.CSSProperties> = {
   box: {
-    background: '#050505',
+    background: colors.bgPage,
     border: '1px solid rgba(26,105,148,0.45)',
     borderRadius: 14,
     padding: 20,
     marginBottom: 24,
-    color: '#fff',
+    color: colors.text,
   },
   header: {
     marginBottom: 14,
   },
   title: {
     margin: 0,
-    color: '#60b4e8',
+    color: colors.primary,
     fontSize: 22,
   },
   subtitle: {
     margin: '6px 0 0',
-    color: 'rgba(255,255,255,0.55)',
+    color: colors.textSecondary,
     fontSize: 13,
   },
   row: {
@@ -359,9 +360,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
   input: {
     width: '100%',
-    background: '#0a0a0a',
-    color: '#fff',
-    border: '1px solid rgba(255,255,255,0.14)',
+    background: colors.bg,
+    color: colors.text,
+    border: `1px solid ${colors.border}`,
     borderRadius: 8,
     padding: '10px 12px',
     fontSize: 13,
@@ -370,7 +371,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   primaryBtn: {
     background: '#1A6994',
-    color: '#fff',
+    color: colors.text,
     border: 'none',
     borderRadius: 8,
     padding: '10px 14px',
@@ -380,9 +381,9 @@ const styles: Record<string, React.CSSProperties> = {
     whiteSpace: 'nowrap',
   },
   secondaryBtn: {
-    background: 'rgba(255,255,255,0.06)',
-    color: '#fff',
-    border: '1px solid rgba(255,255,255,0.12)',
+    background: colors.bgInput,
+    color: colors.text,
+    border: `1px solid ${colors.border}`,
     borderRadius: 8,
     padding: '10px 14px',
     fontSize: 13,
@@ -400,7 +401,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   warning: {
     marginTop: 12,
-    color: '#ffcf5c',
+    color: colors.admin,
     background: 'rgba(255,207,92,0.10)',
     border: '1px solid rgba(255,207,92,0.25)',
     padding: 10,
@@ -409,14 +410,14 @@ const styles: Record<string, React.CSSProperties> = {
   },
   result: {
     marginTop: 18,
-    background: '#000',
-    border: '1px solid rgba(255,255,255,0.1)',
+    background: colors.bgPage,
+    border: `1px solid ${colors.border}`,
     borderRadius: 12,
     padding: 18,
   },
   resultTitle: {
     margin: '0 0 14px',
-    color: '#fff',
+    color: colors.text,
     fontSize: 18,
   },
   grid: {
@@ -428,16 +429,16 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     gap: 6,
-    color: 'rgba(255,255,255,0.55)',
+    color: colors.textSecondary,
     fontSize: 12,
     marginBottom: 12,
   },
   textarea: {
     width: '100%',
     minHeight: 100,
-    background: '#0a0a0a',
-    color: '#fff',
-    border: '1px solid rgba(255,255,255,0.14)',
+    background: colors.bg,
+    color: colors.text,
+    border: `1px solid ${colors.border}`,
     borderRadius: 8,
     padding: 12,
     fontSize: 13,
@@ -449,7 +450,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: 8,
-    color: 'rgba(255,255,255,0.75)',
+    color: colors.text,
     fontSize: 13,
     marginBottom: 12,
   },

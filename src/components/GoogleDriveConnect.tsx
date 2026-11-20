@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { colors, shadows, radius } from '../theme'
 
 declare global {
   interface Window {
@@ -135,21 +136,21 @@ export default function GoogleDriveConnect() {
 
 const styles: Record<string, React.CSSProperties> = {
   box: {
-    background: '#050505',
-    border: '1px solid rgba(255,255,255,0.12)',
+    background: colors.bgPage,
+    border: `1px solid ${colors.border}`,
     borderRadius: 14,
     padding: 24,
-    color: '#fff',
+    color: colors.text,
     maxWidth: 900,
     margin: '30px auto',
   },
   title: {
     margin: 0,
-    color: '#60b4e8',
+    color: colors.primary,
     fontSize: 28,
   },
   text: {
-    color: 'rgba(255,255,255,0.65)',
+    color: colors.textSecondary,
     fontSize: 14,
     marginTop: 10,
     lineHeight: 1.5,
@@ -157,7 +158,7 @@ const styles: Record<string, React.CSSProperties> = {
   button: {
     marginTop: 18,
     background: '#1A6994',
-    color: '#fff',
+    color: colors.text,
     border: 'none',
     borderRadius: 8,
     padding: '12px 18px',
@@ -166,20 +167,20 @@ const styles: Record<string, React.CSSProperties> = {
   },
   status: {
     marginTop: 14,
-    color: 'rgba(255,255,255,0.6)',
+    color: colors.textSecondary,
     fontSize: 13,
   },
   list: {
     marginTop: 24,
   },
   subtitle: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 18,
     marginBottom: 12,
   },
   file: {
-    background: '#111',
-    border: '1px solid rgba(255,255,255,0.08)',
+    background: colors.bgInput,
+    border: `1px solid ${colors.border}`,
     borderRadius: 10,
     padding: 12,
     marginBottom: 10,
@@ -189,11 +190,11 @@ const styles: Record<string, React.CSSProperties> = {
   },
   mime: {
     margin: '4px 0 0',
-    color: 'rgba(255,255,255,0.35)',
+    color: colors.textMuted,
     fontSize: 12,
   },
   link: {
-    color: '#60b4e8',
+    color: colors.primary,
     textDecoration: 'none',
     fontSize: 13,
     whiteSpace: 'nowrap',

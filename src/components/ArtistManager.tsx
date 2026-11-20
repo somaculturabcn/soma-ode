@@ -15,6 +15,7 @@ import {
 } from '../data/artistsSupabaseStore'
 import ProjectDossierUpload from './ProjectDossierUpload'
 import type { ExtractedDossier } from '../services/pdfExtractor'
+import { colors, shadows, radius } from '../theme'
 
 // ─── Helper: garante sempre array ────────────────────────
 function safeArr(val: any): string[] {
@@ -667,16 +668,16 @@ function Section07({ a, update, artistId }: SecProps & { artistId: string }) {
             <div>
               <strong>Projeto {i + 1}: {p.name || 'Sem nome'}</strong>
               {safeArr(p.projectKeywords).length > 0 && (
-                <div style={{ fontSize: 11, color: '#ffcf5c', marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: colors.admin, marginTop: 4 }}>
                   {safeArr(p.projectKeywords).join(', ')}
                 </div>
               )}
             </div>
-            <span style={{ color: '#60b4e8', fontSize: 18 }}>{expanded === p.id ? '▲' : '▼'}</span>
+            <span style={{ color: colors.primary, fontSize: 18 }}>{expanded === p.id ? '▲' : '▼'}</span>
           </div>
           {expanded === p.id && (
             <div style={{ marginTop: 14 }}>
-              <h4 style={{ color: '#60b4e8', marginBottom: 8 }}>📋 Dados do Projeto</h4>
+              <h4 style={{ color: colors.primary, marginBottom: 8 }}>📋 Dados do Projeto</h4>
               <Field label="Nome do projeto">
                 <input style={s.input} value={p.name || ''} onChange={e => updateProject(p.id, 'name', e.target.value)} />
               </Field>
@@ -697,7 +698,7 @@ function Section07({ a, update, artistId }: SecProps & { artistId: string }) {
               <Field label="Necessidades técnicas">
                 <textarea style={s.textarea} value={p.technicalNeeds || ''} onChange={e => updateProject(p.id, 'technicalNeeds', e.target.value)} />
               </Field>
-              <h4 style={{ color: '#60b4e8', marginBottom: 8, marginTop: 18 }}>🔗 Links</h4>
+              <h4 style={{ color: colors.primary, marginBottom: 8, marginTop: 18 }}>🔗 Links</h4>
               <div style={s.grid2}>
                 <Field label="Link Vídeo">
                   <input style={s.input} value={p.videoLink || ''} onChange={e => updateProject(p.id, 'videoLink', e.target.value)} />
@@ -709,7 +710,7 @@ function Section07({ a, update, artistId }: SecProps & { artistId: string }) {
                   <input style={s.input} value={p.dossierLink || ''} onChange={e => updateProject(p.id, 'dossierLink', e.target.value)} />
                 </Field>
               </div>
-              <h4 style={{ color: '#ffcf5c', marginBottom: 8, marginTop: 18 }}>🧭 Mini-Cartografia do Projeto</h4>
+              <h4 style={{ color: colors.admin, marginBottom: 8, marginTop: 18 }}>🧭 Mini-Cartografia do Projeto</h4>
               <Field label="Público-alvo">
                 <textarea style={s.textarea} value={p.projectTargetAudience || ''}
                   onChange={e => updateProject(p.id, 'projectTargetAudience', e.target.value)}
@@ -748,9 +749,9 @@ function Section07({ a, update, artistId }: SecProps & { artistId: string }) {
               <div style={{ marginTop: 16 }}>
                 <button style={s.danger} onClick={() => removeProject(p.id)}>🗑 Remover projeto</button>
               </div>
-              <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-                <h4 style={{ color: '#60b4e8', marginBottom: 8 }}>📄 Dossier PDF</h4>
-                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>
+              <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${colors.border}` }}>
+                <h4 style={{ color: colors.primary, marginBottom: 8 }}>📄 Dossier PDF</h4>
+                <p style={{ fontSize: 11, color: colors.textSecondary, marginBottom: 10 }}>
                   O dossier fica guardado no Supabase e o texto é extraído para melhorar o match com oportunidades.
                 </p>
                 <ProjectDossierUpload
@@ -927,52 +928,52 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 // ─── Styles ───────────────────────────────────────────────
 
 const s: Record<string, React.CSSProperties> = {
-  wrap: { padding: '24px 22px', maxWidth: 1180, margin: '0 auto', color: '#fff' },
-  loading: { padding: 40, textAlign: 'center', color: '#fff' },
+  wrap: { padding: '24px 22px', maxWidth: 1180, margin: '0 auto', color: colors.text },
+  loading: { padding: 40, textAlign: 'center', color: colors.text },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
   formHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   formActions: { display: 'flex', gap: 10 },
   formFooter: { display: 'flex', justifyContent: 'space-between', marginTop: 24, alignItems: 'center' },
-  title: { margin: 0, fontSize: 28, color: '#fff' },
-  subtitle: { margin: '4px 0 0', color: 'rgba(255,255,255,0.55)', fontSize: 13 },
-  empty: { padding: 40, textAlign: 'center', color: 'rgba(255,255,255,0.5)', background: '#0a0a0a', borderRadius: 12, border: '1px dashed rgba(255,255,255,0.1)' },
-  tabs: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18, paddingBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.08)' },
-  tab: { padding: '8px 14px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.6)', borderRadius: 8, fontSize: 12, cursor: 'pointer' },
-  tabActive: { background: '#1A6994', color: '#fff', border: '1px solid #1A6994' },
-  section: { background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 22 },
-  h2: { color: '#60b4e8', textAlign: 'center', fontSize: 14, letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: 0, marginBottom: 22 },
+  title: { margin: 0, fontSize: 28, color: colors.text },
+  subtitle: { margin: '4px 0 0', color: colors.textSecondary, fontSize: 13 },
+  empty: { padding: 40, textAlign: 'center', color: colors.textSecondary, background: colors.bg, borderRadius: 12, border: '1px dashed rgba(255,255,255,0.1)' },
+  tabs: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18, paddingBottom: 12, borderBottom: `1px solid ${colors.border}` },
+  tab: { padding: '8px 14px', background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textSecondary, borderRadius: 8, fontSize: 12, cursor: 'pointer' },
+  tabActive: { background: '#1A6994', color: colors.text, border: '1px solid #1A6994' },
+  section: { background: colors.bg, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 22 },
+  h2: { color: colors.primary, textAlign: 'center', fontSize: 14, letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: 0, marginBottom: 22 },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 },
   grid2: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 },
-  card: { background: '#111', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 16 },
+  card: { background: colors.bgInput, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16 },
   cardTitle: { margin: '0 0 4px', fontSize: 17 },
-  cardMeta: { margin: '0 0 10px', color: 'rgba(255,255,255,0.5)', fontSize: 12 },
+  cardMeta: { margin: '0 0 10px', color: colors.textSecondary, fontSize: 12 },
   tags: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 },
-  tag: { background: 'rgba(26,105,148,0.18)', color: '#60b4e8', padding: '2px 8px', borderRadius: 20, fontSize: 11 },
-  progress: { display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'rgba(255,255,255,0.45)', marginBottom: 12 },
+  tag: { background: 'rgba(26,105,148,0.18)', color: colors.primary, padding: '2px 8px', borderRadius: 20, fontSize: 11 },
+  progress: { display: 'flex', justifyContent: 'space-between', fontSize: 11, color: colors.textSecondary, marginBottom: 12 },
   cardActions: { display: 'flex', gap: 8, justifyContent: 'flex-end' },
   field: { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 },
-  label: { fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)' },
-  input: { background: '#000', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none', boxSizing: 'border-box', width: '100%' },
-  textarea: { background: '#000', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8, padding: 12, fontSize: 13, outline: 'none', resize: 'vertical', boxSizing: 'border-box', width: '100%' },
-  textareaBig: { background: '#000', color: '#fff', border: '1px solid #1A6994', borderRadius: 8, padding: 12, fontSize: 13, outline: 'none', resize: 'vertical', boxSizing: 'border-box', width: '100%' },
+  label: { fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: colors.textSecondary },
+  input: { background: colors.bgPage, color: colors.text, border: `1px solid ${colors.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none', boxSizing: 'border-box', width: '100%' },
+  textarea: { background: colors.bgPage, color: colors.text, border: `1px solid ${colors.border}`, borderRadius: 8, padding: 12, fontSize: 13, outline: 'none', resize: 'vertical', boxSizing: 'border-box', width: '100%' },
+  textareaBig: { background: colors.bgPage, color: colors.text, border: '1px solid #1A6994', borderRadius: 8, padding: 12, fontSize: 13, outline: 'none', resize: 'vertical', boxSizing: 'border-box', width: '100%' },
   chipGrid: { display: 'flex', gap: 8, flexWrap: 'wrap' },
-  chip: { padding: '8px 14px', background: 'transparent', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 24, fontSize: 13, cursor: 'pointer' },
-  chipActive: { background: 'rgba(26,105,148,0.3)', color: '#fff', border: '1px solid #1A6994' },
+  chip: { padding: '8px 14px', background: 'transparent', color: colors.textSecondary, border: `1px solid ${colors.border}`, borderRadius: 24, fontSize: 13, cursor: 'pointer' },
+  chipActive: { background: 'rgba(26,105,148,0.3)', color: colors.text, border: '1px solid #1A6994' },
   checkRow: { display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 14 },
-  check: { display: 'flex', gap: 8, alignItems: 'center', color: 'rgba(255,255,255,0.7)', fontSize: 13, cursor: 'pointer' },
+  check: { display: 'flex', gap: 8, alignItems: 'center', color: colors.text, fontSize: 13, cursor: 'pointer' },
   toolbarRow: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 18, flexWrap: 'wrap' },
-  counter: { color: 'rgba(255,255,255,0.55)', fontSize: 13 },
+  counter: { color: colors.textSecondary, fontSize: 13 },
   regionBlock: { marginBottom: 18 },
   regionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  regionTitle: { color: '#fff', fontSize: 14, fontWeight: 600 },
-  regionToggle: { background: 'transparent', color: '#60b4e8', border: 'none', fontSize: 12, cursor: 'pointer' },
+  regionTitle: { color: colors.text, fontSize: 14, fontWeight: 600 },
+  regionToggle: { background: 'transparent', color: colors.primary, border: 'none', fontSize: 12, cursor: 'pointer' },
   countryGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 6 },
-  country: { padding: '6px 10px', background: 'transparent', color: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 11, cursor: 'pointer', textAlign: 'left' },
-  countryActive: { background: 'rgba(26,105,148,0.3)', color: '#fff', border: '1px solid #1A6994' },
-  detail: { background: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 14, marginBottom: 12 },
-  summary: { fontSize: 14, fontWeight: 600, color: '#fff', cursor: 'pointer', marginBottom: 14 },
-  projectCard: { background: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 16, marginTop: 14 },
-  primary: { background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
-  secondary: { background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '9px 14px', fontSize: 13, cursor: 'pointer' },
+  country: { padding: '6px 10px', background: 'transparent', color: colors.textSecondary, border: `1px solid ${colors.border}`, borderRadius: 6, fontSize: 11, cursor: 'pointer', textAlign: 'left' },
+  countryActive: { background: 'rgba(26,105,148,0.3)', color: colors.text, border: '1px solid #1A6994' },
+  detail: { background: colors.bgPage, border: `1px solid ${colors.border}`, borderRadius: 10, padding: 14, marginBottom: 12 },
+  summary: { fontSize: 14, fontWeight: 600, color: colors.text, cursor: 'pointer', marginBottom: 14 },
+  projectCard: { background: colors.bgPage, border: `1px solid ${colors.border}`, borderRadius: 10, padding: 16, marginTop: 14 },
+  primary: { background: '#1A6994', color: colors.text, border: 'none', borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
+  secondary: { background: colors.bgInput, color: colors.text, border: `1px solid ${colors.border}`, borderRadius: 8, padding: '9px 14px', fontSize: 13, cursor: 'pointer' },
   danger: { background: 'rgba(255,70,70,0.12)', color: '#ff8a8a', border: '1px solid rgba(255,70,70,0.25)', borderRadius: 8, padding: '8px 12px', fontSize: 12, cursor: 'pointer' },
 }

@@ -1,8 +1,7 @@
-// src/components/AuthScreen.tsx
-// SOMA ODÉ — Ecrã de login/registo com Supabase (ou localStorage fallback)
-
+// src/components/AuthScreen.tsx — Tema claro (Manual da Marca SOMA)
 import { useState } from 'react'
 import { supabase, hasSupabase } from '../lib/supabase'
+import { colors, shadows, radius } from '../theme'
 
 type UserRole = 'artista' | 'produtor'
 
@@ -45,7 +44,6 @@ export default function AuthScreen({ mode: initialMode, onBack, onSuccess, onSho
       }
 
       if (hasSupabase) {
-        // ── Supabase auth ────────────────────────────────────────
         if (mode === 'register') {
           const { data, error: err } = await supabase.auth.signUp({
             email: email.trim(),
@@ -60,7 +58,6 @@ export default function AuthScreen({ mode: initialMode, onBack, onSuccess, onSho
           })
           if (err) throw new Error(translateError(err.message))
           if (data.user) {
-            // Alguns projetos Supabase exigem confirmação de email
             if (data.session) {
               localStorage.setItem('soma_user', JSON.stringify({ email: data.user.email, id: data.user.id, role }))
               onSuccess({ email: data.user.email!, id: data.user.id, role: role as UserRole })
@@ -81,7 +78,6 @@ export default function AuthScreen({ mode: initialMode, onBack, onSuccess, onSho
           }
         }
       } else {
-        // ── Fallback localStorage (sem Supabase) ─────────────────
         const userId = 'local_' + email.trim().replace(/[^a-z0-9]/g, '_')
         const userRole = role || 'artista'
         const userData = {
@@ -103,13 +99,11 @@ export default function AuthScreen({ mode: initialMode, onBack, onSuccess, onSho
   return (
     <div style={st.page}>
       <div style={st.container}>
-        {/* Back */}
         <button style={st.backBtn} onClick={onBack}>← Voltar</button>
 
-        {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={st.logoRow}>
-            <span style={st.logo}>SOMA</span>
+            <img src="/soma-logo.png" alt="SOMA Cultura" style={{ height: 36 }} />
             <span style={st.logoAccent}>ODÉ</span>
           </div>
           <h1 style={st.title}>
@@ -122,97 +116,61 @@ export default function AuthScreen({ mode: initialMode, onBack, onSuccess, onSho
           </p>
         </div>
 
-        {/* Modo offline notice */}
         {!hasSupabase && (
           <div style={st.notice}>
             ℹ️ Modo offline — os dados ficam guardados neste browser (localStorage).
           </div>
         )}
 
-        {/* Form */}
         <form onSubmit={handleSubmit} style={st.form}>
           {mode === 'register' && (
             <>
-              {/* Role picker */}
               <div style={st.field}>
                 <label style={st.label}>Eu sou...</label>
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <RoleOption
-                    icon="🎤"
-                    label="Artista"
+                  <RoleOption icon="🎤" label="Artista"
                     desc="Músico/a, bailarino/a, performer, artista visual"
-                    selected={role === 'artista'}
-                    onClick={() => setRole('artista')}
-                  />
-                  <RoleOption
-                    icon="🏢"
-                    label="Produtor/a"
+                    selected={role === 'artista'} onClick={() => setRole('artista')} />
+                  <RoleOption icon="🏢" label="Produtor/a"
                     desc="Produção cultural, gestão de artistas, booking"
-                    selected={role === 'produtor'}
-                    onClick={() => setRole('produtor')}
-                  />
+                    selected={role === 'produtor'} onClick={() => setRole('produtor')} />
                 </div>
               </div>
 
-              {/* Nome */}
               <div style={st.field}>
                 <label style={st.label}>Nome (opcional)</label>
-                <input
-                  style={st.input}
-                  type="text"
-                  value={name}
+                <input style={st.input} type="text" value={name}
                   onChange={e => setName(e.target.value)}
                   placeholder={role === 'produtor' ? 'Nome da produtora ou o teu nome' : 'O teu nome artístico ou real'}
-                  autoComplete="name"
-                />
+                  autoComplete="name" />
               </div>
             </>
           )}
 
           <div style={st.field}>
             <label style={st.label}>Email</label>
-            <input
-              style={st.input}
-              type="email"
-              value={email}
+            <input style={st.input} type="email" value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder="exemplo@email.com"
-              required
-              autoComplete="email"
-              autoFocus
-            />
+              placeholder="exemplo@email.com" required autoComplete="email" autoFocus />
           </div>
 
           <div style={st.field}>
             <label style={st.label}>Password</label>
-            <input
-              style={st.input}
-              type="password"
-              value={password}
+            <input style={st.input} type="password" value={password}
               onChange={e => setPassword(e.target.value)}
-              placeholder="Mínimo 6 caracteres"
-              required
-              minLength={6}
-              autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
-            />
+              placeholder="Mínimo 6 caracteres" required minLength={6}
+              autoComplete={mode === 'register' ? 'new-password' : 'current-password'} />
           </div>
 
-          {/* Consentimento RGPD — só no registo */}
           {mode === 'register' && (
             <div style={st.consentBox}>
               <label style={st.consentLabel}>
-                <input
-                  type="checkbox"
-                  checked={consentRgpd}
-                  onChange={e => setConsentRgpd(e.target.checked)}
-                  style={st.checkbox}
-                />
+                <input type="checkbox" checked={consentRgpd}
+                  onChange={e => setConsentRgpd(e.target.checked)} style={st.checkbox} />
                 <span style={st.consentText}>
                   Li e aceito a{' '}
-                  <span
-                    style={st.consentLink}
-                    onClick={e => { e.preventDefault(); onShowPrivacy?.() }}
-                  >
+                  <span style={st.consentLink}
+                    onClick={e => { e.preventDefault(); onShowPrivacy?.() }}>
                     Política de Privacidade
                   </span>
                   {' '}e autorizo o tratamento dos meus dados pessoais conforme o RGPD (UE) 2016/679 e a LOPDGDD (ES) 3/2018.
@@ -228,15 +186,10 @@ export default function AuthScreen({ mode: initialMode, onBack, onSuccess, onSho
           {success && <div style={st.success}>{success}</div>}
 
           <button style={{ ...st.primaryBtn, opacity: loading ? 0.6 : 1 }} disabled={loading} type="submit">
-            {loading
-              ? '...'
-              : mode === 'register'
-                ? 'Criar conta →'
-                : 'Entrar →'}
+            {loading ? '...' : mode === 'register' ? 'Criar conta →' : 'Entrar →'}
           </button>
         </form>
 
-        {/* Toggle mode */}
         <div style={{ textAlign: 'center', marginTop: 24 }}>
           {mode === 'register' ? (
             <p style={st.toggleText}>
@@ -264,14 +217,14 @@ function RoleOption({ icon, label, desc, selected, onClick }: {
 }) {
   return (
     <div onClick={onClick} style={{
-      flex: 1, padding: '16px 14px', borderRadius: 12, cursor: 'pointer',
-      background: selected ? 'rgba(26,105,148,0.12)' : '#0a0a0a',
-      border: selected ? '2px solid #1A6994' : '2px solid rgba(255,255,255,0.08)',
+      flex: 1, padding: '16px 14px', borderRadius: radius.lg, cursor: 'pointer',
+      background: selected ? colors.primaryBg : colors.bgInput,
+      border: selected ? `2px solid ${colors.primary}` : `2px solid ${colors.border}`,
       textAlign: 'center', transition: 'all 0.15s',
     }}>
       <div style={{ fontSize: 32, marginBottom: 8 }}>{icon}</div>
-      <div style={{ fontSize: 15, fontWeight: 700, color: selected ? '#60b4e8' : '#fff', marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>{desc}</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: selected ? colors.primary : colors.text, marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 11, color: colors.textMuted, lineHeight: 1.4 }}>{desc}</div>
     </div>
   )
 }
@@ -285,28 +238,27 @@ function translateError(msg: string): string {
 }
 
 const st: Record<string, React.CSSProperties> = {
-  page: { minHeight: '100vh', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
+  page: { minHeight: '100vh', background: colors.bgPage, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
   container: { width: '100%', maxWidth: 420 },
-  backBtn: { background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 13, cursor: 'pointer', padding: '4px 0', marginBottom: 16 },
-  logoRow: { display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 8, marginBottom: 16 },
-  logo: { fontSize: 32, fontWeight: 900, letterSpacing: '0.12em', color: '#1A6994' },
-  logoAccent: { fontSize: 22, fontWeight: 300, color: '#ffcf5c', letterSpacing: '0.25em' },
-  title: { margin: '0 0 8px', fontSize: 24, fontWeight: 700, color: '#fff' },
-  subtitle: { margin: 0, fontSize: 14, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6 },
-  notice: { padding: '10px 14px', borderRadius: 8, fontSize: 12, marginBottom: 20, background: 'rgba(96,180,232,0.08)', border: '1px solid rgba(96,180,232,0.2)', color: '#60b4e8' },
+  backBtn: { background: 'none', border: 'none', color: colors.textMuted, fontSize: 13, cursor: 'pointer', padding: '4px 0', marginBottom: 16 },
+  logoRow: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 16 },
+  logoAccent: { fontSize: 20, fontWeight: 300, color: colors.textMuted, letterSpacing: '0.25em' },
+  title: { margin: '0 0 8px', fontSize: 24, fontWeight: 700, color: colors.text },
+  subtitle: { margin: 0, fontSize: 14, color: colors.textSecondary, lineHeight: 1.6 },
+  notice: { padding: '10px 14px', borderRadius: radius.sm, fontSize: 12, marginBottom: 20, background: colors.primaryBg, border: `1px solid ${colors.primaryBorder}`, color: colors.primary },
   form: { display: 'flex', flexDirection: 'column', gap: 16 },
   field: { display: 'flex', flexDirection: 'column', gap: 6 },
-  label: { fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em' },
-  input: { background: '#0a0a0a', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 10, padding: '12px 14px', fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const },
-  primaryBtn: { background: '#1A6994', color: '#fff', border: 'none', borderRadius: 10, padding: '14px 24px', fontSize: 15, fontWeight: 700, cursor: 'pointer', marginTop: 8 },
-  error: { padding: '10px 14px', borderRadius: 8, fontSize: 13, background: 'rgba(249,112,102,0.08)', border: '1px solid rgba(249,112,102,0.3)', color: '#f97066' },
-  success: { padding: '10px 14px', borderRadius: 8, fontSize: 13, background: 'rgba(110,243,165,0.08)', border: '1px solid rgba(110,243,165,0.3)', color: '#6ef3a5' },
-  toggleText: { fontSize: 13, color: 'rgba(255,255,255,0.4)' },
-  toggleLink: { color: '#60b4e8', cursor: 'pointer', fontWeight: 600 },
-  consentBox: { background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '14px 16px' },
+  label: { fontSize: 12, fontWeight: 600, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.06em' },
+  input: { background: colors.bgInput, color: colors.text, border: `1px solid ${colors.border}`, borderRadius: radius.sm, padding: '12px 14px', fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const },
+  primaryBtn: { background: colors.primary, color: '#fff', border: 'none', borderRadius: radius.sm, padding: '14px 24px', fontSize: 15, fontWeight: 700, cursor: 'pointer', marginTop: 8 },
+  error: { padding: '10px 14px', borderRadius: radius.sm, fontSize: 13, background: colors.dangerBg, border: `1px solid rgba(220,38,38,0.2)`, color: colors.danger },
+  success: { padding: '10px 14px', borderRadius: radius.sm, fontSize: 13, background: colors.successBg, border: `1px solid rgba(5,150,105,0.2)`, color: colors.success },
+  toggleText: { fontSize: 13, color: colors.textMuted },
+  toggleLink: { color: colors.primary, cursor: 'pointer', fontWeight: 600 },
+  consentBox: { background: colors.bgInput, border: `1px solid ${colors.border}`, borderRadius: radius.md, padding: '14px 16px' },
   consentLabel: { display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer' },
-  checkbox: { width: 18, height: 18, marginTop: 2, accentColor: '#1A6994', flexShrink: 0, cursor: 'pointer' },
-  consentText: { fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 1.6 },
-  consentLink: { color: '#60b4e8', cursor: 'pointer', textDecoration: 'underline' },
-  consentHint: { margin: '8px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.3)', lineHeight: 1.5, paddingLeft: 28 },
+  checkbox: { width: 18, height: 18, marginTop: 2, accentColor: colors.primary, flexShrink: 0, cursor: 'pointer' },
+  consentText: { fontSize: 12, color: colors.textSecondary, lineHeight: 1.6 },
+  consentLink: { color: colors.primary, cursor: 'pointer', textDecoration: 'underline' },
+  consentHint: { margin: '8px 0 0', fontSize: 11, color: colors.textMuted, lineHeight: 1.5, paddingLeft: 28 },
 }

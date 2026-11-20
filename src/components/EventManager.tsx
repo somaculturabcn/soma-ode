@@ -16,6 +16,7 @@ import {
   AGREEMENT_LABELS, PAYMENT_LABELS, TEAM_ROLES, CAMPAIGN_PLATFORMS,
 } from '../types/event'
 import type { Artist } from '../types/artist'
+import { colors, shadows, radius } from '../theme'
 
 const GEMINI_MODEL = 'gemini-2.5-flash'
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`
@@ -359,7 +360,7 @@ ${editing.postEventNotes ? `<h2>Recap pós-evento</h2><p>${editing.postEventNote
                         {profit >= 0 ? '↑' : '↓'} Resultado: {profit}€
                       </span>
                     )}
-                    {ev.somaAnalysis && <span style={{ ...s.budgetItem, color: '#60b4e8' }}>🔍 SWOT feito</span>}
+                    {ev.somaAnalysis && <span style={{ ...s.budgetItem, color: colors.primary }}>🔍 SWOT feito</span>}
                   </div>
                 )}
                 <div style={s.cardActions}>
@@ -396,7 +397,7 @@ ${editing.postEventNotes ? `<h2>Recap pós-evento</h2><p>${editing.postEventNote
         </div>
       </div>
 
-      {msg && <div style={{ ...s.message, color: msg.startsWith('✅') ? '#6ef3a5' : '#ffcf5c' }}>{msg}</div>}
+      {msg && <div style={{ ...s.message, color: msg.startsWith('✅') ? '#6ef3a5' : colors.admin }}>{msg}</div>}
 
       {/* 01 INFO BÁSICA */}
       <Sec title="01 · Informação básica">
@@ -450,7 +451,7 @@ ${editing.postEventNotes ? `<h2>Recap pós-evento</h2><p>${editing.postEventNote
         {editing.externalArtists.map((artist, i) => (
           <div key={artist.id} style={s.extArtistCard}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <strong style={{ color: '#fff', fontSize: 14 }}>{artist.name || `Artista ${i + 1}`}</strong>
+              <strong style={{ color: colors.text, fontSize: 14 }}>{artist.name || `Artista ${i + 1}`}</strong>
               <button style={s.removeBtn} onClick={() => upd('externalArtists', editing.externalArtists.filter((_, j) => j !== i))}>✕ Remover</button>
             </div>
             <div style={s.grid2}>
@@ -512,7 +513,7 @@ ${editing.postEventNotes ? `<h2>Recap pós-evento</h2><p>${editing.postEventNote
           + Adicionar artista externo
         </button>
         {editing.externalArtists.length > 0 && (
-          <p style={{ ...s.hint, marginTop: 8 }}>Total em cachês externos: <strong style={{ color: '#ffcf5c' }}>{calcTotalExternalFees(editing.externalArtists)}€</strong></p>
+          <p style={{ ...s.hint, marginTop: 8 }}>Total em cachês externos: <strong style={{ color: colors.admin }}>{calcTotalExternalFees(editing.externalArtists)}€</strong></p>
         )}
       </Sec>
 
@@ -536,7 +537,7 @@ ${editing.postEventNotes ? `<h2>Recap pós-evento</h2><p>${editing.postEventNote
           + Adicionar pessoa da equipa
         </button>
         {editing.team.length > 0 && (
-          <p style={{ ...s.hint, marginTop: 8 }}>Total equipa: <strong style={{ color: '#ffcf5c' }}>{calcTotalTeamFees(editing.team)}€</strong></p>
+          <p style={{ ...s.hint, marginTop: 8 }}>Total equipa: <strong style={{ color: colors.admin }}>{calcTotalTeamFees(editing.team)}€</strong></p>
         )}
       </Sec>
 
@@ -690,28 +691,28 @@ ${editing.postEventNotes ? `<h2>Recap pós-evento</h2><p>${editing.postEventNote
               <div style={s.swotGrid}>
                 <SWOTCard emoji="💪" label="Forças" items={analysis.swot.forcas} color="#6ef3a5" bg="rgba(110,243,165,0.06)" />
                 <SWOTCard emoji="⚠" label="Fraquezas" items={analysis.swot.fraquezas} color="#ff8a8a" bg="rgba(255,138,138,0.06)" />
-                <SWOTCard emoji="🚀" label="Oportunidades" items={analysis.swot.oportunidades} color="#60b4e8" bg="rgba(96,180,232,0.06)" />
-                <SWOTCard emoji="⚡" label="Ameaças" items={analysis.swot.ameacas} color="#ffcf5c" bg="rgba(255,207,92,0.06)" />
+                <SWOTCard emoji="🚀" label="Oportunidades" items={analysis.swot.oportunidades} color={colors.primary} bg="rgba(96,180,232,0.06)" />
+                <SWOTCard emoji="⚡" label="Ameaças" items={analysis.swot.ameacas} color={colors.admin} bg="rgba(255,207,92,0.06)" />
               </div>
             )}
             {/* Lucrabilidade */}
             {analysis.lucrabilidadeAnalysis && (
               <div style={s.analysisBox}>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+                <div style={{ fontSize: 11, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
                   💰 Lucrabilidade — Score: <strong style={{ color: (analysis.lucrabilidadeScore || 0) >= 50 ? '#6ef3a5' : '#ff8a8a' }}>
                     {analysis.lucrabilidadeScore}/100
                   </strong>
                 </div>
-                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', margin: 0 }}>{analysis.lucrabilidadeAnalysis}</p>
+                <p style={{ fontSize: 13, color: colors.text, margin: 0 }}>{analysis.lucrabilidadeAnalysis}</p>
               </div>
             )}
             {/* Dicas */}
             {analysis.dicasCrescimento && analysis.dicasCrescimento.length > 0 && (
               <div style={s.analysisBox}>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>💡 Dicas de crescimento</div>
+                <div style={{ fontSize: 11, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>💡 Dicas de crescimento</div>
                 {analysis.dicasCrescimento.map((d, i) => (
-                  <div key={i} style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', padding: '4px 0', display: 'flex', gap: 8 }}>
-                    <span style={{ color: '#60b4e8', flexShrink: 0 }}>{i + 1}.</span>{d}
+                  <div key={i} style={{ fontSize: 13, color: colors.text, padding: '4px 0', display: 'flex', gap: 8 }}>
+                    <span style={{ color: colors.primary, flexShrink: 0 }}>{i + 1}.</span>{d}
                   </div>
                 ))}
               </div>
@@ -719,18 +720,18 @@ ${editing.postEventNotes ? `<h2>Recap pós-evento</h2><p>${editing.postEventNote
             {/* Acordo recomendado */}
             {analysis.acordoRecomendado && (
               <div style={s.analysisBox}>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>🤝 Acordo recomendado</div>
-                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', margin: 0 }}>{analysis.acordoRecomendado}</p>
+                <div style={{ fontSize: 11, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>🤝 Acordo recomendado</div>
+                <p style={{ fontSize: 13, color: colors.text, margin: 0 }}>{analysis.acordoRecomendado}</p>
               </div>
             )}
             {/* Próxima edição */}
             {analysis.proximaEdicao && (
               <div style={s.analysisBox}>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>🔄 Próxima edição</div>
-                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', margin: 0 }}>{analysis.proximaEdicao}</p>
+                <div style={{ fontSize: 11, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>🔄 Próxima edição</div>
+                <p style={{ fontSize: 13, color: colors.text, margin: 0 }}>{analysis.proximaEdicao}</p>
               </div>
             )}
-            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 10 }}>
+            <p style={{ fontSize: 11, color: colors.textMuted, marginTop: 10 }}>
               Gerado em {analysis.generatedAt ? new Date(analysis.generatedAt).toLocaleString('pt-BR') : '—'}
             </p>
           </div>
@@ -765,7 +766,7 @@ function SWOTCard({ emoji, label, items, color, bg }: {
     <div style={{ background: bg, border: `1px solid ${color}25`, borderRadius: 10, padding: 14 }}>
       <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 8 }}>{emoji} {label}</div>
       {(items || []).map((item, i) => (
-        <div key={i} style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', padding: '2px 0' }}>→ {item}</div>
+        <div key={i} style={{ fontSize: 12, color: colors.text, padding: '2px 0' }}>→ {item}</div>
       ))}
     </div>
   )
@@ -818,54 +819,54 @@ function Sel({ label, v, onChange, opts }: {
 // ─── Styles ───────────────────────────────────────────────
 
 const s: Record<string, React.CSSProperties> = {
-  wrap: { maxWidth: 1100, margin: '0 auto', padding: '32px 22px', color: '#fff' },
+  wrap: { maxWidth: 1100, margin: '0 auto', padding: '32px 22px', color: colors.text },
   pageHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
-  pageTitle: { fontSize: 32, fontWeight: 700, color: '#fff', margin: 0 },
-  pageCount: { fontSize: 13, color: 'rgba(255,255,255,0.45)', margin: '4px 0 0' },
+  pageTitle: { fontSize: 32, fontWeight: 700, color: colors.text, margin: 0 },
+  pageCount: { fontSize: 13, color: colors.textSecondary, margin: '4px 0 0' },
   filterRow: { display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 },
-  filterBtn: { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)', borderRadius: 20, padding: '6px 14px', fontSize: 12, cursor: 'pointer' },
-  filterBtnActive: { background: '#1A6994', color: '#fff', border: '1px solid #1A6994' },
+  filterBtn: { background: colors.bgInput, border: `1px solid ${colors.border}`, color: colors.textSecondary, borderRadius: 20, padding: '6px 14px', fontSize: 12, cursor: 'pointer' },
+  filterBtnActive: { background: '#1A6994', color: colors.text, border: '1px solid #1A6994' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 },
-  card: { background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 18 },
+  card: { background: colors.bg, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 18 },
   cardTop: { display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 10 },
   typeBadge: { fontSize: 11, border: '1px solid', borderRadius: 6, padding: '2px 8px', marginBottom: 6, display: 'inline-block' },
-  cardTitle: { fontSize: 16, fontWeight: 700, color: '#fff', margin: '4px 0' },
-  cardMeta: { display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12, color: 'rgba(255,255,255,0.45)' },
+  cardTitle: { fontSize: 16, fontWeight: 700, color: colors.text, margin: '4px 0' },
+  cardMeta: { display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12, color: colors.textSecondary },
   statusBadge: { fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 },
   chipRow: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 },
-  chip: { fontSize: 11, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)', borderRadius: 20, padding: '3px 10px', cursor: 'pointer' },
-  chipActive: { background: 'rgba(26,105,148,0.3)', color: '#fff', border: '1px solid #1A6994' },
+  chip: { fontSize: 11, background: 'rgba(255,255,255,0.07)', border: `1px solid ${colors.border}`, color: colors.text, borderRadius: 20, padding: '3px 10px', cursor: 'pointer' },
+  chipActive: { background: 'rgba(26,105,148,0.3)', color: colors.text, border: '1px solid #1A6994' },
   budgetRow: { display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12, fontSize: 12 },
-  budgetItem: { color: 'rgba(255,255,255,0.55)' },
+  budgetItem: { color: colors.textSecondary },
   cardActions: { display: 'flex', gap: 8, marginTop: 12 },
-  editBtn: { flex: 1, background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8, padding: '8px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
+  editBtn: { flex: 1, background: '#1A6994', color: colors.text, border: 'none', borderRadius: 8, padding: '8px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
   deleteBtn: { background: 'rgba(255,70,70,0.1)', color: '#ff8a8a', border: '1px solid rgba(255,70,70,0.2)', borderRadius: 8, padding: '8px 12px', cursor: 'pointer' },
-  primaryBtn: { background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer' },
-  reportBtn: { background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, padding: '10px 16px', fontSize: 13, cursor: 'pointer' },
-  backBtn: { background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '10px 16px', fontSize: 13, cursor: 'pointer' },
+  primaryBtn: { background: '#1A6994', color: colors.text, border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer' },
+  reportBtn: { background: 'rgba(255,255,255,0.08)', color: colors.text, border: `1px solid ${colors.border}`, borderRadius: 8, padding: '10px 16px', fontSize: 13, cursor: 'pointer' },
+  backBtn: { background: colors.bgInput, color: colors.text, border: `1px solid ${colors.border}`, borderRadius: 8, padding: '10px 16px', fontSize: 13, cursor: 'pointer' },
   formHeader: { display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 },
-  formTitle: { flex: 1, fontSize: 22, fontWeight: 700, color: '#fff', margin: 0 },
-  formFooter: { display: 'flex', justifyContent: 'space-between', marginTop: 24, paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.08)' },
-  message: { marginBottom: 14, fontSize: 13, padding: '10px 14px', background: 'rgba(255,255,255,0.05)', borderRadius: 8 },
-  section: { background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 22, marginBottom: 16 },
-  sectionTitle: { fontSize: 11, fontWeight: 700, color: '#60b4e8', letterSpacing: '0.2em', textTransform: 'uppercase', marginTop: 0, marginBottom: 18, textAlign: 'center' },
+  formTitle: { flex: 1, fontSize: 22, fontWeight: 700, color: colors.text, margin: 0 },
+  formFooter: { display: 'flex', justifyContent: 'space-between', marginTop: 24, paddingTop: 20, borderTop: `1px solid ${colors.border}` },
+  message: { marginBottom: 14, fontSize: 13, padding: '10px 14px', background: colors.bgInput, borderRadius: 8 },
+  section: { background: colors.bg, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 22, marginBottom: 16 },
+  sectionTitle: { fontSize: 11, fontWeight: 700, color: colors.primary, letterSpacing: '0.2em', textTransform: 'uppercase', marginTop: 0, marginBottom: 18, textAlign: 'center' },
   grid2: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 14 },
   field: { display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 14 },
-  fieldLabel: { fontSize: 11, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.1em', textTransform: 'uppercase' },
-  input: { background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' },
-  textarea: { background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: 12, fontSize: 13, minHeight: 80, outline: 'none', resize: 'vertical', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' },
-  select: { background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none', cursor: 'pointer', width: '100%' },
-  hint: { fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 10 },
-  extArtistCard: { background: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 16, marginBottom: 12 },
+  fieldLabel: { fontSize: 11, color: colors.textSecondary, letterSpacing: '0.1em', textTransform: 'uppercase' },
+  input: { background: colors.bgInput, color: colors.text, border: `1px solid ${colors.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' },
+  textarea: { background: colors.bgInput, color: colors.text, border: `1px solid ${colors.border}`, borderRadius: 8, padding: 12, fontSize: 13, minHeight: 80, outline: 'none', resize: 'vertical', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' },
+  select: { background: colors.bgInput, color: colors.text, border: `1px solid ${colors.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none', cursor: 'pointer', width: '100%' },
+  hint: { fontSize: 12, color: colors.textSecondary, marginBottom: 10 },
+  extArtistCard: { background: colors.bgInput, border: `1px solid ${colors.border}`, borderRadius: 10, padding: 16, marginBottom: 12 },
   teamRow: { display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' },
-  addBtn: { background: 'rgba(26,105,148,0.15)', color: '#60b4e8', border: '1px dashed rgba(26,105,148,0.4)', borderRadius: 8, padding: '8px 16px', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' },
+  addBtn: { background: colors.primaryBg, color: colors.primary, border: '1px dashed rgba(26,105,148,0.4)', borderRadius: 8, padding: '8px 16px', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' },
   removeBtn: { background: 'rgba(255,70,70,0.1)', color: '#ff8a8a', border: '1px solid rgba(255,70,70,0.2)', borderRadius: 6, padding: '5px 10px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' },
-  removeBtnInline: { background: 'transparent', color: 'rgba(255,255,255,0.3)', border: 'none', fontSize: 16, cursor: 'pointer', flexShrink: 0 },
-  profitBox: { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: 16, marginBottom: 12 },
-  profitRow: { display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13, color: 'rgba(255,255,255,0.7)' },
+  removeBtnInline: { background: 'transparent', color: colors.textMuted, border: 'none', fontSize: 16, cursor: 'pointer', flexShrink: 0 },
+  profitBox: { background: colors.bgInput, border: `1px solid ${colors.border}`, borderRadius: 10, padding: 16, marginBottom: 12 },
+  profitRow: { display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13, color: colors.text },
   toggleRow: { marginBottom: 14 },
-  toggleLabel: { display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: '#fff', cursor: 'pointer' },
+  toggleLabel: { display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: colors.text, cursor: 'pointer' },
   swotGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 },
-  analysisBox: { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: 14, marginBottom: 10 },
-  empty: { textAlign: 'center', padding: '60px 20px', color: 'rgba(255,255,255,0.4)' },
+  analysisBox: { background: colors.bgInput, border: `1px solid ${colors.border}`, borderRadius: 10, padding: 14, marginBottom: 10 },
+  empty: { textAlign: 'center', padding: '60px 20px', color: colors.textSecondary },
 }

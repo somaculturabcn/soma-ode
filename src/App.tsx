@@ -1,5 +1,6 @@
-// src/App.tsx — SOMA ODÉ v5.4 — Roles + Admin + Radar público + Activity Log
+// src/App.tsx — SOMA ODÉ v6.0 — Tema claro (Manual da Marca SOMA)
 import { useState, useEffect } from 'react'
+import { colors, shadows, radius, baseStyles } from './theme'
 
 // ── Componentes ────────────────────────────────────────────────────────────
 import LandingPage from './components/LandingPage'
@@ -114,15 +115,14 @@ function NetworkManager({ role }: { role: UserRole }) {
   const addLabel = role === 'produtor' ? 'Adicionar artista' : role === 'artista' ? 'Adicionar produtor/a' : 'Adicionar contacto'
 
   return (
-    <div style={{ maxWidth: 700, margin: '0 auto', padding: '28px 20px', color: '#fff' }}>
+    <div style={{ maxWidth: 700, margin: '0 auto', padding: '28px 20px', color: colors.text }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 24, color: '#60b4e8' }}>👥 {title}</h1>
-          {isAdmin && <span style={{ fontSize: 11, color: '#ffcf5c', background: 'rgba(255,207,92,0.1)', padding: '2px 8px', borderRadius: 4, marginTop: 4, display: 'inline-block' }}>ADMIN — acesso total</span>}
+          <h1 style={{ margin: 0, fontSize: 24, color: colors.primary }}>👥 {title}</h1>
+          {isAdmin && <span style={{ fontSize: 11, color: colors.admin, background: colors.adminBg, padding: '2px 8px', borderRadius: 4, marginTop: 4, display: 'inline-block', fontWeight: 600 }}>ADMIN — acesso total</span>}
         </div>
         <button onClick={() => setShowForm(!showForm)} style={{
-          background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8,
-          padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+          ...baseStyles.button, padding: '8px 16px',
         }}>
           + {addLabel}
         </button>
@@ -130,7 +130,7 @@ function NetworkManager({ role }: { role: UserRole }) {
 
       {/* Formulário */}
       {showForm && (
-        <div style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 20, marginBottom: 16 }}>
+        <div style={{ ...baseStyles.card, marginBottom: 16 }}>
           <div style={{ display: 'grid', gap: 12 }}>
             <input style={inputSt} placeholder="Nome *" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} autoFocus />
             <input style={inputSt} placeholder="Email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
@@ -145,10 +145,10 @@ function NetworkManager({ role }: { role: UserRole }) {
             )}
             <textarea style={{ ...inputSt, minHeight: 60, resize: 'vertical' }} placeholder="Notas (opcional)" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={addContact} style={{ background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+              <button onClick={addContact} style={baseStyles.button}>
                 Guardar
               </button>
-              <button onClick={() => setShowForm(false)} style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)', border: 'none', borderRadius: 8, padding: '10px 16px', fontSize: 13, cursor: 'pointer' }}>
+              <button onClick={() => setShowForm(false)} style={baseStyles.buttonSecondary}>
                 Cancelar
               </button>
             </div>
@@ -158,26 +158,26 @@ function NetworkManager({ role }: { role: UserRole }) {
 
       {/* Lista */}
       {contacts.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 40, color: 'rgba(255,255,255,0.3)', fontSize: 14 }}>
+        <div style={{ textAlign: 'center', padding: 40, color: colors.textMuted, fontSize: 14 }}>
           Ainda não tens contactos na rede. Clica em "{addLabel}" para começar.
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {contacts.map((c, i) => (
-            <div key={i} style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div key={i} style={{ ...baseStyles.card, padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span style={{ fontWeight: 700, color: '#fff', fontSize: 14 }}>{c.name}</span>
+                  <span style={{ fontWeight: 700, color: colors.text, fontSize: 14 }}>{c.name}</span>
                   <span style={{
                     fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600, textTransform: 'uppercase',
-                    background: c.type === 'artista' ? 'rgba(96,180,232,0.1)' : c.type === 'produtor' ? 'rgba(192,132,252,0.1)' : 'rgba(255,255,255,0.05)',
-                    color: c.type === 'artista' ? '#60b4e8' : c.type === 'produtor' ? '#c084fc' : 'rgba(255,255,255,0.4)',
+                    background: c.type === 'artista' ? colors.artistaBg : c.type === 'produtor' ? colors.produtorBg : colors.bgInput,
+                    color: c.type === 'artista' ? colors.artista : c.type === 'produtor' ? colors.produtor : colors.textMuted,
                   }}>{c.type || '—'}</span>
                 </div>
-                {c.email && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{c.email}</div>}
-                {c.notes && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>{c.notes}</div>}
+                {c.email && <div style={{ fontSize: 12, color: colors.textSecondary }}>{c.email}</div>}
+                {c.notes && <div style={{ fontSize: 12, color: colors.textMuted, marginTop: 4 }}>{c.notes}</div>}
               </div>
-              <button onClick={() => removeContact(i)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.2)', cursor: 'pointer', fontSize: 14, padding: 4 }}>✕</button>
+              <button onClick={() => removeContact(i)} style={{ background: 'none', border: 'none', color: colors.textMuted, cursor: 'pointer', fontSize: 14, padding: 4 }}>✕</button>
             </div>
           ))}
         </div>
@@ -187,9 +187,7 @@ function NetworkManager({ role }: { role: UserRole }) {
 }
 
 const inputSt: React.CSSProperties = {
-  background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.14)',
-  borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none',
-  fontFamily: 'inherit', boxSizing: 'border-box',
+  ...baseStyles.input,
 }
 
 // ── Home Screen ────────────────────────────────────────────────────────────
@@ -205,59 +203,59 @@ function HomeScreen({ onNavigate, userName, role }: { onNavigate: (t: Tab) => vo
   const networkCount = (() => { try { const r = localStorage.getItem('soma_network'); return r ? JSON.parse(r).length : 0 } catch { return 0 } })()
 
   return (
-    <div style={{ maxWidth: 800, margin: '0 auto', padding: '40px 20px', color: '#fff' }}>
+    <div style={{ maxWidth: 800, margin: '0 auto', padding: '40px 20px', color: colors.text }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-        <h1 style={{ fontSize: 36, margin: 0, color: '#60b4e8' }}>
+        <h1 style={{ fontSize: 32, margin: 0, color: colors.text, fontWeight: 800 }}>
           {userName ? `Olá, ${userName}!` : 'SOMA ODÉ'}
         </h1>
         {role === 'admin' && (
-          <span style={{ fontSize: 10, background: 'rgba(255,207,92,0.15)', color: '#ffcf5c', padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>ADMIN</span>
+          <span style={{ fontSize: 10, background: colors.adminBg, color: colors.admin, padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>ADMIN</span>
         )}
       </div>
-      <p style={{ margin: '0 0 4px', color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>
+      <p style={{ margin: '0 0 4px', color: colors.textSecondary, fontSize: 14 }}>
         {role === 'produtor' ? '🏢 Produtor/a cultural' : role === 'admin' ? '👑 Administradora da plataforma' : '🎤 Artista'}
       </p>
-      <p style={{ margin: '0 0 32px', color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>
+      <p style={{ margin: '0 0 32px', color: colors.textMuted, fontSize: 13 }}>
         Plataforma de gestão cultural — artistas × oportunidades
       </p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
         {(role === 'artista' || role === 'admin') && (
           <QuickCard icon="🎤" title="Meu Perfil" sub={hasProfile ? '✅ Configurado' : '⚠️ Por configurar'}
-            color={hasProfile ? '#6ef3a5' : '#ffcf5c'} onClick={() => onNavigate('PERFIL')} />
+            color={hasProfile ? colors.success : colors.warning} onClick={() => onNavigate('PERFIL')} />
         )}
         {role === 'produtor' && (
           <QuickCard icon="👥" title="Artistas" sub={`${networkCount} na rede`}
-            color="#c084fc" onClick={() => onNavigate('REDE')} />
+            color={colors.produtor} onClick={() => onNavigate('REDE')} />
         )}
         {role === 'admin' && (
           <QuickCard icon="👥" title="Rede" sub={`${networkCount} contactos`}
-            color="#c084fc" onClick={() => onNavigate('REDE')} />
+            color={colors.produtor} onClick={() => onNavigate('REDE')} />
         )}
-        <QuickCard icon="📡" title="Radar" sub="100 oportunidades" color="#60b4e8" onClick={() => onNavigate('RADAR')} />
+        <QuickCard icon="📡" title="Radar" sub="100 oportunidades" color={colors.primary} onClick={() => onNavigate('RADAR')} />
         <QuickCard icon="🎯" title="Match" sub={hasProfile ? 'Pronto a cruzar' : 'Precisa de perfil'}
-          color="#c084fc" onClick={() => onNavigate('MATCH')} />
-        <QuickCard icon="✈️" title="Booking" sub={`${bookingCount} contactos`} color="#fb923c" onClick={() => onNavigate('BOOKING')} />
+          color={colors.produtor} onClick={() => onNavigate('MATCH')} />
+        <QuickCard icon="✈️" title="Booking" sub={`${bookingCount} contactos`} color="#E67E22" onClick={() => onNavigate('BOOKING')} />
       </div>
 
-      <div style={{ marginTop: 40, padding: 20, background: '#0a0a0a', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)' }}>
-        <h3 style={{ margin: '0 0 8px', fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>
+      <div style={{ ...baseStyles.card, marginTop: 32 }}>
+        <h3 style={{ margin: '0 0 8px', fontSize: 14, color: colors.textSecondary }}>
           🚀 {role === 'produtor' ? 'Como gerir artistas' : 'Como começar'}
         </h3>
-        <ol style={{ margin: 0, paddingLeft: 20, color: 'rgba(255,255,255,0.5)', fontSize: 13, lineHeight: 2 }}>
+        <ol style={{ margin: 0, paddingLeft: 20, color: colors.textSecondary, fontSize: 13, lineHeight: 2 }}>
           {role === 'produtor' ? (
             <>
-              <li>Vai a <strong style={{ color: '#60b4e8', cursor: 'pointer' }} onClick={() => onNavigate('REDE')}>Artistas</strong> e adiciona os artistas do teu roster</li>
-              <li>Explora o <strong style={{ color: '#60b4e8', cursor: 'pointer' }} onClick={() => onNavigate('RADAR')}>Radar</strong> — filtra por região, tipo e área</li>
-              <li>Corre o <strong style={{ color: '#60b4e8', cursor: 'pointer' }} onClick={() => onNavigate('MATCH')}>Match</strong> para cada artista</li>
-              <li>Gere candidaturas no <strong style={{ color: '#60b4e8', cursor: 'pointer' }} onClick={() => onNavigate('BOOKING')}>Booking</strong></li>
+              <li>Vai a <strong style={{ color: colors.primary, cursor: 'pointer' }} onClick={() => onNavigate('REDE')}>Artistas</strong> e adiciona os artistas do teu roster</li>
+              <li>Explora o <strong style={{ color: colors.primary, cursor: 'pointer' }} onClick={() => onNavigate('RADAR')}>Radar</strong> — filtra por região, tipo e área</li>
+              <li>Corre o <strong style={{ color: colors.primary, cursor: 'pointer' }} onClick={() => onNavigate('MATCH')}>Match</strong> para cada artista</li>
+              <li>Gere candidaturas no <strong style={{ color: colors.primary, cursor: 'pointer' }} onClick={() => onNavigate('BOOKING')}>Booking</strong></li>
             </>
           ) : (
             <>
-              <li>Vai a <strong style={{ color: '#60b4e8', cursor: 'pointer' }} onClick={() => onNavigate('PERFIL')}>Perfil</strong> e responde às 4 perguntas</li>
-              <li>Explora o <strong style={{ color: '#60b4e8', cursor: 'pointer' }} onClick={() => onNavigate('RADAR')}>Radar</strong> — filtra por região, tipo e área</li>
-              <li>Corre o <strong style={{ color: '#60b4e8', cursor: 'pointer' }} onClick={() => onNavigate('MATCH')}>Match</strong> para encontrar as melhores oportunidades</li>
-              <li>Adiciona venues ao <strong style={{ color: '#60b4e8', cursor: 'pointer' }} onClick={() => onNavigate('BOOKING')}>Booking</strong> e gera emails</li>
+              <li>Vai a <strong style={{ color: colors.primary, cursor: 'pointer' }} onClick={() => onNavigate('PERFIL')}>Perfil</strong> e responde às 4 perguntas</li>
+              <li>Explora o <strong style={{ color: colors.primary, cursor: 'pointer' }} onClick={() => onNavigate('RADAR')}>Radar</strong> — filtra por região, tipo e área</li>
+              <li>Corre o <strong style={{ color: colors.primary, cursor: 'pointer' }} onClick={() => onNavigate('MATCH')}>Match</strong> para encontrar as melhores oportunidades</li>
+              <li>Adiciona venues ao <strong style={{ color: colors.primary, cursor: 'pointer' }} onClick={() => onNavigate('BOOKING')}>Booking</strong> e gera emails</li>
             </>
           )}
         </ol>
@@ -271,12 +269,14 @@ function QuickCard({ icon, title, sub, color, onClick }: {
 }) {
   return (
     <div onClick={onClick} style={{
-      background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12,
-      padding: '18px 16px', cursor: 'pointer', transition: 'border-color 0.15s',
-    }}>
+      ...baseStyles.card, padding: '18px 16px', cursor: 'pointer', transition: 'box-shadow 0.15s, border-color 0.15s',
+    }}
+    onMouseEnter={e => { e.currentTarget.style.boxShadow = shadows.md; e.currentTarget.style.borderColor = colors.primaryBorder }}
+    onMouseLeave={e => { e.currentTarget.style.boxShadow = shadows.card; e.currentTarget.style.borderColor = colors.border }}
+    >
       <div style={{ fontSize: 28, marginBottom: 8 }}>{icon}</div>
-      <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', marginBottom: 4 }}>{title}</div>
-      <div style={{ fontSize: 12, color }}>{sub}</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: colors.text, marginBottom: 4 }}>{title}</div>
+      <div style={{ fontSize: 12, color, fontWeight: 600 }}>{sub}</div>
     </div>
   )
 }
@@ -316,34 +316,28 @@ export default function App() {
   // ── Radar público (sem login) ───────────────────────────────
   if (screen === 'radar-public') {
     return (
-      <div style={{ minHeight: '100vh', background: '#000', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      <div style={{ ...baseStyles.page }}>
         <header style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '0 20px', height: 52, borderBottom: '1px solid rgba(255,255,255,0.06)',
-          background: '#050505',
+          ...baseStyles.header, height: 56,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={() => setScreen('landing')}>
-            <span style={{ fontSize: 18, fontWeight: 900, color: '#1A6994' }}>SOMA</span>
-            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>ODÉ</span>
-            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', marginLeft: 8 }}>← voltar</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => setScreen('landing')}>
+            <img src="/soma-logo.png" alt="SOMA Cultura" style={{ height: 28 }} />
+            <span style={{ fontSize: 12, color: colors.textMuted, fontWeight: 600 }}>ODÉ</span>
+            <span style={{ fontSize: 11, color: colors.textMuted, marginLeft: 8 }}>← voltar</span>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => setScreen('register')} style={{
-              background: '#1A6994', color: '#fff', border: 'none', borderRadius: 6,
-              padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-            }}>
+            <button onClick={() => setScreen('register')} style={baseStyles.button}>
               Criar conta grátis
             </button>
             <button onClick={() => setScreen('login')} style={{
-              background: 'transparent', color: '#60b4e8', border: '1px solid rgba(96,180,232,0.3)',
-              borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer',
+              ...baseStyles.buttonSecondary, color: colors.primary,
             }}>
               Entrar
             </button>
           </div>
         </header>
-        <div style={{ padding: '8px 20px', background: 'rgba(26,105,148,0.08)', borderBottom: '1px solid rgba(26,105,148,0.15)', textAlign: 'center' }}>
-          <span style={{ fontSize: 12, color: '#60b4e8' }}>
+        <div style={{ padding: '8px 20px', background: colors.primaryBg, borderBottom: `1px solid ${colors.primaryBorder}`, textAlign: 'center' }}>
+          <span style={{ fontSize: 12, color: colors.primary }}>
             📡 Estás a explorar o Radar em modo público — <span style={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setScreen('register')}>cria conta</span> para fazer Match e Booking
           </span>
         </div>
@@ -394,18 +388,22 @@ export default function App() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#000', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+    <div style={{ ...baseStyles.page }}>
       {/* ── Top bar ──────────────────────────────────────────────── */}
       <header style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 20px', height: 52, borderBottom: '1px solid rgba(255,255,255,0.06)',
-        background: '#050505', position: 'sticky', top: 0, zIndex: 100,
+        ...baseStyles.header, height: 56,
+        position: 'sticky', top: 0, zIndex: 100,
+        boxShadow: shadows.sm,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 18, fontWeight: 900, color: '#1A6994', letterSpacing: '-0.02em' }}>SOMA</span>
-          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>ODÉ v5.3</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <img src="/soma-logo.png" alt="SOMA Cultura" style={{ height: 28 }} />
+          <span style={{ fontSize: 11, color: colors.textMuted, fontWeight: 600, letterSpacing: '0.05em' }}>ODÉ</span>
           {realRole === 'admin' && (
-            <span style={{ fontSize: 9, background: viewAs ? 'rgba(96,180,232,0.15)' : 'rgba(255,207,92,0.15)', color: viewAs ? '#60b4e8' : '#ffcf5c', padding: '2px 6px', borderRadius: 3, fontWeight: 700 }}>
+            <span style={{
+              fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 3,
+              background: viewAs ? colors.primaryBg : colors.adminBg,
+              color: viewAs ? colors.primary : colors.admin,
+            }}>
               {viewAs ? `VISTA ${viewAs.toUpperCase()}` : 'ADMIN'}
             </span>
           )}
@@ -413,7 +411,7 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {/* ── Seletor de vista (só admin) ── */}
           {realRole === 'admin' && (
-            <div style={{ display: 'flex', gap: 0, background: 'rgba(255,255,255,0.04)', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', gap: 0, background: colors.bgInput, borderRadius: radius.sm, border: `1px solid ${colors.border}`, overflow: 'hidden' }}>
               {([
                 { v: null,        icon: '👑', label: 'Admin' },
                 { v: 'produtor' as UserRole, icon: '🏢', label: 'Produtor' },
@@ -425,11 +423,11 @@ export default function App() {
                     key={opt.label}
                     onClick={() => { setViewAs(opt.v); setTab('HOME') }}
                     style={{
-                      background: isActive ? 'rgba(96,180,232,0.15)' : 'transparent',
-                      border: 'none', padding: '3px 8px', fontSize: 10, fontWeight: isActive ? 700 : 400,
-                      color: isActive ? '#60b4e8' : 'rgba(255,255,255,0.35)',
+                      background: isActive ? colors.primaryBg : 'transparent',
+                      border: 'none', padding: '4px 10px', fontSize: 10, fontWeight: isActive ? 700 : 500,
+                      color: isActive ? colors.primary : colors.textMuted,
                       cursor: 'pointer', whiteSpace: 'nowrap',
-                      borderRight: '1px solid rgba(255,255,255,0.06)',
+                      borderRight: `1px solid ${colors.borderLight}`,
                     }}
                   >
                     {opt.icon} {opt.label}
@@ -438,13 +436,12 @@ export default function App() {
               })}
             </div>
           )}
-          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>
+          <span style={{ fontSize: 11, color: colors.textMuted }}>
             {role === 'produtor' ? '🏢' : role === 'admin' ? '👑' : '🎤'} {user?.email}
           </span>
           <button onClick={handleLogout} style={{
-            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 6, padding: '4px 10px', fontSize: 11, color: 'rgba(255,255,255,0.4)',
-            cursor: 'pointer',
+            ...baseStyles.buttonSecondary,
+            padding: '4px 12px', fontSize: 11,
           }}>
             Sair
           </button>
@@ -453,18 +450,19 @@ export default function App() {
 
       {/* ── Nav tabs ─────────────────────────────────────────────── */}
       <nav style={{
-        display: 'flex', gap: 0, borderBottom: '1px solid rgba(255,255,255,0.06)',
-        background: '#050505', overflowX: 'auto', position: 'sticky', top: 52, zIndex: 99,
+        display: 'flex', gap: 0, borderBottom: `1px solid ${colors.border}`,
+        background: colors.bg, overflowX: 'auto', position: 'sticky', top: 56, zIndex: 99,
+        boxShadow: shadows.sm,
       }}>
         {tabs.map(t => {
           const active = tab === t.id
           return (
             <button key={t.id} onClick={() => { setTab(t.id); logActivity(t.id, 'ver', `Abriu ${t.label}`) }} style={{
               flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 6,
-              padding: '12px 18px', fontSize: 13, fontWeight: active ? 700 : 400,
-              color: active ? '#60b4e8' : 'rgba(255,255,255,0.4)',
+              padding: '12px 18px', fontSize: 13, fontWeight: active ? 700 : 500,
+              color: active ? colors.primary : colors.textMuted,
               background: 'transparent', border: 'none', cursor: 'pointer',
-              borderBottom: active ? '2px solid #1A6994' : '2px solid transparent',
+              borderBottom: active ? `2px solid ${colors.primary}` : '2px solid transparent',
               transition: 'all 0.15s', whiteSpace: 'nowrap',
             }}>
               <span>{t.icon}</span> {t.label}
@@ -474,7 +472,7 @@ export default function App() {
       </nav>
 
       {/* ── Conteúdo ─────────────────────────────────────────────── */}
-      <main>{renderContent()}</main>
+      <main style={{ background: colors.bgPage }}>{renderContent()}</main>
     </div>
   )
 }

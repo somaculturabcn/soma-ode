@@ -12,12 +12,13 @@ import {
 } from '../data/pipelineSupabaseStore'
 import type { Opportunity } from '../types/opportunity'
 import type { PipelineItem, PipelineStatus } from '../types/pipeline'
+import { colors, shadows, radius } from '../theme'
 
 const STAGES: { id: PipelineStatus; label: string; color: string }[] = [
-  { id: 'nova', label: 'Nova', color: '#60b4e8' },
-  { id: 'analise', label: 'Em análise', color: '#ffcf5c' },
+  { id: 'nova', label: 'Nova', color: colors.primary },
+  { id: 'analise', label: 'Em análise', color: colors.admin },
   { id: 'preparar', label: 'Preparar candidatura', color: '#c084fc' },
-  { id: 'enviada', label: 'Enviada', color: '#6ef3a5' },
+  { id: 'enviada', label: 'Enviada', color: colors.success },
   { id: 'negociacao', label: 'Em negociação', color: '#fb923c' },
   { id: 'fechada', label: 'Fechada', color: '#f87171' },
 ]
@@ -264,7 +265,7 @@ const s: Record<string, React.CSSProperties> = {
     maxWidth: 1400,
     margin: '0 auto',
     padding: '24px 20px',
-    color: '#fff',
+    color: colors.text,
   },
   header: {
     display: 'flex',
@@ -277,7 +278,7 @@ const s: Record<string, React.CSSProperties> = {
   title: {
     margin: 0,
     fontSize: 24,
-    color: '#fff',
+    color: colors.text,
   },
   subtitle: {
     margin: '4px 0 0',
@@ -286,8 +287,8 @@ const s: Record<string, React.CSSProperties> = {
   },
   search: {
     padding: '10px 14px',
-    background: '#0a0a0a',
-    color: '#fff',
+    background: colors.bg,
+    color: colors.text,
     border: '0.5px solid rgba(255,255,255,0.12)',
     borderRadius: 8,
     fontSize: 13,
@@ -302,7 +303,7 @@ const s: Record<string, React.CSSProperties> = {
     overflowX: 'auto',
   },
   column: {
-    background: '#050505',
+    background: colors.bgPage,
     border: '0.5px solid rgba(255,255,255,0.07)',
     borderRadius: 10,
     padding: 12,
@@ -323,23 +324,23 @@ const s: Record<string, React.CSSProperties> = {
   columnLabel: {
     fontSize: 12,
     fontWeight: 700,
-    color: '#fff',
+    color: colors.text,
     flex: 1,
     letterSpacing: '0.04em',
   },
   count: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.4)',
+    color: colors.textSecondary,
     fontWeight: 600,
   },
   empty: {
-    color: 'rgba(255,255,255,0.2)',
+    color: colors.textMuted,
     fontSize: 12,
     textAlign: 'center',
     padding: '16px 0',
   },
   card: {
-    background: '#0a0a0a',
+    background: colors.bg,
     border: '0.5px solid rgba(255,255,255,0.1)',
     borderRadius: 8,
     padding: 10,
@@ -348,20 +349,20 @@ const s: Record<string, React.CSSProperties> = {
   cardTitle: {
     fontSize: 13,
     fontWeight: 600,
-    color: '#fff',
+    color: colors.text,
     marginBottom: 4,
     lineHeight: 1.3,
   },
   cardMeta: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.45)',
+    color: colors.textSecondary,
     marginBottom: 6,
   },
   cardType: {
     fontSize: 10,
     padding: '2px 8px',
     background: 'rgba(26,105,148,0.2)',
-    color: '#60b4e8',
+    color: colors.primary,
     borderRadius: 10,
     display: 'inline-block',
     marginBottom: 8,
@@ -369,8 +370,8 @@ const s: Record<string, React.CSSProperties> = {
   stageSelect: {
     width: '100%',
     padding: '5px 8px',
-    background: '#111',
-    color: '#fff',
+    background: colors.bgInput,
+    color: colors.text,
     border: '0.5px solid rgba(255,255,255,0.15)',
     borderRadius: 6,
     fontSize: 11,
@@ -378,7 +379,7 @@ const s: Record<string, React.CSSProperties> = {
     marginBottom: 6,
   },
   saving: {
-    color: '#ffcf5c',
+    color: colors.admin,
     fontSize: 11,
     marginBottom: 6,
   },

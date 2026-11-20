@@ -4,6 +4,7 @@
 // Documentos: Carta-Convite · Acuerdo Carta Invitación · Contrato Booking · Carta Apresentação
 
 import { useState, useMemo } from 'react'
+import { colors, shadows, radius } from '../theme'
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -822,7 +823,7 @@ export default function DocumentGenerator() {
                 <span style={{ fontSize: 18, marginRight: 10 }}>{d.label}</span>
                 <span>
                   <strong style={{ display: 'block', fontSize: 13 }}>{d.desc[lang]}</strong>
-                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
+                  <span style={{ fontSize: 11, color: colors.textSecondary }}>
                     {d.id === 'carta_convite' && 'Para candidaturas a fundos e editais'}
                     {d.id === 'acuerdo_carta' && 'Contrato interno SOMA ↔ artista'}
                     {d.id === 'contrato_booking' && 'Com cachê, fee SOMA e logística'}
@@ -904,8 +905,8 @@ export default function DocumentGenerator() {
                 <F label="% SOMA" v={form.somaPercent} on={v => up('somaPercent', v)} type="number" />
               </Row2>
               {form.fee && Number(form.fee) > 0 && (
-                <div style={{ background: 'rgba(110,243,165,0.06)', border: '0.5px solid rgba(110,243,165,0.2)', borderRadius: 8, padding: 10, fontSize: 12, marginBottom: 8 }}>
-                  <div style={{ color: '#6ef3a5' }}>SOMA: €{Math.round(Number(form.fee) * Number(form.somaPercent || 20) / 100)}</div>
+                <div style={{ background: colors.successBg, border: '0.5px solid rgba(110,243,165,0.2)', borderRadius: 8, padding: 10, fontSize: 12, marginBottom: 8 }}>
+                  <div style={{ color: colors.success }}>SOMA: €{Math.round(Number(form.fee) * Number(form.somaPercent || 20) / 100)}</div>
                   <div style={{ color: '#aaa' }}>Artista: €{Number(form.fee) - Math.round(Number(form.fee) * Number(form.somaPercent || 20) / 100)}</div>
                 </div>
               )}
@@ -941,7 +942,7 @@ export default function DocumentGenerator() {
           {preview ? (
             <>
               <div style={s.previewTop}>
-                <span style={{ fontSize: 12, color: '#6ef3a5' }}>✓ {lang === 'EN' ? 'Document generated' : lang === 'FR' ? 'Document généré' : 'Documento gerado'}</span>
+                <span style={{ fontSize: 12, color: colors.success }}>✓ {lang === 'EN' ? 'Document generated' : lang === 'FR' ? 'Document généré' : 'Documento gerado'}</span>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button style={s.btnCopy} onClick={copyText}>{copied ? '✓' : '📋'} {lang === 'EN' ? 'Copy' : 'Copiar'}</button>
                   <button style={s.btnDown} onClick={downloadTxt}>⬇ .txt</button>
@@ -997,32 +998,32 @@ function FA({ label, v, on, ph }: { label: string; v: string; on: (x: string) =>
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 
 const s: Record<string, React.CSSProperties> = {
-  wrap: { maxWidth: 1400, margin: '0 auto', padding: '24px 20px', color: '#fff' },
+  wrap: { maxWidth: 1400, margin: '0 auto', padding: '24px 20px', color: colors.text },
   header: { marginBottom: 24 },
-  title: { margin: 0, fontSize: 24, color: '#fff' },
-  badge: { fontSize: 11, color: '#6ef3a5', background: 'rgba(110,243,165,0.12)', padding: '2px 8px', borderRadius: 10, marginLeft: 8, fontWeight: 400 },
+  title: { margin: 0, fontSize: 24, color: colors.text },
+  badge: { fontSize: 11, color: colors.success, background: 'rgba(110,243,165,0.12)', padding: '2px 8px', borderRadius: 10, marginLeft: 8, fontWeight: 400 },
   sub: { margin: '4px 0 0', color: '#bbb', fontSize: 13 },
   layout: { display: 'grid', gridTemplateColumns: '420px 1fr', gap: 20, alignItems: 'start' },
   left: { display: 'flex', flexDirection: 'column', gap: 0 },
-  right: { background: '#0a0a0a', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 12, minHeight: 600, position: 'sticky', top: 80 },
-  block: { background: '#0a0a0a', border: '0.5px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '14px 16px', marginBottom: 10 },
-  blockTitle: { fontSize: 11, fontWeight: 700, color: '#60b4e8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 },
-  lbl: { fontSize: 10, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.05em', textTransform: 'uppercase', display: 'block', marginBottom: 4 },
-  inp: { width: '100%', background: '#111', color: '#fff', border: '0.5px solid rgba(255,255,255,0.12)', borderRadius: 7, padding: '8px 10px', fontSize: 12, outline: 'none', boxSizing: 'border-box' },
-  ta: { width: '100%', background: '#111', color: '#fff', border: '0.5px solid rgba(255,255,255,0.12)', borderRadius: 7, padding: '8px 10px', fontSize: 12, outline: 'none', minHeight: 70, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' },
-  sel: { width: '100%', background: '#111', color: '#fff', border: '0.5px solid rgba(255,255,255,0.12)', borderRadius: 7, padding: '8px 10px', fontSize: 12, outline: 'none' },
-  langBtn: { flex: 1, padding: '8px', background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.55)', fontSize: 13, cursor: 'pointer', borderRadius: 7 },
-  langBtnActive: { background: 'rgba(26,105,148,0.25)', border: '0.5px solid #1A6994', color: '#fff', fontWeight: 700 },
-  docBtn: { width: '100%', display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.03)', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 12px', marginBottom: 6, cursor: 'pointer', color: 'rgba(255,255,255,0.65)', textAlign: 'left' },
-  docBtnActive: { background: 'rgba(26,105,148,0.2)', border: '0.5px solid #1A6994', color: '#fff' },
-  artistBox: { marginTop: 8, padding: 10, background: 'rgba(110,243,165,0.05)', border: '0.5px solid rgba(110,243,165,0.15)', borderRadius: 7, fontSize: 12, display: 'flex', flexDirection: 'column', gap: 4 },
-  grey: { color: 'rgba(255,255,255,0.4)', fontSize: 11 },
-  warn: { color: '#ffcf5c', fontSize: 12 },
-  btnGen: { width: '100%', background: '#1A6994', color: '#fff', border: 'none', borderRadius: 9, padding: '14px', fontSize: 14, fontWeight: 700, cursor: 'pointer', marginTop: 4 },
+  right: { background: colors.bg, border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 12, minHeight: 600, position: 'sticky', top: 80 },
+  block: { background: colors.bg, border: '0.5px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '14px 16px', marginBottom: 10 },
+  blockTitle: { fontSize: 11, fontWeight: 700, color: colors.primary, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 },
+  lbl: { fontSize: 10, color: colors.textSecondary, letterSpacing: '0.05em', textTransform: 'uppercase', display: 'block', marginBottom: 4 },
+  inp: { width: '100%', background: colors.bgInput, color: colors.text, border: '0.5px solid rgba(255,255,255,0.12)', borderRadius: 7, padding: '8px 10px', fontSize: 12, outline: 'none', boxSizing: 'border-box' },
+  ta: { width: '100%', background: colors.bgInput, color: colors.text, border: '0.5px solid rgba(255,255,255,0.12)', borderRadius: 7, padding: '8px 10px', fontSize: 12, outline: 'none', minHeight: 70, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' },
+  sel: { width: '100%', background: colors.bgInput, color: colors.text, border: '0.5px solid rgba(255,255,255,0.12)', borderRadius: 7, padding: '8px 10px', fontSize: 12, outline: 'none' },
+  langBtn: { flex: 1, padding: '8px', background: colors.bgInput, border: '0.5px solid rgba(255,255,255,0.1)', color: colors.textSecondary, fontSize: 13, cursor: 'pointer', borderRadius: 7 },
+  langBtnActive: { background: 'rgba(26,105,148,0.25)', border: '0.5px solid #1A6994', color: colors.text, fontWeight: 700 },
+  docBtn: { width: '100%', display: 'flex', alignItems: 'center', background: colors.bgInput, border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 12px', marginBottom: 6, cursor: 'pointer', color: colors.textSecondary, textAlign: 'left' },
+  docBtnActive: { background: 'rgba(26,105,148,0.2)', border: '0.5px solid #1A6994', color: colors.text },
+  artistBox: { marginTop: 8, padding: 10, background: colors.successBg, border: '0.5px solid rgba(110,243,165,0.15)', borderRadius: 7, fontSize: 12, display: 'flex', flexDirection: 'column', gap: 4 },
+  grey: { color: colors.textSecondary, fontSize: 11 },
+  warn: { color: colors.admin, fontSize: 12 },
+  btnGen: { width: '100%', background: '#1A6994', color: colors.text, border: 'none', borderRadius: 9, padding: '14px', fontSize: 14, fontWeight: 700, cursor: 'pointer', marginTop: 4 },
   previewTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '0.5px solid rgba(255,255,255,0.07)' },
-  previewNote: { padding: '8px 16px', background: 'rgba(255,207,92,0.06)', fontSize: 11, color: '#ffcf5c', borderBottom: '0.5px solid rgba(255,207,92,0.1)' },
+  previewNote: { padding: '8px 16px', background: 'rgba(255,207,92,0.06)', fontSize: 11, color: colors.admin, borderBottom: '0.5px solid rgba(255,207,92,0.1)' },
   pre: { padding: '16px 20px', fontSize: 12, lineHeight: 1.8, color: '#ddd', whiteSpace: 'pre-wrap', fontFamily: '"Courier New", monospace', margin: 0, maxHeight: 'calc(90vh - 100px)', overflowY: 'auto' },
-  empty: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 500, color: 'rgba(255,255,255,0.4)', textAlign: 'center', fontSize: 14, lineHeight: 1.7 },
-  btnCopy: { background: 'rgba(110,243,165,0.1)', color: '#6ef3a5', border: '0.5px solid rgba(110,243,165,0.3)', borderRadius: 7, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 },
-  btnDown: { background: 'rgba(26,105,148,0.2)', color: '#60b4e8', border: '0.5px solid rgba(26,105,148,0.4)', borderRadius: 7, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 },
+  empty: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 500, color: colors.textSecondary, textAlign: 'center', fontSize: 14, lineHeight: 1.7 },
+  btnCopy: { background: 'rgba(110,243,165,0.1)', color: colors.success, border: '0.5px solid rgba(110,243,165,0.3)', borderRadius: 7, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 },
+  btnDown: { background: 'rgba(26,105,148,0.2)', color: colors.primary, border: '0.5px solid rgba(26,105,148,0.4)', borderRadius: 7, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 },
 }

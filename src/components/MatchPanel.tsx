@@ -6,6 +6,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { realOpportunities } from '../data/realOpportunities'
 import type { Opportunity } from '../types/opportunity'
 import { hasApiKey } from '../services/aiService'
+import { colors, shadows, radius } from '../theme'
 
 const PROFILE_KEY = 'soma_artist_profile'
 
@@ -153,28 +154,28 @@ export default function MatchPanel() {
           <div style={st.grid}>
             {results.map(opp => {
               const score = opp.match.percentage
-              const scoreColor = score >= 70 ? '#6ef3a5' : score >= 40 ? '#ffcf5c' : '#f97066'
+              const scoreColor = score >= 70 ? '#6ef3a5' : score >= 40 ? colors.admin : '#f97066'
               return (
                 <div key={opp.id} style={st.card}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <h3 style={{ margin: 0, fontSize: 15, color: '#fff' }}>{opp.title}</h3>
+                    <h3 style={{ margin: 0, fontSize: 15, color: colors.text }}>{opp.title}</h3>
                     <div style={{ fontSize: 22, fontWeight: 900, color: scoreColor }}>{score}%</div>
                   </div>
-                  <p style={{ margin: '0 0 8px', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+                  <p style={{ margin: '0 0 8px', fontSize: 12, color: colors.textSecondary }}>
                     {opp.organization && `${opp.organization} · `}{opp.city || ''} ({opp.country})
                   </p>
                   <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.08)', marginBottom: 10 }}>
                     <div style={{ height: 4, borderRadius: 2, background: scoreColor, width: `${score}%`, transition: 'width 0.5s' }} />
                   </div>
                   {opp.match.reasons.map((r, i) => (
-                    <div key={i} style={{ fontSize: 11, color: '#6ef3a5', marginBottom: 2 }}>✓ {r}</div>
+                    <div key={i} style={{ fontSize: 11, color: colors.success, marginBottom: 2 }}>✓ {r}</div>
                   ))}
                   {opp.match.warnings.map((w, i) => (
-                    <div key={i} style={{ fontSize: 11, color: '#ffcf5c', marginBottom: 2 }}>⚠ {w}</div>
+                    <div key={i} style={{ fontSize: 11, color: colors.admin, marginBottom: 2 }}>⚠ {w}</div>
                   ))}
                   {opp.url && (
                     <a href={opp.url} target="_blank" rel="noopener noreferrer"
-                      style={{ fontSize: 11, color: '#60b4e8', textDecoration: 'none', marginTop: 8, display: 'inline-block' }}>
+                      style={{ fontSize: 11, color: colors.primary, textDecoration: 'none', marginTop: 8, display: 'inline-block' }}>
                       Ver página →
                     </a>
                   )}
@@ -199,15 +200,15 @@ export default function MatchPanel() {
 }
 
 const st: Record<string, React.CSSProperties> = {
-  page: { maxWidth: 1100, margin: '0 auto', padding: '28px 20px', color: '#fff' },
-  title: { margin: 0, fontSize: 28, color: '#60b4e8' },
-  sub: { margin: '4px 0 20px', color: 'rgba(255,255,255,0.4)', fontSize: 13 },
-  controls: { display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 24, padding: '16px 18px', background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12 },
-  label: { display: 'block', fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 },
-  select: { background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8, padding: '10px 12px', fontSize: 13, minWidth: 160 },
-  runBtn: { background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' },
-  sectionTitle: { fontSize: 14, color: 'rgba(255,255,255,0.6)', fontWeight: 600, margin: '0 0 12px' },
+  page: { maxWidth: 1100, margin: '0 auto', padding: '28px 20px', color: colors.text },
+  title: { margin: 0, fontSize: 28, color: colors.primary },
+  sub: { margin: '4px 0 20px', color: colors.textSecondary, fontSize: 13 },
+  controls: { display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 24, padding: '16px 18px', background: colors.bg, border: `1px solid ${colors.border}`, borderRadius: 12 },
+  label: { display: 'block', fontSize: 11, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 },
+  select: { background: colors.bgInput, color: colors.text, border: `1px solid ${colors.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 13, minWidth: 160 },
+  runBtn: { background: '#1A6994', color: colors.text, border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' },
+  sectionTitle: { fontSize: 14, color: colors.textSecondary, fontWeight: 600, margin: '0 0 12px' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 10 },
-  card: { background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '14px 16px' },
-  empty: { textAlign: 'center', color: 'rgba(255,255,255,0.4)', padding: 40, border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 12, fontSize: 14 },
+  card: { background: colors.bg, border: `1px solid ${colors.border}`, borderRadius: 12, padding: '14px 16px' },
+  empty: { textAlign: 'center', color: colors.textSecondary, padding: 40, border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 12, fontSize: 14 },
 }

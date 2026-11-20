@@ -1,6 +1,7 @@
 // src/components/CountryPicker.tsx
 // SOMA ODÉ — CountryPicker à prova de undefined
 import React, { useState, useMemo } from 'react'
+import { colors, shadows, radius } from '../theme'
 
 interface CountryPickerProps {
   selectedCountries: string[]
@@ -127,19 +128,19 @@ const CountryPicker: React.FC<CountryPickerProps> = ({ selectedCountries = [], o
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  container: { background: '#0a0a0a', borderRadius: '10px', padding: '16px', color: '#fff' },
-  search: { width: '100%', padding: '10px 12px', background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', borderRadius: '8px', fontSize: '13px', marginBottom: '12px', boxSizing: 'border-box', outline: 'none' },
+  container: { background: colors.bg, borderRadius: '10px', padding: '16px', color: colors.text },
+  search: { width: '100%', padding: '10px 12px', background: colors.bgInput, color: colors.text, border: `1px solid ${colors.border}`, borderRadius: '8px', fontSize: '13px', marginBottom: '12px', boxSizing: 'border-box', outline: 'none' },
   toolbar: { display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap' },
-  btn: { padding: '8px 14px', background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' },
+  btn: { padding: '8px 14px', background: colors.bgInput, color: colors.text, border: `1px solid ${colors.border}`, borderRadius: '6px', fontSize: '12px', cursor: 'pointer' },
   btnDanger: { padding: '8px 14px', background: 'rgba(255,70,70,0.12)', color: '#ff8a8a', border: '1px solid rgba(255,70,70,0.25)', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' },
-  counter: { color: 'rgba(255,255,255,0.55)', fontSize: '12px' },
+  counter: { color: colors.textSecondary, fontSize: '12px' },
   region: { marginBottom: '14px' },
   regionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' },
   regionTitle: { fontSize: '14px', fontWeight: '600', color: '#1A6994' },
-  regionBtn: { padding: '4px 10px', background: 'transparent', color: '#60b4e8', border: 'none', fontSize: '11px', cursor: 'pointer' },
+  regionBtn: { padding: '4px 10px', background: 'transparent', color: colors.primary, border: 'none', fontSize: '11px', cursor: 'pointer' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '6px' },
-  country: { padding: '6px 10px', background: 'transparent', color: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', fontSize: '11px', cursor: 'pointer', textAlign: 'left' },
-  countryActive: { background: 'rgba(26,105,148,0.3)', color: '#fff', border: '1px solid #1A6994' },
+  country: { padding: '6px 10px', background: 'transparent', color: colors.textSecondary, border: `1px solid ${colors.border}`, borderRadius: '6px', fontSize: '11px', cursor: 'pointer', textAlign: 'left' },
+  countryActive: { background: 'rgba(26,105,148,0.3)', color: colors.text, border: '1px solid #1A6994' },
 }
 
 export default CountryPicker

@@ -11,6 +11,7 @@ import {
 } from '../../types/matchTypes'
 import { joinTags, splitTags } from '../../utils/matchHelpers'
 import { st } from './matchStyles'
+import { colors, shadows, radius } from '../../theme'
 
 // ─── Associar artista ────────────────────────────────────────────────────────
 
@@ -28,7 +29,7 @@ export function AssignArtistModal({ assigning, artists, selectedArtistId, onSele
     <div style={st.overlay}>
       <div style={st.smallModal}>
         <h2 style={st.modalTitle}>Associar artista</h2>
-        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginBottom: 14 }}>{assigning.title}</p>
+        <p style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 14 }}>{assigning.title}</p>
 
         <label style={st.label}>Artista
           <select style={st.input} value={selectedArtistId} onChange={e => onSelect(e.target.value)}>
@@ -63,10 +64,10 @@ export function ShareProducerModal({ shareOp, producerOrgs, shareTargetOrgId, sh
     <div style={st.overlay}>
       <div style={st.smallModal}>
         <h2 style={st.modalTitle}>🔗 Partilhar com produtor</h2>
-        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginBottom: 14 }}>{shareOp.title}</p>
+        <p style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 14 }}>{shareOp.title}</p>
 
         {producerOrgs.length === 0 ? (
-          <p style={{ color: '#ffcf5c', fontSize: 13 }}>Ainda não há produtores registados no sistema.</p>
+          <p style={{ color: colors.admin, fontSize: 13 }}>Ainda não há produtores registados no sistema.</p>
         ) : (
           <label style={st.label}>Produtor
             <select style={st.input} value={shareTargetOrgId} onChange={e => onSelect(e.target.value)}>

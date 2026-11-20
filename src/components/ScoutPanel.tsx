@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'
 import type { Artist } from '../types/artist'
 import type { Opportunity, ScoredOpportunity, ProjectForScout, ScoutTarget } from '../types/opportunity'
 import { runMatchWithTarget } from '../services/matchEngine'
+import { colors, shadows, radius } from '../theme'
 
 interface ScoutPanelProps {
   artist: Artist
@@ -199,7 +200,7 @@ function MatchCard({ scored, onClick }: { scored: ScoredOpportunity; onClick?: (
         <div style={{
           ...s.scoreBadge,
           background: match.percentage >= 80 ? '#6ef3a5' :
-                      match.percentage >= 60 ? '#ffcf5c' :
+                      match.percentage >= 60 ? colors.admin :
                       '#ff8a8a',
           color: match.percentage >= 60 ? '#000' : '#fff',
         }}>
@@ -265,23 +266,23 @@ function MatchCard({ scored, onClick }: { scored: ScoredOpportunity; onClick?: (
 
 const s: Record<string, React.CSSProperties> = {
   wrap: {
-    background: '#0a0a0a',
-    border: '1px solid rgba(255,255,255,0.08)',
+    background: colors.bg,
+    border: `1px solid ${colors.border}`,
     borderRadius: 12,
     padding: 24,
-    color: '#fff',
+    color: colors.text,
     maxWidth: 800,
     margin: '0 auto',
   },
   header: { marginBottom: 20 },
-  title: { margin: 0, fontSize: 22, color: '#60b4e8' },
-  subtitle: { color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 4 },
+  title: { margin: 0, fontSize: 22, color: colors.primary },
+  subtitle: { color: colors.textSecondary, fontSize: 13, marginTop: 4 },
 
   // Seletor de alvo
   targetSelector: { marginBottom: 20 },
   targetLabel: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.5)',
+    color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: '0.1em',
     display: 'block',
@@ -291,15 +292,15 @@ const s: Record<string, React.CSSProperties> = {
   targetBtn: {
     padding: '10px 16px',
     background: 'transparent',
-    color: 'rgba(255,255,255,0.6)',
-    border: '1px solid rgba(255,255,255,0.14)',
+    color: colors.textSecondary,
+    border: `1px solid ${colors.border}`,
     borderRadius: 10,
     fontSize: 13,
     cursor: 'pointer',
   },
   targetBtnActive: {
     background: 'rgba(26,105,148,0.3)',
-    color: '#fff',
+    color: colors.text,
     border: '1px solid #1A6994',
   },
 
@@ -311,23 +312,23 @@ const s: Record<string, React.CSSProperties> = {
     padding: 14,
     marginBottom: 20,
   },
-  projectName: { margin: '0 0 8px', color: '#60b4e8', fontSize: 15 },
+  projectName: { margin: '0 0 8px', color: colors.primary, fontSize: 15 },
   projectTags: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 },
   tag: {
     background: 'rgba(255,255,255,0.08)',
-    color: 'rgba(255,255,255,0.7)',
+    color: colors.text,
     padding: '3px 10px',
     borderRadius: 12,
     fontSize: 11,
   },
   projectTerritories: {
-    color: 'rgba(255,255,255,0.6)',
+    color: colors.textSecondary,
     fontSize: 12,
     margin: '4px 0',
   },
   keywordsRow: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 },
   keyword: {
-    color: '#ffcf5c',
+    color: colors.admin,
     fontSize: 11,
     background: 'rgba(255,207,92,0.1)',
     padding: '2px 8px',
@@ -341,26 +342,26 @@ const s: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     marginBottom: 20,
     paddingBottom: 16,
-    borderBottom: '1px solid rgba(255,255,255,0.08)',
+    borderBottom: `1px solid ${colors.border}`,
   },
   filtroLabel: {
     display: 'flex',
     alignItems: 'center',
     gap: 8,
     fontSize: 13,
-    color: 'rgba(255,255,255,0.7)',
+    color: colors.text,
   },
   filtroSelect: {
-    background: '#000',
-    color: '#fff',
-    border: '1px solid rgba(255,255,255,0.14)',
+    background: colors.bgPage,
+    color: colors.text,
+    border: `1px solid ${colors.border}`,
     borderRadius: 6,
     padding: '6px 10px',
     fontSize: 13,
   },
   refreshBtn: {
     background: '#1A6994',
-    color: '#fff',
+    color: colors.text,
     border: 'none',
     borderRadius: 8,
     padding: '8px 16px',
@@ -373,20 +374,20 @@ const s: Record<string, React.CSSProperties> = {
   results: {},
   resultsCount: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.5)',
+    color: colors.textSecondary,
     marginBottom: 12,
   },
   empty: {
     padding: 40,
     textAlign: 'center',
-    color: 'rgba(255,255,255,0.4)',
+    color: colors.textSecondary,
   },
   emptyHint: { fontSize: 12, opacity: 0.6 },
 
   // Match card
   matchCard: {
-    background: '#000',
-    border: '1px solid rgba(255,255,255,0.1)',
+    background: colors.bgPage,
+    border: `1px solid ${colors.border}`,
     borderRadius: 10,
     padding: 16,
     marginBottom: 10,
@@ -403,10 +404,10 @@ const s: Record<string, React.CSSProperties> = {
     alignItems: 'flex-start',
     gap: 12,
   },
-  matchTitle: { margin: 0, fontSize: 15, color: '#fff' },
+  matchTitle: { margin: 0, fontSize: 15, color: colors.text },
   matchOrg: {
     margin: '4px 0 0',
-    color: 'rgba(255,255,255,0.5)',
+    color: colors.textSecondary,
     fontSize: 12,
   },
   scoreBadge: {
@@ -419,7 +420,7 @@ const s: Record<string, React.CSSProperties> = {
   deadline: {
     margin: '8px 0',
     fontSize: 12,
-    color: 'rgba(255,255,255,0.6)',
+    color: colors.textSecondary,
     display: 'flex',
     alignItems: 'center',
     gap: 8,
@@ -435,9 +436,9 @@ const s: Record<string, React.CSSProperties> = {
 
   // Razões, warnings, blockers
   reasons: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 },
-  reason: { fontSize: 11, color: '#6ef3a5' },
+  reason: { fontSize: 11, color: colors.success },
   warnings: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 },
-  warning: { fontSize: 11, color: '#ffcf5c' },
+  warning: { fontSize: 11, color: colors.admin },
   blockers: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 },
   blocker: { fontSize: 11, color: '#ff8a8a' },
 
@@ -445,7 +446,7 @@ const s: Record<string, React.CSSProperties> = {
   coverage: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 },
   coverageItem: {
     fontSize: 11,
-    color: '#6ef3a5',
+    color: colors.success,
     background: 'rgba(110,243,165,0.1)',
     padding: '2px 8px',
     borderRadius: 8,
@@ -454,6 +455,6 @@ const s: Record<string, React.CSSProperties> = {
     margin: '6px 0 0',
     fontSize: 13,
     fontWeight: 600,
-    color: '#6ef3a5',
+    color: colors.success,
   },
 }

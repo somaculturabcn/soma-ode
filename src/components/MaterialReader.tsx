@@ -5,6 +5,7 @@
 import { useState, useRef, useCallback } from 'react'
 import type { ParsedMaterial, MaterialSource } from '../types/artist'
 import { parseMaterialText, aggregateMaterials } from '../data/materialParser'
+import { colors, shadows, radius } from '../theme'
 
 interface Props {
   artistName: string
@@ -167,17 +168,17 @@ export default function MaterialReader({ artistName, existingMaterials, onSave, 
           {mode === 'upload' ? (
             <div style={st.dropzone} onClick={() => fileRef.current?.click()}>
               {processing ? (
-                <div style={{ color: '#60b4e8' }}>
+                <div style={{ color: colors.primary }}>
                   <div style={{ fontSize: 28, marginBottom: 8 }}>⏳</div>
                   <div style={{ fontWeight: 600 }}>A extrair texto do PDF...</div>
                 </div>
               ) : (
                 <>
                   <div style={{ fontSize: 28, marginBottom: 8 }}>📄</div>
-                  <div style={{ color: '#60b4e8', fontWeight: 600, fontSize: 14 }}>
+                  <div style={{ color: colors.primary, fontWeight: 600, fontSize: 14 }}>
                     Clica para selecionar PDF ou ficheiro de texto
                   </div>
-                  <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, marginTop: 4 }}>
+                  <div style={{ color: colors.textMuted, fontSize: 12, marginTop: 4 }}>
                     Suporta PDF, TXT, MD
                   </div>
                 </>
@@ -213,14 +214,14 @@ export default function MaterialReader({ artistName, existingMaterials, onSave, 
           {lastParsed && (
             <div style={st.resultCard}>
               <div style={st.resultHeader}>
-                <span style={{ color: '#6ef3a5', fontWeight: 700 }}>✅ Material processado</span>
-                <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>
+                <span style={{ color: colors.success, fontWeight: 700 }}>✅ Material processado</span>
+                <span style={{ color: colors.textMuted, fontSize: 12 }}>
                   {lastParsed.wordCount} palavras · {lastParsed.fileName}
                 </span>
               </div>
               <div style={st.resultGrid}>
                 {lastParsed.festivalsPlayed && lastParsed.festivalsPlayed.length > 0 && (
-                  <ResultTag label="Festivais" items={lastParsed.festivalsPlayed} color="#60b4e8" />
+                  <ResultTag label="Festivais" items={lastParsed.festivalsPlayed} color={colors.primary} />
                 )}
                 {lastParsed.pressOutlets && lastParsed.pressOutlets.length > 0 && (
                   <ResultTag label="Imprensa" items={lastParsed.pressOutlets} color="#c084fc" />
@@ -265,10 +266,10 @@ export default function MaterialReader({ artistName, existingMaterials, onSave, 
               {materials.map(m => (
                 <div key={m.id} style={st.matRow}>
                   <div style={{ flex: 1 }}>
-                    <span style={{ color: '#fff', fontWeight: 600, fontSize: 13 }}>
+                    <span style={{ color: colors.text, fontWeight: 600, fontSize: 13 }}>
                       {SOURCE_OPTIONS.find(o => o.value === m.source)?.icon} {m.fileName}
                     </span>
-                    <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, marginLeft: 8 }}>
+                    <span style={{ color: colors.textMuted, fontSize: 11, marginLeft: 8 }}>
                       {m.wordCount} palavras · {m.festivalsPlayed?.length || 0} festivais · {m.pressOutlets?.length || 0} imprensa · {m.countriesPerformed?.length || 0} países
                     </span>
                   </div>
@@ -282,7 +283,7 @@ export default function MaterialReader({ artistName, existingMaterials, onSave, 
                   <div style={st.aggTitle}>📊 Dados agregados de todos os materiais</div>
                   <div style={st.resultGrid}>
                     {aggregate.allFestivals.length > 0 && (
-                      <ResultTag label={`Festivais (${aggregate.allFestivals.length})`} items={aggregate.allFestivals} color="#60b4e8" />
+                      <ResultTag label={`Festivais (${aggregate.allFestivals.length})`} items={aggregate.allFestivals} color={colors.primary} />
                     )}
                     {aggregate.allPress.length > 0 && (
                       <ResultTag label={`Imprensa (${aggregate.allPress.length})`} items={aggregate.allPress} color="#c084fc" />
@@ -303,7 +304,7 @@ export default function MaterialReader({ artistName, existingMaterials, onSave, 
                       <ResultTag label={`Selos (${aggregate.allLabels.length})`} items={aggregate.allLabels} color="#fb923c" />
                     )}
                   </div>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>
+                  <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 8 }}>
                     Total: {aggregate.totalWords} palavras em {materials.length} material(is)
                   </div>
                 </div>
@@ -360,38 +361,38 @@ const st: Record<string, React.CSSProperties> = {
     zIndex: 1000, padding: 16,
   },
   modal: {
-    background: '#050505', border: '1px solid #1A6994', borderRadius: 16,
+    background: colors.bgPage, border: '1px solid #1A6994', borderRadius: 16,
     width: 'min(900px, 96vw)', maxHeight: '94vh', display: 'flex', flexDirection: 'column',
     boxShadow: '0 0 40px rgba(26,105,148,0.3)',
   },
   header: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-    padding: '18px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)',
+    padding: '18px 24px', borderBottom: `1px solid ${colors.border}`,
   },
-  title: { margin: 0, fontSize: 20, color: '#fff', fontWeight: 800 },
-  subtitle: { color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 4 },
+  title: { margin: 0, fontSize: 20, color: colors.text, fontWeight: 800 },
+  subtitle: { color: colors.textSecondary, fontSize: 12, marginTop: 4 },
   closeBtn: {
-    background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)',
+    background: 'none', border: 'none', color: colors.textMuted,
     fontSize: 18, cursor: 'pointer', padding: 4,
   },
   body: { padding: '20px 24px', flex: 1, overflowY: 'auto' },
   row: { display: 'flex', gap: 16, marginBottom: 16, flexWrap: 'wrap' as const },
   field: { flex: 1, minWidth: 200 },
-  label: { display: 'block', fontSize: 11, color: '#60b4e8', fontWeight: 600, textTransform: 'uppercase' as const, marginBottom: 6 },
+  label: { display: 'block', fontSize: 11, color: colors.primary, fontWeight: 600, textTransform: 'uppercase' as const, marginBottom: 6 },
   select: {
-    width: '100%', padding: '8px 10px', background: '#111', color: '#fff',
-    border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 13,
+    width: '100%', padding: '8px 10px', background: colors.bgInput, color: colors.text,
+    border: `1px solid ${colors.border}`, borderRadius: 8, fontSize: 13,
   },
   toggleRow: { display: 'flex', gap: 6 },
   toggle: {
-    flex: 1, padding: '8px 12px', background: 'rgba(255,255,255,0.04)',
-    border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8,
-    color: 'rgba(255,255,255,0.4)', fontSize: 12, cursor: 'pointer', fontWeight: 600,
+    flex: 1, padding: '8px 12px', background: colors.bgInput,
+    border: `1px solid ${colors.border}`, borderRadius: 8,
+    color: colors.textSecondary, fontSize: 12, cursor: 'pointer', fontWeight: 600,
   },
   toggleActive: {
     flex: 1, padding: '8px 12px', background: 'rgba(96,180,232,0.1)',
     border: '1px solid #1A6994', borderRadius: 8,
-    color: '#60b4e8', fontSize: 12, cursor: 'pointer', fontWeight: 600,
+    color: colors.primary, fontSize: 12, cursor: 'pointer', fontWeight: 600,
   },
   dropzone: {
     border: '2px dashed rgba(96,180,232,0.25)', borderRadius: 12,
@@ -399,19 +400,19 @@ const st: Record<string, React.CSSProperties> = {
     transition: 'border-color 0.2s', marginBottom: 12,
   },
   textarea: {
-    width: '100%', padding: '12px 14px', background: '#111', color: '#fff',
-    border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 13,
+    width: '100%', padding: '12px 14px', background: colors.bgInput, color: colors.text,
+    border: `1px solid ${colors.border}`, borderRadius: 10, fontSize: 13,
     fontFamily: 'monospace', resize: 'vertical' as const, lineHeight: 1.6,
     boxSizing: 'border-box' as const,
   },
   processBtn: {
-    background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8,
+    background: '#1A6994', color: colors.text, border: 'none', borderRadius: 8,
     padding: '8px 18px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
   },
   error: {
     marginTop: 8, padding: '10px 14px', background: 'rgba(249,112,102,0.1)',
     border: '1px solid rgba(249,112,102,0.2)', borderRadius: 8,
-    color: '#f97066', fontSize: 13,
+    color: colors.danger, fontSize: 13,
   },
   resultCard: {
     marginTop: 12, padding: '14px 16px',
@@ -423,18 +424,18 @@ const st: Record<string, React.CSSProperties> = {
     marginBottom: 12, flexWrap: 'wrap' as const, gap: 8,
   },
   resultGrid: { display: 'flex', flexDirection: 'column' as const, gap: 4 },
-  section: { marginTop: 20, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 16 },
-  sectionTitle: { margin: 0, fontSize: 14, color: '#fff', fontWeight: 700 },
+  section: { marginTop: 20, borderTop: `1px solid ${colors.border}`, paddingTop: 16 },
+  sectionTitle: { margin: 0, fontSize: 14, color: colors.text, fontWeight: 700 },
   matRow: {
     display: 'flex', alignItems: 'center', padding: '8px 12px',
-    background: 'rgba(255,255,255,0.02)', borderRadius: 8, marginBottom: 4,
+    background: colors.bgInput, borderRadius: 8, marginBottom: 4,
   },
   removeBtn: {
     background: 'none', border: 'none', fontSize: 14, cursor: 'pointer',
-    color: 'rgba(255,255,255,0.3)', padding: 4,
+    color: colors.textMuted, padding: 4,
   },
   aggBtn: {
-    background: 'none', border: 'none', color: '#60b4e8', fontSize: 11,
+    background: 'none', border: 'none', color: colors.primary, fontSize: 11,
     cursor: 'pointer', fontWeight: 600,
   },
   aggregateBox: {
@@ -442,17 +443,17 @@ const st: Record<string, React.CSSProperties> = {
     background: 'rgba(96,180,232,0.04)', border: '1px solid rgba(96,180,232,0.12)',
     borderRadius: 12,
   },
-  aggTitle: { fontSize: 13, color: '#60b4e8', fontWeight: 700, marginBottom: 10 },
+  aggTitle: { fontSize: 13, color: colors.primary, fontWeight: 700, marginBottom: 10 },
   footer: {
     display: 'flex', justifyContent: 'flex-end', gap: 10,
-    padding: '14px 24px', borderTop: '1px solid rgba(255,255,255,0.06)',
+    padding: '14px 24px', borderTop: `1px solid ${colors.border}`,
   },
   cancelBtn: {
-    background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)',
+    background: colors.bgInput, color: colors.textSecondary,
     border: 'none', borderRadius: 8, padding: '10px 18px', fontSize: 13, cursor: 'pointer',
   },
   saveBtn: {
-    background: '#1A6994', color: '#fff', border: 'none', borderRadius: 8,
+    background: '#1A6994', color: colors.text, border: 'none', borderRadius: 8,
     padding: '10px 22px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
   },
 }
