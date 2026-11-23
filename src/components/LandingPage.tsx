@@ -70,15 +70,21 @@ export default function LandingPage({ onLogin, onRegister, onRadar }: Props) {
           <div style={st.splitLeft}>
             <div style={st.somaIcon}>◉</div>
             <h2 style={st.splitTitle}>O que é<br />SOMA ODÉ?</h2>
+            <p style={st.splitQuote}>
+              "Eufórico, narcótico, agradavelmente alucinatório."
+            </p>
             <p style={st.splitText}>
-              <strong style={{ color: '#fff' }}>SOMA</strong> — em matemática, é o resultado
-              de juntar partes. Na nossa visão, é o que acontece quando artistas,
-              culturas e territórios se encontram.
+              <strong style={{ color: '#fff' }}>SOMA</strong> — a pílula do <em>Admirável Mundo Novo</em> de
+              Aldous Huxley. Uma substância que altera a percepção, que abre portas
+              para outros estados. Também é somar — o resultado de juntar partes,
+              artistas, culturas e territórios que, ao encontrar-se, criam algo
+              maior do que a soma de cada um.
             </p>
             <p style={st.splitText}>
               <strong style={{ color: '#fff' }}>ODÉ</strong> — orixá da caça na tradição iorubá,
-              aquele que abre caminhos e encontra o que está escondido.
-              É a energia de quem sai em busca, com estratégia e coragem.
+              aquele que abre caminhos e encontra o que está escondido
+              na floresta. É a energia de quem sai em busca, com estratégia
+              e coragem.
             </p>
             <p style={st.splitText}>
               A <strong style={{ color: colors.primary }}>SOMA Cultura</strong> é uma associação
@@ -308,6 +314,10 @@ const st: Record<string, React.CSSProperties> = {
   },
   splitTitle: {
     fontSize: 28, fontWeight: 800, margin: '0 0 20px', color: '#fff', lineHeight: 1.2,
+  },
+  splitQuote: {
+    fontSize: 20, fontStyle: 'italic', fontWeight: 600, color: colors.primary,
+    margin: '0 0 20px', lineHeight: 1.6, letterSpacing: '0.01em',
   },
   splitText: {
     fontSize: 14, lineHeight: 1.9, color: 'rgba(255,255,255,0.5)', margin: '0 0 16px',
