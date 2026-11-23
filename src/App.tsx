@@ -1,6 +1,29 @@
-// src/App.tsx — SOMA ODÉ v6.0 — Tema claro (Manual da Marca SOMA)
+// src/App.tsx — SOMA ODÉ v7.0 — Tema escuro (estilo somacultura.com)
 import { useState, useEffect } from 'react'
 import { colors, shadows, radius, baseStyles } from './theme'
+
+// ── Dark theme overrides (somacultura.com style) ──────────────────────────
+const dark = {
+  bg:           '#0d0d0d',
+  bgPage:       '#0d0d0d',
+  bgCard:       '#1a1a1a',
+  bgCardHover:  '#222',
+  bgInput:      '#1a1a1a',
+  bgHeader:     '#0d0d0d',
+  text:         '#ffffff',
+  textSecondary:'rgba(255,255,255,0.6)',
+  textMuted:    'rgba(255,255,255,0.35)',
+  border:       'rgba(255,255,255,0.1)',
+  borderLight:  'rgba(255,255,255,0.06)',
+  primary:      '#1A6994',
+  primaryBg:    'rgba(26,105,148,0.15)',
+  primaryBorder:'rgba(26,105,148,0.3)',
+  adminBg:      'rgba(217,119,6,0.15)',
+  admin:        '#F59E0B',
+  artistaBg:    'rgba(26,105,148,0.15)',
+  produtorBg:   'rgba(124,58,237,0.15)',
+  produtor:     '#A78BFA',
+} as const
 
 // ── Componentes ────────────────────────────────────────────────────────────
 import LandingPage from './components/LandingPage'
@@ -115,14 +138,14 @@ function NetworkManager({ role }: { role: UserRole }) {
   const addLabel = role === 'produtor' ? 'Adicionar artista' : role === 'artista' ? 'Adicionar produtor/a' : 'Adicionar contacto'
 
   return (
-    <div style={{ maxWidth: 700, margin: '0 auto', padding: '28px 20px', color: colors.text }}>
+    <div style={{ maxWidth: 700, margin: '0 auto', padding: '28px 20px', color: dark.text }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 24, color: colors.primary }}>👥 {title}</h1>
-          {isAdmin && <span style={{ fontSize: 11, color: colors.admin, background: colors.adminBg, padding: '2px 8px', borderRadius: 4, marginTop: 4, display: 'inline-block', fontWeight: 600 }}>ADMIN — acesso total</span>}
+          <h1 style={{ margin: 0, fontSize: 24, color: dark.primary }}>👥 {title}</h1>
+          {isAdmin && <span style={{ fontSize: 11, color: dark.admin, background: dark.adminBg, padding: '2px 8px', borderRadius: 4, marginTop: 4, display: 'inline-block', fontWeight: 600 }}>ADMIN — acesso total</span>}
         </div>
         <button onClick={() => setShowForm(!showForm)} style={{
-          ...baseStyles.button, padding: '8px 16px',
+          background: dark.primary, color: '#fff', border: 'none', borderRadius: 0, padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
         }}>
           + {addLabel}
         </button>
@@ -130,12 +153,12 @@ function NetworkManager({ role }: { role: UserRole }) {
 
       {/* Formulário */}
       {showForm && (
-        <div style={{ ...baseStyles.card, marginBottom: 16 }}>
+        <div style={{ background: dark.bgCard, border: `1px solid ${dark.border}`, borderRadius: 0, padding: 20, marginBottom: 16 }}>
           <div style={{ display: 'grid', gap: 12 }}>
-            <input style={inputSt} placeholder="Nome *" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} autoFocus />
-            <input style={inputSt} placeholder="Email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+            <input style={darkInputSt} placeholder="Nome *" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} autoFocus />
+            <input style={darkInputSt} placeholder="Email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
             {isAdmin && (
-              <select style={{ ...inputSt, cursor: 'pointer' }} value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
+              <select style={{ ...darkInputSt, cursor: 'pointer' }} value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
                 <option value="">Tipo...</option>
                 <option value="artista">Artista</option>
                 <option value="produtor">Produtor/a</option>
@@ -143,12 +166,12 @@ function NetworkManager({ role }: { role: UserRole }) {
                 <option value="outro">Outro</option>
               </select>
             )}
-            <textarea style={{ ...inputSt, minHeight: 60, resize: 'vertical' }} placeholder="Notas (opcional)" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
+            <textarea style={{ ...darkInputSt, minHeight: 60, resize: 'vertical' }} placeholder="Notas (opcional)" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={addContact} style={baseStyles.button}>
+              <button onClick={addContact} style={{ background: dark.primary, color: '#fff', border: 'none', borderRadius: 0, padding: '10px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                 Guardar
               </button>
-              <button onClick={() => setShowForm(false)} style={baseStyles.buttonSecondary}>
+              <button onClick={() => setShowForm(false)} style={{ background: 'transparent', color: dark.textSecondary, border: `1px solid ${dark.border}`, borderRadius: 0, padding: '10px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 Cancelar
               </button>
             </div>
@@ -158,26 +181,26 @@ function NetworkManager({ role }: { role: UserRole }) {
 
       {/* Lista */}
       {contacts.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 40, color: colors.textMuted, fontSize: 14 }}>
+        <div style={{ textAlign: 'center', padding: 40, color: dark.textMuted, fontSize: 14 }}>
           Ainda não tens contactos na rede. Clica em "{addLabel}" para começar.
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {contacts.map((c, i) => (
-            <div key={i} style={{ ...baseStyles.card, padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div key={i} style={{ background: dark.bgCard, border: `1px solid ${dark.border}`, borderRadius: 0, padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span style={{ fontWeight: 700, color: colors.text, fontSize: 14 }}>{c.name}</span>
+                  <span style={{ fontWeight: 700, color: dark.text, fontSize: 14 }}>{c.name}</span>
                   <span style={{
                     fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600, textTransform: 'uppercase',
-                    background: c.type === 'artista' ? colors.artistaBg : c.type === 'produtor' ? colors.produtorBg : colors.bgInput,
-                    color: c.type === 'artista' ? colors.artista : c.type === 'produtor' ? colors.produtor : colors.textMuted,
+                    background: c.type === 'artista' ? dark.artistaBg : c.type === 'produtor' ? dark.produtorBg : dark.bgInput,
+                    color: c.type === 'artista' ? dark.primary : c.type === 'produtor' ? dark.produtor : dark.textMuted,
                   }}>{c.type || '—'}</span>
                 </div>
-                {c.email && <div style={{ fontSize: 12, color: colors.textSecondary }}>{c.email}</div>}
-                {c.notes && <div style={{ fontSize: 12, color: colors.textMuted, marginTop: 4 }}>{c.notes}</div>}
+                {c.email && <div style={{ fontSize: 12, color: dark.textSecondary }}>{c.email}</div>}
+                {c.notes && <div style={{ fontSize: 12, color: dark.textMuted, marginTop: 4 }}>{c.notes}</div>}
               </div>
-              <button onClick={() => removeContact(i)} style={{ background: 'none', border: 'none', color: colors.textMuted, cursor: 'pointer', fontSize: 14, padding: 4 }}>✕</button>
+              <button onClick={() => removeContact(i)} style={{ background: 'none', border: 'none', color: dark.textMuted, cursor: 'pointer', fontSize: 14, padding: 4 }}>✕</button>
             </div>
           ))}
         </div>
@@ -186,8 +209,10 @@ function NetworkManager({ role }: { role: UserRole }) {
   )
 }
 
-const inputSt: React.CSSProperties = {
-  ...baseStyles.input,
+const darkInputSt: React.CSSProperties = {
+  width: '100%', padding: '10px 14px', borderRadius: 0,
+  border: `1px solid ${dark.border}`, background: dark.bgInput,
+  color: dark.text, fontSize: 14, outline: 'none', boxSizing: 'border-box',
 }
 
 // ── Home Screen ────────────────────────────────────────────────────────────
@@ -203,59 +228,59 @@ function HomeScreen({ onNavigate, userName, role }: { onNavigate: (t: Tab) => vo
   const networkCount = (() => { try { const r = localStorage.getItem('soma_network'); return r ? JSON.parse(r).length : 0 } catch { return 0 } })()
 
   return (
-    <div style={{ maxWidth: 800, margin: '0 auto', padding: '40px 20px', color: colors.text }}>
+    <div style={{ maxWidth: 800, margin: '0 auto', padding: '40px 20px', color: dark.text }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-        <h1 style={{ fontSize: 32, margin: 0, color: colors.text, fontWeight: 800 }}>
+        <h1 style={{ fontSize: 32, margin: 0, color: dark.text, fontWeight: 800 }}>
           {userName ? `Olá, ${userName}!` : 'SOMA ODÉ'}
         </h1>
         {role === 'admin' && (
-          <span style={{ fontSize: 10, background: colors.adminBg, color: colors.admin, padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>ADMIN</span>
+          <span style={{ fontSize: 10, background: dark.adminBg, color: dark.admin, padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>ADMIN</span>
         )}
       </div>
-      <p style={{ margin: '0 0 4px', color: colors.textSecondary, fontSize: 14 }}>
+      <p style={{ margin: '0 0 4px', color: dark.textSecondary, fontSize: 14 }}>
         {role === 'produtor' ? '🏢 Produtor/a cultural' : role === 'admin' ? '👑 Administradora da plataforma' : '🎤 Artista'}
       </p>
-      <p style={{ margin: '0 0 32px', color: colors.textMuted, fontSize: 13 }}>
+      <p style={{ margin: '0 0 32px', color: dark.textMuted, fontSize: 13 }}>
         Plataforma de gestão cultural — artistas × oportunidades
       </p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
         {(role === 'artista' || role === 'admin') && (
           <QuickCard icon="🎤" title="Meu Perfil" sub={hasProfile ? '✅ Configurado' : '⚠️ Por configurar'}
-            color={hasProfile ? colors.success : colors.warning} onClick={() => onNavigate('PERFIL')} />
+            color={hasProfile ? '#059669' : '#D97706'} onClick={() => onNavigate('PERFIL')} />
         )}
         {role === 'produtor' && (
           <QuickCard icon="👥" title="Artistas" sub={`${networkCount} na rede`}
-            color={colors.produtor} onClick={() => onNavigate('REDE')} />
+            color={dark.produtor} onClick={() => onNavigate('REDE')} />
         )}
         {role === 'admin' && (
           <QuickCard icon="👥" title="Rede" sub={`${networkCount} contactos`}
-            color={colors.produtor} onClick={() => onNavigate('REDE')} />
+            color={dark.produtor} onClick={() => onNavigate('REDE')} />
         )}
-        <QuickCard icon="📡" title="Radar" sub="100 oportunidades" color={colors.primary} onClick={() => onNavigate('RADAR')} />
+        <QuickCard icon="📡" title="Radar" sub="100 oportunidades" color={dark.primary} onClick={() => onNavigate('RADAR')} />
         <QuickCard icon="🎯" title="Match" sub={hasProfile ? 'Pronto a cruzar' : 'Precisa de perfil'}
-          color={colors.produtor} onClick={() => onNavigate('MATCH')} />
+          color={dark.produtor} onClick={() => onNavigate('MATCH')} />
         <QuickCard icon="✈️" title="Booking" sub={`${bookingCount} contactos`} color="#E67E22" onClick={() => onNavigate('BOOKING')} />
       </div>
 
-      <div style={{ ...baseStyles.card, marginTop: 32 }}>
-        <h3 style={{ margin: '0 0 8px', fontSize: 14, color: colors.textSecondary }}>
+      <div style={{ background: dark.bgCard, border: `1px solid ${dark.border}`, borderRadius: 0, padding: 20, marginTop: 32 }}>
+        <h3 style={{ margin: '0 0 8px', fontSize: 14, color: dark.textSecondary }}>
           🚀 {role === 'produtor' ? 'Como gerir artistas' : 'Como começar'}
         </h3>
-        <ol style={{ margin: 0, paddingLeft: 20, color: colors.textSecondary, fontSize: 13, lineHeight: 2 }}>
+        <ol style={{ margin: 0, paddingLeft: 20, color: dark.textSecondary, fontSize: 13, lineHeight: 2 }}>
           {role === 'produtor' ? (
             <>
-              <li>Vai a <strong style={{ color: colors.primary, cursor: 'pointer' }} onClick={() => onNavigate('REDE')}>Artistas</strong> e adiciona os artistas do teu roster</li>
-              <li>Explora o <strong style={{ color: colors.primary, cursor: 'pointer' }} onClick={() => onNavigate('RADAR')}>Radar</strong> — filtra por região, tipo e área</li>
-              <li>Corre o <strong style={{ color: colors.primary, cursor: 'pointer' }} onClick={() => onNavigate('MATCH')}>Match</strong> para cada artista</li>
-              <li>Gere candidaturas no <strong style={{ color: colors.primary, cursor: 'pointer' }} onClick={() => onNavigate('BOOKING')}>Booking</strong></li>
+              <li>Vai a <strong style={{ color: dark.primary, cursor: 'pointer' }} onClick={() => onNavigate('REDE')}>Artistas</strong> e adiciona os artistas do teu roster</li>
+              <li>Explora o <strong style={{ color: dark.primary, cursor: 'pointer' }} onClick={() => onNavigate('RADAR')}>Radar</strong> — filtra por região, tipo e área</li>
+              <li>Corre o <strong style={{ color: dark.primary, cursor: 'pointer' }} onClick={() => onNavigate('MATCH')}>Match</strong> para cada artista</li>
+              <li>Gere candidaturas no <strong style={{ color: dark.primary, cursor: 'pointer' }} onClick={() => onNavigate('BOOKING')}>Booking</strong></li>
             </>
           ) : (
             <>
-              <li>Vai a <strong style={{ color: colors.primary, cursor: 'pointer' }} onClick={() => onNavigate('PERFIL')}>Perfil</strong> e responde às 4 perguntas</li>
-              <li>Explora o <strong style={{ color: colors.primary, cursor: 'pointer' }} onClick={() => onNavigate('RADAR')}>Radar</strong> — filtra por região, tipo e área</li>
-              <li>Corre o <strong style={{ color: colors.primary, cursor: 'pointer' }} onClick={() => onNavigate('MATCH')}>Match</strong> para encontrar as melhores oportunidades</li>
-              <li>Adiciona venues ao <strong style={{ color: colors.primary, cursor: 'pointer' }} onClick={() => onNavigate('BOOKING')}>Booking</strong> e gera emails</li>
+              <li>Vai a <strong style={{ color: dark.primary, cursor: 'pointer' }} onClick={() => onNavigate('PERFIL')}>Perfil</strong> e responde às 4 perguntas</li>
+              <li>Explora o <strong style={{ color: dark.primary, cursor: 'pointer' }} onClick={() => onNavigate('RADAR')}>Radar</strong> — filtra por região, tipo e área</li>
+              <li>Corre o <strong style={{ color: dark.primary, cursor: 'pointer' }} onClick={() => onNavigate('MATCH')}>Match</strong> para encontrar as melhores oportunidades</li>
+              <li>Adiciona venues ao <strong style={{ color: dark.primary, cursor: 'pointer' }} onClick={() => onNavigate('BOOKING')}>Booking</strong> e gera emails</li>
             </>
           )}
         </ol>
@@ -269,13 +294,14 @@ function QuickCard({ icon, title, sub, color, onClick }: {
 }) {
   return (
     <div onClick={onClick} style={{
-      ...baseStyles.card, padding: '18px 16px', cursor: 'pointer', transition: 'box-shadow 0.15s, border-color 0.15s',
+      background: dark.bgCard, border: `1px solid ${dark.border}`, borderRadius: 0,
+      padding: '18px 16px', cursor: 'pointer', transition: 'border-color 0.15s, background 0.15s',
     }}
-    onMouseEnter={e => { e.currentTarget.style.boxShadow = shadows.md; e.currentTarget.style.borderColor = colors.primaryBorder }}
-    onMouseLeave={e => { e.currentTarget.style.boxShadow = shadows.card; e.currentTarget.style.borderColor = colors.border }}
+    onMouseEnter={e => { e.currentTarget.style.borderColor = dark.primary; e.currentTarget.style.background = dark.bgCardHover }}
+    onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.background = dark.bgCard }}
     >
       <div style={{ fontSize: 28, marginBottom: 8 }}>{icon}</div>
-      <div style={{ fontSize: 15, fontWeight: 700, color: colors.text, marginBottom: 4 }}>{title}</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: dark.text, marginBottom: 4 }}>{title}</div>
       <div style={{ fontSize: 12, color, fontWeight: 600 }}>{sub}</div>
     </div>
   )
@@ -316,28 +342,31 @@ export default function App() {
   // ── Radar público (sem login) ───────────────────────────────
   if (screen === 'radar-public') {
     return (
-      <div style={{ ...baseStyles.page }}>
+      <div style={{ minHeight: '100vh', background: dark.bg, fontFamily: "'Inter', system-ui, sans-serif", color: dark.text }}>
         <header style={{
-          ...baseStyles.header, height: 56,
+          background: dark.bgHeader, borderBottom: `1px solid ${dark.border}`,
+          padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 56,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => setScreen('landing')}>
-            <img src="/soma-logo.png" alt="SOMA Cultura" style={{ height: 28 }} />
-            <span style={{ fontSize: 12, color: colors.textMuted, fontWeight: 600 }}>ODÉ</span>
-            <span style={{ fontSize: 11, color: colors.textMuted, marginLeft: 8 }}>← voltar</span>
+            <img src="/soma-logo.png" alt="SOMA Cultura" style={{ height: 28, filter: 'brightness(0) invert(1)' }} />
+            <span style={{ fontSize: 12, color: dark.textMuted, fontWeight: 600 }}>ODÉ</span>
+            <span style={{ fontSize: 11, color: dark.textMuted, marginLeft: 8 }}>← voltar</span>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => setScreen('register')} style={baseStyles.button}>
+            <button onClick={() => setScreen('register')} style={{
+              background: dark.primary, color: '#fff', border: 'none', borderRadius: 0, padding: '10px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            }}>
               Criar conta grátis
             </button>
             <button onClick={() => setScreen('login')} style={{
-              ...baseStyles.buttonSecondary, color: colors.primary,
+              background: 'transparent', color: dark.primary, border: `1px solid ${dark.primary}`, borderRadius: 0, padding: '10px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
             }}>
               Entrar
             </button>
           </div>
         </header>
-        <div style={{ padding: '8px 20px', background: colors.primaryBg, borderBottom: `1px solid ${colors.primaryBorder}`, textAlign: 'center' }}>
-          <span style={{ fontSize: 12, color: colors.primary }}>
+        <div style={{ padding: '8px 20px', background: dark.primaryBg, borderBottom: `1px solid ${dark.primaryBorder}`, textAlign: 'center' }}>
+          <span style={{ fontSize: 12, color: dark.primary }}>
             📡 Estás a explorar o Radar em modo público — <span style={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setScreen('register')}>cria conta</span> para fazer Match e Booking
           </span>
         </div>
@@ -388,21 +417,21 @@ export default function App() {
   }
 
   return (
-    <div style={{ ...baseStyles.page }}>
+    <div style={{ minHeight: '100vh', background: dark.bg, fontFamily: "'Inter', system-ui, sans-serif", color: dark.text }}>
       {/* ── Top bar ──────────────────────────────────────────────── */}
       <header style={{
-        ...baseStyles.header, height: 56,
-        position: 'sticky', top: 0, zIndex: 100,
-        boxShadow: shadows.sm,
+        background: dark.bgHeader, borderBottom: `1px solid ${dark.border}`,
+        padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        height: 56, position: 'sticky', top: 0, zIndex: 100,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src="/soma-logo.png" alt="SOMA Cultura" style={{ height: 28 }} />
-          <span style={{ fontSize: 11, color: colors.textMuted, fontWeight: 600, letterSpacing: '0.05em' }}>ODÉ</span>
+          <img src="/soma-logo.png" alt="SOMA Cultura" style={{ height: 28, filter: 'brightness(0) invert(1)' }} />
+          <span style={{ fontSize: 11, color: dark.textMuted, fontWeight: 600, letterSpacing: '0.05em' }}>ODÉ</span>
           {realRole === 'admin' && (
             <span style={{
               fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 3,
-              background: viewAs ? colors.primaryBg : colors.adminBg,
-              color: viewAs ? colors.primary : colors.admin,
+              background: viewAs ? dark.primaryBg : dark.adminBg,
+              color: viewAs ? dark.primary : dark.admin,
             }}>
               {viewAs ? `VISTA ${viewAs.toUpperCase()}` : 'ADMIN'}
             </span>
@@ -411,7 +440,7 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {/* ── Seletor de vista (só admin) ── */}
           {realRole === 'admin' && (
-            <div style={{ display: 'flex', gap: 0, background: colors.bgInput, borderRadius: radius.sm, border: `1px solid ${colors.border}`, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', gap: 0, background: dark.bgInput, borderRadius: 0, border: `1px solid ${dark.border}`, overflow: 'hidden' }}>
               {([
                 { v: null,        icon: '👑', label: 'Admin' },
                 { v: 'produtor' as UserRole, icon: '🏢', label: 'Produtor' },
@@ -423,11 +452,11 @@ export default function App() {
                     key={opt.label}
                     onClick={() => { setViewAs(opt.v); setTab('HOME') }}
                     style={{
-                      background: isActive ? colors.primaryBg : 'transparent',
+                      background: isActive ? dark.primaryBg : 'transparent',
                       border: 'none', padding: '4px 10px', fontSize: 10, fontWeight: isActive ? 700 : 500,
-                      color: isActive ? colors.primary : colors.textMuted,
+                      color: isActive ? dark.primary : dark.textMuted,
                       cursor: 'pointer', whiteSpace: 'nowrap',
-                      borderRight: `1px solid ${colors.borderLight}`,
+                      borderRight: `1px solid ${dark.borderLight}`,
                     }}
                   >
                     {opt.icon} {opt.label}
@@ -436,12 +465,13 @@ export default function App() {
               })}
             </div>
           )}
-          <span style={{ fontSize: 11, color: colors.textMuted }}>
+          <span style={{ fontSize: 11, color: dark.textMuted }}>
             {role === 'produtor' ? '🏢' : role === 'admin' ? '👑' : '🎤'} {user?.email}
           </span>
           <button onClick={handleLogout} style={{
-            ...baseStyles.buttonSecondary,
-            padding: '4px 12px', fontSize: 11,
+            background: 'transparent', color: dark.textSecondary,
+            border: `1px solid ${dark.border}`, borderRadius: 0,
+            padding: '4px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer',
           }}>
             Sair
           </button>
@@ -450,9 +480,8 @@ export default function App() {
 
       {/* ── Nav tabs ─────────────────────────────────────────────── */}
       <nav style={{
-        display: 'flex', gap: 0, borderBottom: `1px solid ${colors.border}`,
-        background: colors.bg, overflowX: 'auto', position: 'sticky', top: 56, zIndex: 99,
-        boxShadow: shadows.sm,
+        display: 'flex', gap: 0, borderBottom: `1px solid ${dark.border}`,
+        background: dark.bgHeader, overflowX: 'auto', position: 'sticky', top: 56, zIndex: 99,
       }}>
         {tabs.map(t => {
           const active = tab === t.id
@@ -460,9 +489,9 @@ export default function App() {
             <button key={t.id} onClick={() => { setTab(t.id); logActivity(t.id, 'ver', `Abriu ${t.label}`) }} style={{
               flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 6,
               padding: '12px 18px', fontSize: 13, fontWeight: active ? 700 : 500,
-              color: active ? colors.primary : colors.textMuted,
+              color: active ? dark.primary : dark.textMuted,
               background: 'transparent', border: 'none', cursor: 'pointer',
-              borderBottom: active ? `2px solid ${colors.primary}` : '2px solid transparent',
+              borderBottom: active ? `2px solid ${dark.primary}` : '2px solid transparent',
               transition: 'all 0.15s', whiteSpace: 'nowrap',
             }}>
               <span>{t.icon}</span> {t.label}
@@ -472,7 +501,7 @@ export default function App() {
       </nav>
 
       {/* ── Conteúdo ─────────────────────────────────────────────── */}
-      <main style={{ background: colors.bgPage }}>{renderContent()}</main>
+      <main style={{ background: dark.bg }}>{renderContent()}</main>
     </div>
   )
 }
