@@ -88,9 +88,10 @@ export default function LandingPage({ onLogin, onRegister, onRadar }: Props) {
             </p>
             <p style={st.splitText}>
               A <strong style={{ color: colors.primary }}>SOMA Cultura</strong> é uma associação
-              de produção cultural catalã-brasileira fundada em Barcelona.
-              Trabalhamos na interseção entre arte, migração e identidade,
-              com foco em artistas negros, migrantes e LGBTQIA+.
+              que trabalha para promover a pluralidade, a diversidade e a
+              integração através da Arte, com especial atenção e interesse
+              pela arte migrante e emigrante, explorando ao máximo a sua
+              transversalidade.
             </p>
             <button style={st.outlineBtn} onClick={onRadar}>Quienes somos</button>
           </div>
